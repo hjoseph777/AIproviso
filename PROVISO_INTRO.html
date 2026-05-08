@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proviso — Workflow Ingestion for M-Files</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#030910;--s1:#07111F;--s2:#0A1828;--s3:#0E2038;
+  --border:#162C4A;--accent:#1565D8;--a2:#2478F0;--a3:#4A9FFF;
+  --green:#00C870;--gold:#F0A500;--red:#FF3D5A;--purple:#7C5CFC;
+  --text:#C8DCFF;--mid:#5878A0;--dim:#243A58;
+  --mono:'JetBrains Mono',monospace;--display:'Fraunces',serif;--body:'Inter',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.8;min-height:100vh}
+
+/* Container */
+.page{max-width:860px;margin:0 auto;padding:60px 32px 80px}
+
+/* Header */
+.hero{text-align:center;margin-bottom:60px;position:relative}
+.hero::after{content:'';display:block;width:120px;height:2px;background:linear-gradient(90deg,transparent,var(--a3),transparent);margin:30px auto 0}
+.logo{font-family:var(--display);font-size:42px;font-weight:700;color:#fff;letter-spacing:-1px;margin-bottom:4px}
+.logo em{color:var(--a3);font-style:normal}
+.subtitle{font-family:var(--mono);font-size:13px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px}
+.phase-badge{display:inline-block;font-family:var(--mono);font-size:11px;background:rgba(21,101,216,.12);border:1px solid rgba(21,101,216,.25);color:var(--a3);padding:5px 14px;border-radius:20px;letter-spacing:.8px}
+.demo-link{display:inline-block;margin-top:18px;font-family:var(--mono);font-size:13px;color:var(--green);text-decoration:none;border:1px solid rgba(0,200,112,.3);padding:8px 20px;border-radius:6px;transition:all .2s}
+.demo-link:hover{background:rgba(0,200,112,.1);border-color:var(--green);transform:translateY(-1px)}
+
+/* Section */
+h2{font-family:var(--display);font-size:24px;font-weight:700;color:#fff;margin:50px 0 18px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+h3{font-family:var(--display);font-size:17px;font-weight:600;color:var(--a3);margin:30px 0 12px}
+p{margin-bottom:16px;color:var(--mid);line-height:1.85}
+strong{color:var(--text);font-weight:600}
+
+/* Problem cards */
+.problem-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 24px}
+.problem-card{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.problem-step{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.problem-task{font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px}
+.problem-risk{font-size:11px;color:var(--red);font-family:var(--mono)}
+
+/* Flow diagram */
+.flow-box{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:28px 24px;margin:24px 0;font-family:var(--mono);font-size:12px;line-height:2;color:var(--mid);text-align:center;overflow-x:auto}
+.flow-box .highlight{color:var(--a3);font-weight:600}
+.flow-box .green{color:var(--green)}
+
+/* Data flow */
+.dataflow{display:flex;flex-direction:column;align-items:center;gap:0;margin:24px 0}
+.df-node{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 22px;font-family:var(--mono);font-size:12px;color:var(--text);text-align:center;position:relative}
+.df-node.primary{background:rgba(21,101,216,.12);border-color:var(--accent);color:var(--a3);font-weight:600}
+.df-node .tag{display:block;font-size:9px;color:var(--dim);letter-spacing:.5px;margin-top:2px;font-weight:400}
+.df-arrow{color:var(--dim);font-size:18px;line-height:1;padding:4px 0}
+.df-branches{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.df-branches .df-node{font-size:11px;padding:8px 16px}
+
+/* Steps */
+.step{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin:14px 0;display:flex;gap:16px;align-items:flex-start;transition:border-color .2s}
+.step:hover{border-color:rgba(21,101,216,.3)}
+.step-num{width:34px;height:34px;border-radius:8px;background:var(--accent);color:#fff;font-family:var(--mono);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-title{font-family:var(--display);font-size:15px;font-weight:600;color:#fff;margin-bottom:4px}
+.step-desc{font-size:13px;color:var(--mid);line-height:1.7}
+
+/* Advantages */
+.adv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}
+.adv{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:18px 20px;transition:all .2s}
+.adv:hover{border-color:rgba(74,159,255,.3);transform:translateY(-2px)}
+.adv-title{font-family:var(--display);font-size:14px;font-weight:600;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.adv-title .icon{font-size:16px}
+.adv-desc{font-size:12.5px;color:var(--mid);line-height:1.7}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:13px}
+thead tr{background:var(--s2)}
+th{padding:10px 14px;text-align:left;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--dim);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid rgba(22,44,74,.5);color:var(--text);vertical-align:top}
+tbody tr:hover{background:rgba(21,101,216,.04)}
+td:first-child{color:var(--mid);font-weight:500}
+.saved{color:var(--green);font-weight:700;font-family:var(--mono)}
+.check{color:var(--green)}
+.cross{color:var(--dim)}
+
+/* Scope */
+.scope-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.scope-col{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:16px 18px}
+.scope-col h4{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.scope-col.yes h4{color:var(--green)}
+.scope-col.no h4{color:var(--dim)}
+.scope-item{font-size:12px;color:var(--mid);padding:3px 0;display:flex;align-items:center;gap:6px}
+.scope-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.scope-col.yes .dot{background:var(--green)}
+.scope-col.no .dot{background:var(--dim)}
+
+/* Tech stack */
+.tech-grid{display:grid;grid-template-columns:140px 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:16px 0}
+.tech-label,.tech-val{padding:10px 14px}
+.tech-label{background:var(--s2);font-family:var(--mono);font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.8px;text-transform:uppercase;display:flex;align-items:center}
+.tech-val{background:var(--s1);font-size:12.5px;color:var(--text);line-height:1.6}
+.tech-val code{background:var(--s3);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:11px;color:var(--a3)}
+
+/* Footer */
+.footer{text-align:center;margin-top:60px;padding-top:30px;border-top:1px solid var(--border)}
+.footer-author{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.5px}
+
+/* Responsive */
+@media(max-width:700px){
+  .problem-grid,.adv-grid,.scope-grid{grid-template-columns:1fr}
+  .page{padding:30px 18px 50px}
+  .logo{font-size:32px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="logo">provi<em>so</em></div>
+    <div class="subtitle">Workflow Ingestion for M-Files</div>
+    <div class="phase-badge">Phase I · Proof of Concept</div>
+    <br>
+    <a class="demo-link" href="https://provisio-theta.vercel.app/" target="_blank">▸ Live Demo → provisio-theta.vercel.app</a>
+  </div>
+
+  <!-- THE PROBLEM -->
+  <h2>The Problem We're Solving</h2>
+  <p>Today, every M-Files workflow deployment requires <strong>triple entry</strong> — the same logic written three times, in three different places, by hand:</p>
+  <div class="problem-grid">
+    <div class="problem-card">
+      <div class="problem-step">Step 1</div>
+      <div class="problem-task">Write the SOW</div>
+      <div class="problem-risk">⚠ Misinterpretation</div>
+    </div>
+    <div class="problem-card">
+      <div class="problem-step">Step 2</div>
+      <div class="problem-task">Draw the Diagram</div>
+      <div class="problem-risk">⚠ Drift from SOW</div>
+    </div>
+    <div class="problem-card">
+      <div class="problem-step">Step 3</div>
+      <div class="problem-task">Rebuild in M-Files</div>
+      <div class="problem-risk">⚠ Fat-finger errors</div>
+    </div>
+  </div>
+  <p>Each step is disconnected. A change in one doesn't update the others. Mistakes compound. Consultants spend hours clicking through admin screens reproducing what's already on paper.</p>
+  <p><strong>Proviso eliminates all three steps and replaces them with one.</strong></p>
+
+  <!-- THE SOLUTION -->
+  <h2>The Solution: SOW-to-Vault Automation</h2>
+  <p>The SOW spreadsheet becomes the <strong>single source of truth</strong>. Everything else — the diagram, the PRD, the vault configuration — is generated automatically from that one input.</p>
+
+  <div class="flow-box">
+    <span class="highlight">One input.</span>&nbsp;&nbsp;Four outputs.&nbsp;&nbsp;<span class="green">Zero re-entry.</span>
+  </div>
+
+  <h3>Data Flow</h3>
+  <div class="dataflow">
+    <div class="df-node">Spreadsheet (React UI)</div>
+    <div class="df-arrow">▼</div>
+    <div class="df-node primary">workflow.json<span class="tag">◄ the single source of truth</span></div>
+    <div class="df-arrow">▼</div>
+    <div class="df-branches">
+      <div class="df-node">📊 Diagram<span class="tag">Mermaid.js</span></div>
+      <div class="df-node">📋 PRD (.md)<span class="tag">NLP output</span></div>
+      <div class="df-node">🏛️ M-Files Vault<span class="tag">COM API</span></div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <h3>How It Works</h3>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div>
+      <div class="step-title">SOW Editor</div>
+      <div class="step-desc">Define states, transitions, users, and properties in a structured spreadsheet. A live Mermaid diagram renders in real time as you type. If the logic looks wrong in the picture, you fix it in the spreadsheet — immediately.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div>
+      <div class="step-title">Generate PRD</div>
+      <div class="step-desc">Local NLP (regex + pattern matching) transforms the technical spreadsheet data into a client-ready Product Requirements Document. An AI-enhanced option via Claude is available for more complex narrative requirements.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div>
+      <div class="step-title">Ingest Workflow</div>
+      <div class="step-desc">The COM API takes the workflow JSON and writes the structure directly into the M-Files Vault — states, transitions, and aliases — in seconds. The consultant then opens M-Files Admin and adds only the business rules and conditions.</div>
+    </div>
+  </div>
+
+  <!-- ADVANTAGES -->
+  <h2>Why This Is a Game-Changer</h2>
+  <div class="adv-grid">
+    <div class="adv">
+      <div class="adv-title"><span class="icon">🎯</span> Zero Redundancy</div>
+      <div class="adv-desc">Build the SOW once. The diagram, PRD, JSON, and vault configuration are all byproducts of that single effort. No remapping. No re-entry.</div>
+    </div>
+    <div class="adv">
+      <div class="adv-title"><span class="icon">🔒</span> Zero Drift</div>
+      <div class="adv-desc">The diagram and vault are generated from the same source. They cannot go out of sync. What the client approved is exactly what gets built.</div>
+    </div>
+    <div class="adv">
+      <div class="adv-title"><span class="icon">✅</span> Zero Fat-Finger Errors</div>
+      <div class="adv-desc">Manual data entry into M-Files Admin is replaced by automated ingestion. 11 states in the SOW = exactly 11 states in the vault.</div>
+    </div>
+    <div class="adv">
+      <div class="adv-title"><span class="icon">⚡</span> Instant Iteration</div>
+      <div class="adv-desc">Customer changes their mind? Change one cell. The diagram, PRD, and vault all update. What took an hour now takes seconds.</div>
+    </div>
+    <div class="adv">
+      <div class="adv-title"><span class="icon">🤝</span> Client Transparency</div>
+      <div class="adv-desc">Clients see a clean diagram early — tied directly to the SOW they signed. No gap between what was promised and what gets delivered.</div>
+    </div>
+    <div class="adv">
+      <div class="adv-title"><span class="icon">🚀</span> Consultant Productivity</div>
+      <div class="adv-desc">Stop spending time on mechanical data entry. Start spending time on business rules, permissions, and client-specific logic.</div>
+    </div>
+  </div>
+
+  <!-- TIME SAVINGS -->
+  <h2>Time Savings Estimate</h2>
+  <table>
+    <thead>
+      <tr><th>Task</th><th>Before (Manual)</th><th>After (Proviso)</th><th>Saved</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Define workflow states + transitions</td><td>45–60 min</td><td>5 min</td><td class="saved">~50 min</td></tr>
+      <tr><td>Draw workflow diagram</td><td>30–45 min</td><td>0 min (auto)</td><td class="saved">~35 min</td></tr>
+      <tr><td>Write PRD documentation</td><td>60–90 min</td><td>1 min (NLP)</td><td class="saved">~75 min</td></tr>
+      <tr><td>Configure M-Files Admin</td><td>60–120 min</td><td>30 sec (COM API)</td><td class="saved">~90 min</td></tr>
+      <tr><td>Rework after client changes</td><td>30–60 min / change</td><td>2 min / change</td><td class="saved">~45 min</td></tr>
+      <tr>
+        <td><strong>Total per workflow</strong></td>
+        <td><strong>4–6 hours</strong></td>
+        <td><strong>~10 minutes</strong></td>
+        <td class="saved" style="font-size:15px">~5 hours</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>For a typical project with 2–3 workflows, that's <strong>10–15 hours saved per engagement.</strong></p>
+
+  <!-- PHASE I SCOPE -->
+  <h2>Phase I Scope</h2>
+  <p>This proof of concept focuses on the <strong>backbone</strong> — ensuring that a state defined in the editor successfully appears as a state in the vault.</p>
+  <div class="scope-grid">
+    <div class="scope-col yes">
+      <h4>✅ In Scope (Phase I)</h4>
+      <div class="scope-item"><span class="dot"></span>Workflow creation</div>
+      <div class="scope-item"><span class="dot"></span>State definitions</div>
+      <div class="scope-item"><span class="dot"></span>Transition mapping</div>
+      <div class="scope-item"><span class="dot"></span>Alias assignment</div>
+      <div class="scope-item"><span class="dot"></span>Live diagram preview</div>
+      <div class="scope-item"><span class="dot"></span>PRD generation (NLP + AI)</div>
+    </div>
+    <div class="scope-col no">
+      <h4>Phase II (Next)</h4>
+      <div class="scope-item"><span class="dot"></span>Business rules / conditions</div>
+      <div class="scope-item"><span class="dot"></span>Automatic state transitions</div>
+      <div class="scope-item"><span class="dot"></span>Permission assignments</div>
+      <div class="scope-item"><span class="dot"></span>Script-based triggers</div>
+      <div class="scope-item"><span class="dot"></span>Multi-workflow orchestration</div>
+      <div class="scope-item"><span class="dot"></span>Class / object type creation</div>
+    </div>
+  </div>
+
+  <!-- TECHNOLOGY -->
+  <h2>Technology</h2>
+  <div class="tech-grid">
+    <div class="tech-label">Frontend</div>
+    <div class="tech-val">React 18 · Vite · Mermaid.js</div>
+    <div class="tech-label">Data Format</div>
+    <div class="tech-val">JSON — spreadsheet converts to <code>workflow.json</code>, the single data object that drives the diagram, PRD, and vault ingestion</div>
+    <div class="tech-label">PRD Output</div>
+    <div class="tech-val">Markdown (<code>.md</code>) — generated from JSON by the NLP engine</div>
+    <div class="tech-label">PRD Engine</div>
+    <div class="tech-val">Local NLP (regex + pattern matching) · Claude AI (optional)</div>
+    <div class="tech-label">Ingestion</div>
+    <div class="tech-val">Python · Flask · pywin32 · M-Files COM API</div>
+    <div class="tech-label">Hosting</div>
+    <div class="tech-val">Vercel (demo)</div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <a class="demo-link" href="https://provisio-theta.vercel.app/" target="_blank" style="margin-bottom:20px">▸ Live Demo → provisio-theta.vercel.app</a>
+    <div class="footer-author" style="margin-top:20px">Author: Harry Joseph · Phase I POC · May 2026</div>
+  </div>
+
+</div>
+</body>
+</html>
