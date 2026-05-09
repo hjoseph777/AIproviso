@@ -273,3 +273,128 @@ src/
     ├── PrdGenerator.jsx       ← PRD screen
     └── IngestWorkflow.jsx     ← Vault ingestion screen
 ```
+
+---
+
+## Phase III — Electron Desktop App + M-Files COM Bridge
+
+### Why Electron (not PWA / Nativefier)
+PWA and Nativefier are browser sandboxes — cannot spawn PowerShell or call COM APIs.
+Electron gives Node.js in the main process → full Windows system access.
+
+### Architecture
+```
+Renderer (React/Vite)
+  └─ window.mfiles.pushWorkflow(json)   ← contextBridge (preload.cjs)
+       └─ IPC → main.cjs
+            └─ spawn powershell push-to-vault.ps1
+                 └─ MFilesAPI COM → GetVaultConnection → LogInAsUser
+                      └─ WorkflowOperations.AddWorkflowAdmin()
+                           └─ M-Files Vault
+```
+
+### Key Files
+| File | Purpose |
+| :--- | :--- |
+| `electron/main.cjs` | Electron main process — BrowserWindow + IPC handlers |
+| `electron/preload.cjs` | contextBridge — exposes `window.mfiles` API securely |
+| `scripts/push-to-vault.ps1` | PowerShell COM bridge — creates workflow in vault |
+| `src/components/IngestWorkflow.jsx` | UI — dual auth toggle, connect, push, live log |
+
+### ✅ Correct M-Files COM API Pattern (v26.x confirmed)
+```powershell
+# ❌ WRONG — Connect() does NOT exist on MFilesClientApplication in v26
+$app.Connect("TCP", "server", 2266, $false)
+
+# ✅ CORRECT — GetVaultConnection → LogInAs or LogInAsUser
+$app  = New-Object -ComObject MFilesAPI.MFilesClientApplication
+$conn = $app.GetVaultConnection('VaultName')   # by name, from registered connections
+
+# Windows SSO  (MFAuthType 0)
+$vault = $conn.LogInAs(0, 0, $false)
+
+# M-Files Credentials  (MFAuthType 2)
+$vault = $conn.LogInAsUser(2, 'username', 'password', $null, $null)
+```
+
+### IVaultConnection — Confirmed Methods (Get-Member verified)
+| Method | Signature |
+| :--- | :--- |
+| `LogInAs` | `IVault LogInAs(LONG_PTR hwnd, MFAuthType, bool offline)` |
+| `LogInAsUser` | `IVault LogInAsUser(MFAuthType, string user, string pass, Variant domain, Variant spn)` |
+| `TestConnectionToVaultSilent` | `MFVaultConnectionTestResult TestConnectionToVaultSilent()` |
+| `GetGUID` | `string GetGUID()` |
+| `BindToVault` | `IVault BindToVault(LONG_PTR hwnd, bool readOnly, bool showOffline)` |
+
+### MFAuthType Enum
+| Value | Constant | Meaning |
+| :---: | :--- | :--- |
+| 0 | `MFAuthTypeLoggedOnWindowsUser` | Windows SSO |
+| 1 | `MFAuthTypeSpecificWindowsUser` | Specific Windows user |
+| 2 | `MFAuthTypeSpecificMFilesUser` | M-Files credentials |
+
+### Vault Info (Acme)
+| Field | Value |
+| :--- | :--- |
+| Vault Name | `Acme` |
+| Vault GUID | `{E7E445BE-3AEF-425F-9D4D-BFCC33008C9E}` |
+| Test user | `Betty.black` (admin access granted) |
+| Server | `DESKTOP-DKCS42P` (machine name only — never include `\username`) |
+| Registered vaults | Acme · Certification-user-15 |
+
+### Workflow Creation COM Objects (pending license renewal)
+```powershell
+$wfAdmin      = New-Object -ComObject MFilesAPI.WorkflowAdmin
+$wfAdmin.Name = $wf.name
+$stAdmin      = New-Object -ComObject MFilesAPI.StateAdmin
+$stAdmin.Name = $s.name
+$createdState = $wfAdmin.AddStateAdmin($stAdmin)
+$wfAdmin.InitialState = $createdState.ID      # for the initial state
+$savedId = $vault.WorkflowOperations.AddWorkflowAdmin($wfAdmin)
+```
+⚠ If `New-Object -ComObject MFilesAPI.WorkflowAdmin` fails, inspect factory methods:
+```powershell
+$vault.WorkflowOperations | Get-Member -MemberType Method | Format-Table -AutoSize
+```
+
+### npm Scripts
+| Script | Action |
+| :--- | :--- |
+| `npm run dev` | Vite browser dev (port 3000) |
+| `npm run electron:dev` | Vite + Electron window (kill stale node procs first if ports busy) |
+| `npm run electron:build` | Build → `dist-electron/Proviso Setup.exe` |
+
+### .exe vs .msi
+| | `.exe` NSIS | `.msi` |
+| :--- | :--- | :--- |
+| Ready now | ✅ | ❌ needs WiX |
+| Enterprise GPO push | ❌ | ✅ |
+| Silent install | `/S` | `msiexec /quiet` |
+| **Recommendation** | **Ship `.exe` first** | Upgrade for IT rollout |
+
+### Key Decisions — Phase III
+| Decision | Reason |
+| :--- | :--- |
+| Electron over PWA/Nativefier | COM API requires Node.js — browser sandbox can't call it |
+| `.cjs` extension for electron files | Project has `"type":"module"` — avoids ESM conflict |
+| `base:'./'` in vite.config.js | Required for Electron production asset resolution |
+| `contextIsolation: true` | Security — renderer cannot access Node directly |
+| Temp file for JSON handoff | PowerShell can't receive large JSON via CLI args |
+| `open: false` in Vite server config | Electron opens its own window |
+
+---
+
+## 🔑 Tomorrow (1 PM) Session Keywords
+
+```
+RESUME: Phase-III-B-Auth-Unlock
+```
+
+**Exact pickup sequence:**
+1. Renew M-Files license → verify in M-Files Desktop (Betty.black can log in)
+2. In Electron app → **Ingest Workflow** → 🔑 M-Files Credentials → Connect
+3. If connection works → **Push Workflow** → confirm live log streams states/transitions
+4. If `WorkflowAdmin` COM object fails → run inspect command above → fix method name
+5. Confirm workflow appears in **M-Files Admin → Acme vault → Workflows**
+6. `npm run electron:build` → `.exe` → demo to manager
+```
