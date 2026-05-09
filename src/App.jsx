@@ -72,8 +72,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .wf-tab-input{font-family:var(--mono);font-size:9.5px;background:transparent;border:none;outline:none;color:var(--text);width:80px}
 .wf-tab-del{font-size:9px;color:var(--dim);background:none;border:none;cursor:pointer;padding:0 0 0 4px;line-height:1;transition:color .15s}
 .wf-tab-del:hover{color:var(--red)}
-.wf-tab-add{color:var(--a3);border-color:transparent;font-size:13px;padding:3px 8px}
-.wf-tab-add:hover{background:rgba(74,159,255,.1)}
 
 /* Spreadsheet body */
 .sheet-body{flex:1;overflow-y:auto;background:var(--bg)}
@@ -218,24 +216,6 @@ tr.selected .row-idx{color:var(--a3);font-weight:700}
 .spin{width:11px;height:11px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);border-top-color:#fff;animation:rot .6s linear infinite;flex-shrink:0}
 @keyframes rot{to{transform:rotate(360deg)}}
 @keyframes tip-pulse{0%,100%{opacity:.2}50%{opacity:.8}}
-/* react-spreadsheet dark theme overrides */
-.rs-wrap { overflow-x: auto; }
-.rs-wrap .Spreadsheet { width: 100%; font-family: var(--mono); font-size: 11px; }
-.rs-wrap .Spreadsheet__table { width: 100%; border-collapse: collapse; }
-.rs-wrap .Spreadsheet__header { background: var(--s3); color: var(--dim); font-size: 9px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
-.rs-wrap .Spreadsheet__cell { background: var(--bg); color: var(--text); border-bottom: 1px solid rgba(22,44,74,.5); border-right: 1px solid rgba(22,44,74,.4); padding: 0; height: 30px; vertical-align: middle; }
-.rs-wrap .Spreadsheet__cell:focus-within { background: var(--s3); outline: 1px solid var(--accent); z-index: 1; }
-.rs-wrap .Spreadsheet__cell--selected { background: rgba(21,101,216,.15) !important; outline: 1px solid var(--accent) !important; }
-.rs-wrap .Spreadsheet__cell input,.rs-wrap .Spreadsheet__cell textarea { background: transparent; border: none; outline: none; font-family: var(--mono); font-size: 11px; color: var(--text); padding: 4px 8px; width: 100%; }
-.rs-wrap .Spreadsheet__row-indicator { background: var(--s3); color: var(--dim); font-size: 9px; padding: 0 6px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); text-align: center; min-width: 28px; }
-.rs-wrap .Spreadsheet__floating-rect--selected { border: 1px solid var(--accent); background: rgba(21,101,216,.08); }
-.rs-wrap .Spreadsheet__floating-rect--copied { border: 1px dashed var(--a3); }
-.rs-cell { } /* base class for className injection */
-.rs-err { background: rgba(255,61,90,.08) !important; }
-.rs-center .Spreadsheet__cell-content { display: flex; justify-content: center; }
-/* Delete button in section header */
-.sec-del { font-size: 9px; padding: 2px 7px; border-radius: 3px; border: 1px solid rgba(255,61,90,.3); background: rgba(255,61,90,.06); color: var(--red); cursor: pointer; transition: all .15s; font-family: var(--mono); }
-.sec-del:hover { background: rgba(255,61,90,.15); border-color: var(--red); }
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}

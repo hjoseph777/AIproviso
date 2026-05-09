@@ -18,7 +18,8 @@ export default function WorkflowEditor({ onSave }) {
   const renameWorkflow = useWorkflowStore(s => s.renameWorkflow);
   const resetAll       = useWorkflowStore(s => s.resetAll);
 
-  const [tab,          setTab]          = useState('diagram'); // diagram | json | global
+  const [leftTab,     setLeftTab]     = useState('diagram'); // diagram | global
+  const [rightTab,    setRightTab]    = useState('diagram'); // diagram | json
   const [selectedState, setSelectedState] = useState('');
   const [flash,        setFlash]        = useState(false);
   const [resetFlash,   setResetFlash]   = useState(false);
@@ -110,21 +111,21 @@ export default function WorkflowEditor({ onSave }) {
           {/* View toggle: Diagram | Global */}
           <div style={{display:'flex',gap:2,padding:'6px 12px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
             <div className="tab-row">
-              <button className={`tab ${tab === 'diagram' ? 'on' : ''}`} onClick={() => setTab('diagram')}>States & Transitions</button>
-              <button className={`tab ${tab === 'global'  ? 'on' : ''}`} onClick={() => setTab('global')}>Users & Properties</button>
+              <button className={`tab ${leftTab === 'diagram' ? 'on' : ''}`} onClick={() => setLeftTab('diagram')}>States & Transitions</button>
+              <button className={`tab ${leftTab === 'global'  ? 'on' : ''}`} onClick={() => setLeftTab('global')}>Users & Properties</button>
             </div>
           </div>
         </div>
 
         {/* ── Spreadsheet content ── */}
-        {tab === 'diagram' && activeWf && (
+        {leftTab === 'diagram' && activeWf && (
           <SpreadsheetGrid
             key={activeId}
             wfId={activeId}
             onSelectState={name => setSelectedState(name)}
           />
         )}
-        {tab === 'global' && <GlobalSection />}
+        {leftTab === 'global' && <GlobalSection />}
         {!activeWf && (
           <div className="d-empty" style={{flex:1}}>
             <div className="d-empty-icon">⬡</div>
@@ -142,20 +143,20 @@ export default function WorkflowEditor({ onSave }) {
               : activeWf?.states.length ? "Check an 'Initial' state to view the diagram" : 'Live Workflow Diagram'}
           </span>
           <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            {selectedState && mermaidStr && (
+            {selectedState && rightTab !== 'json' && mermaidStr && (
               <div style={{fontSize:9,background:'rgba(74,159,255,.1)',border:'1px solid rgba(74,159,255,.2)',color:'var(--a3)',padding:'2px 8px',borderRadius:3,display:'flex',alignItems:'center',gap:5}}>
                 <span style={{width:6,height:6,borderRadius:'50%',background:'var(--a3)',display:'inline-block',animation:'tip-pulse 1.5s ease-in-out infinite'}}/>
                 {selectedState}
               </div>
             )}
             <div className="tab-row">
-              <button className={`tab ${tab !== 'json' ? 'on' : ''}`} onClick={() => setTab('diagram')}>Diagram</button>
-              <button className={`tab ${tab === 'json' ? 'on' : ''}`} onClick={() => setTab('json')}>JSON</button>
+              <button className={`tab ${rightTab !== 'json' ? 'on' : ''}`} onClick={() => setRightTab('diagram')}>Diagram</button>
+              <button className={`tab ${rightTab === 'json' ? 'on' : ''}`} onClick={() => setRightTab('json')}>JSON</button>
             </div>
           </div>
         </div>
 
-        {tab === 'json' ? (
+        {rightTab === 'json' ? (
           <div className="json-body">
             <pre style={{fontFamily:'JetBrains Mono,monospace',fontSize:10.5,lineHeight:1.7,color:'var(--text)',whiteSpace:'pre-wrap'}}>
               {activeWf ? JSON.stringify(activeWf, null, 2) : 'No workflow loaded'}

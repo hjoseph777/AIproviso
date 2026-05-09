@@ -59,8 +59,7 @@ export default function DiagramPane({ mermaidCode, selectedState }) {
     if (dRef.current) highlightNode(dRef.current, selectedState);
   }, [selectedState]);
 
-  const empty   = !mermaidCode;
-  const noInit  = mermaidCode === 'NO_INIT';
+  const empty = !mermaidCode;
 
   return (
     <div className="d-body">
