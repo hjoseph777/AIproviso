@@ -102,6 +102,45 @@ export const useWorkflowStore = create((set, get) => ({
     workflows: s.workflows.map(w => w.id !== wfId ? w : { ...w, states: [], transitions: [] })
   })),
 
+  // Stress-test loader — 50 states + 100 transitions (deterministic, no duplicates)
+  loadStressTest: (wfId) => {
+    const pad = n => String(n).padStart(2, '0');
+    const N   = 50;
+    const nm  = i => `State ${pad(i + 1)}`; // "State 01" … "State 50"
+
+    const states = Array.from({ length: N }, (_, i) => ({
+      id:      `st-${pad(i + 1)}`,
+      name:    nm(i),
+      initial: i === 0,
+    }));
+
+    const seen = new Set();
+    const transitions = [];
+    const addT = (from, to) => {
+      const key = `${from}|${to}`;
+      if (seen.has(key) || from === to) return;
+      seen.add(key);
+      transitions.push({ id: makeId(), from, to, conditions: null, permissions: null });
+    };
+
+    // 1. Linear chain: State 01→02→…→50  (49 transitions)
+    for (let i = 0; i < N - 1; i++)          addT(nm(i), nm(i + 1));
+    // 2. Back to initial every 10th state   (5 transitions)
+    for (let i = 9; i < N; i += 10)          addT(nm(i), nm(0));
+    // 3. Skip-forward by 5                  (9 transitions)
+    for (let i = 0; i < N - 5; i += 5)       addT(nm(i), nm(i + 5));
+    // 4. Skip-forward by 10                 (4 transitions)
+    for (let i = 0; i < N - 10; i += 10)     addT(nm(i), nm(i + 10));
+    // 5. Branch +3 from even states (fill to 100)
+    for (let i = 0; transitions.length < 100 && i < N - 3; i += 2) addT(nm(i), nm(i + 3));
+    // 6. Reverse -2 from tail states (top up if still under 100)
+    for (let i = N - 1; transitions.length < 100 && i > 1; i -= 3) addT(nm(i), nm(i - 2));
+
+    set(s => ({
+      workflows: s.workflows.map(w => w.id !== wfId ? w : { ...w, states, transitions })
+    }));
+  },
+
   // ── State CRUD ─────────────────────────────────────────────
   addState: (wfId) => set(s => ({
     workflows: s.workflows.map(w => w.id !== wfId ? w : {

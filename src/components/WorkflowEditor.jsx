@@ -16,13 +16,15 @@ export default function WorkflowEditor({ onSave }) {
   const addWorkflow    = useWorkflowStore(s => s.addWorkflow);
   const deleteWorkflow = useWorkflowStore(s => s.deleteWorkflow);
   const renameWorkflow = useWorkflowStore(s => s.renameWorkflow);
-  const clearWorkflow = useWorkflowStore(s => s.clearWorkflow);
+  const clearWorkflow   = useWorkflowStore(s => s.clearWorkflow);
+  const loadStressTest  = useWorkflowStore(s => s.loadStressTest);
 
   const [leftTab,     setLeftTab]     = useState('diagram'); // diagram | global
   const [rightTab,    setRightTab]    = useState('diagram'); // diagram | json
   const [selectedState, setSelectedState] = useState('');
   const [flash,        setFlash]        = useState(false);
   const [resetFlash,   setResetFlash]   = useState(false);
+  const [stressFlash,  setStressFlash]  = useState(false);
   const [resetCount,   setResetCount]   = useState(0);       // forces DiagramPane remount on Reset
   const [editingTabId, setEditingTabId] = useState(null);
   const [tabDraft,     setTabDraft]     = useState('');
@@ -44,6 +46,14 @@ export default function WorkflowEditor({ onSave }) {
     setResetCount(c => c + 1);        // force DiagramPane remount
     setResetFlash(true);
     setTimeout(() => setResetFlash(false), 1800);
+  };
+  const handleStress = () => {
+    if (!activeId) return;
+    loadStressTest(activeId);          // loads 50 states + 100 transitions
+    setSelectedState('');
+    setResetCount(c => c + 1);         // force DiagramPane remount
+    setStressFlash(true);
+    setTimeout(() => setStressFlash(false), 1800);
   };
 
   const startRenameTab = (wf) => {
@@ -104,6 +114,9 @@ export default function WorkflowEditor({ onSave }) {
           <div style={{display:'flex',gap:6,padding:'6px 12px',flexShrink:0,borderBottom:'1px solid var(--border)',alignItems:'center'}}>
             <button className={`xb ${resetFlash ? 'green' : ''}`} onClick={handleClear} title="Clear all states and transitions for this workflow tab">
               {resetFlash ? '✓ Cleared' : '↺ Clear'}
+            </button>
+            <button className={`xb ${stressFlash ? 'green' : ''}`} onClick={handleStress} title="Load 50 states + 100 transitions stress test">
+              {stressFlash ? '✓ Loaded' : '⚡ Stress Test'}
             </button>
             {/* Spacer pushes Export + Save group to the right */}
             <div style={{flex:1}}/>
