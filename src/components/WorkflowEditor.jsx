@@ -49,20 +49,32 @@ export default function WorkflowEditor({ onSave }) {
     setResetFlash(true);
     setTimeout(() => setResetFlash(false), 1800);
   };
+  // Returns stress config for the ACTIVE tab only
+  // Dedicated tabs: wf-a=Low(25/50), wf-b=Max(100/150)
+  // Other tabs: use stressMode toggle
+  const getStressConfig = () => {
+    if (activeId === 'wf-a') return { N: 25,  target: 50,  hint: '🔥 Load 25 States · 50 Transitions into Workflow A' };
+    if (activeId === 'wf-b') return { N: 100, target: 150, hint: '🔥🔥 Load 100 States · 150 Transitions into Workflow B' };
+    return stressMode === 'low'
+      ? { N: 25,  target: 50,  hint: '🔥 Load: 25 States / 50 Transitions · click again for 100/150' }
+      : { N: 100, target: 150, hint: '🔥🔥 Load: 100 States / 150 Transitions · click again for 25/50' };
+  };
+
   const handleStress = () => {
     if (!activeId) return;
-    const isLow       = stressMode === 'low';
-    const [N, target] = isLow ? [25, 50] : [100, 150];
+    const { N, target } = getStressConfig();
     loadStressTest(activeId, N, target);
     setSelectedState('');
     setResetCount(c => c + 1);
-    setStressFlashLbl(isLow ? '⚡ 25 States · 50 Trans.' : '⚡ 100 States · 150 Trans.');
+    setStressFlashLbl(`⚡ ${N} States · ${target} Trans.`);
     setStressFlash(true);
-    // blink until diagram renders, then flip mode for next click
     setTimeout(() => {
       setStressFlash(false);
-      setStressMode(isLow ? 'max' : 'low');
-    }, isLow ? 1500 : 3000);
+      // Only toggle mode when NOT on a dedicated stress tab
+      if (activeId !== 'wf-a' && activeId !== 'wf-b') {
+        setStressMode(m => m === 'low' ? 'max' : 'low');
+      }
+    }, N <= 25 ? 1500 : 3000);
   };
 
   const startRenameTab = (wf) => {
@@ -127,9 +139,7 @@ export default function WorkflowEditor({ onSave }) {
             <button
               className={`xb ${stressFlash ? 'green' : ''}`}
               onClick={handleStress}
-              title={stressMode === 'low'
-                ? '🔥 Load: 25 States / 50 Transitions · click again for 100/150'
-                : '🔥🔥 Load: 100 States / 150 Transitions · click again for 25/50'}>
+              title={getStressConfig().hint}>
               {stressFlash ? stressFlashLbl : '⚡ Stress Test'}
             </button>
             {/* Spacer pushes Export + Save group to the right */}
