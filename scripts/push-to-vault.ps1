@@ -42,42 +42,40 @@ try {
 
     # ── 2. Connect to M-Files ─────────────────────────────────────
     pLog "Auth type: $AuthType"
-    pLog "Connecting to M-Files at $ServerAddress : $Port ..."
+    pLog "Looking up vault $VaultGuid in registered connections..."
 
     $app = New-Object -ComObject MFilesAPI.MFilesClientApplication
 
-    if ($AuthType -ieq 'Windows') {
-        # ── Windows SSO ───────────────────────────────────────────
-        pLog "Using Windows SSO (current Windows identity)"
-        $app.Connect("TCP", $ServerAddress, $Port, $false)
-        pLog "Server connection established"
+    # Find the registered VaultConnection by GUID
+    $allConns = $app.GetVaultConnections()
+    $conn = $null
+    foreach ($c in $allConns) {
+        if ($c.GetGUID() -ieq $VaultGuid) { $conn = $c; break }
+    }
+    if (-not $conn) {
+        throw "Vault $VaultGuid is not registered in M-Files Desktop on this machine. Open M-Files Desktop and add the vault connection first."
+    }
+    pLog "Found vault: '$($conn.Name)' ($($conn.GetGUID()))"
 
-        pLog "Binding to vault $VaultGuid ..."
-        $vault = $app.BindToVault($VaultGuid, $false, $true, $null)
+    # Test connectivity first
+    $testResult = $conn.TestConnectionToVaultSilent()
+    pLog "Connectivity test: $testResult"
+
+    if ($AuthType -ieq 'Windows') {
+        # ── Windows SSO (current logged-on Windows user) ──────────
+        pLog "Using Windows SSO (current Windows identity)"
+        # MFAuthType 0 = MFAuthTypeLoggedOnWindowsUser
+        $vault = $conn.LogInAs(0, 0, $false)
 
     } else {
         # ── M-Files Credentials ───────────────────────────────────
         if (-not $Username) { throw "Username is required for M-Files authentication" }
         pLog "Using M-Files credentials (user: $Username)"
-
-        # Primary method: Connect then LogInWithCredentials
-        try {
-            $app.Connect("TCP", $ServerAddress, $Port, $false)
-            $vault = $app.BindToVault($VaultGuid, $false, $true, $null)
-            $vault.LogInWithCredentials($Username, $Password, "MFiles", $ServerAddress)
-            pLog "Authenticated with M-Files credentials"
-        } catch {
-            pWarn "Primary auth failed: $($_.Exception.Message)"
-            pLog "Trying alternative credential method..."
-            # Fallback: ConnectWithUserCredentials
-            $app2 = New-Object -ComObject MFilesAPI.MFilesClientApplication
-            $app2.ConnectWithUserCredentials("TCP", $ServerAddress, $Port, $false, $Username, $Password, "MFiles", $ServerAddress)
-            $vault = $app2.BindToVault($VaultGuid, $false, $true, $null)
-            pLog "Authenticated via alternative method"
-        }
+        # MFAuthType 2 = MFAuthTypeSpecificMFilesUser
+        $vault = $conn.LogInAsUser(2, $Username, $Password, $null, $null)
     }
 
-    pOK "Bound to vault: '$($vault.Name)'"
+    pOK "Authenticated to vault: '$($vault.Name)'"
 
     # ── 4. Duplicate check (skip if workflow already exists) ───────
     pLog "Checking for existing workflow with same name..."

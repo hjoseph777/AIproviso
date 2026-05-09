@@ -44,20 +44,32 @@ app.on('activate', () => {
 
 // ── IPC Handlers ─────────────────────────────────────────────────
 
-// Real connection test — tries to bind to the vault with given auth
+// Real connection test — tries GetVaultConnection + LogInAs/LogInAsUser
 ipcMain.handle('mfiles:list-vaults', async (_event, payload) => {
-  const { server = 'localhost', authType = 'windows', username = '', password = '' } = payload || {};
+  const { vaultGuid, authType = 'windows', username = '', password = '' } = payload || {};
   return new Promise((resolve) => {
-    const cmd = authType === 'mfiles'
-      ? `$app = New-Object -ComObject MFilesAPI.MFilesClientApplication; $app.Connect("TCP","${server}",2266,$false); $vault = $app.BindToVault("${payload.vaultGuid}",$false,$true,$null); $vault.LogInWithCredentials("${username}","${password}","MFiles","${server}"); Write-Output "OK"`
-      : `$app = New-Object -ComObject MFilesAPI.MFilesClientApplication; $app.Connect("TCP","${server}",2266,$false); $vault = $app.BindToVault("${payload.vaultGuid}",$false,$true,$null); Write-Output "OK"`;
+    const authCmd = authType === 'mfiles'
+      ? `$vault = $conn.LogInAsUser(2,'${username}','${password}',$null,$null); Write-Output "OK:$($vault.Name)"`
+      : `$vault = $conn.LogInAs(0,0,$false); Write-Output "OK:$($vault.Name)"`;
+    const cmd =
+      `$app=$app = New-Object -ComObject MFilesAPI.MFilesClientApplication;` +
+      `$conns=$app.GetVaultConnections();` +
+      `$conn=$null; foreach($c in $conns){if($c.GetGUID() -ieq '${vaultGuid}'){$conn=$c;break}};` +
+      `if(-not $conn){Write-Output 'ERR:VaultNotRegistered'; exit 1};` +
+      authCmd;
     const ps = spawn('powershell.exe', ['-NoProfile','-NonInteractive','-Command', cmd]);
     let out = '';
     ps.stdout.on('data', d => { out += d.toString(); });
     ps.stderr.on('data', d => { out += d.toString(); });
-    ps.on('close', code => resolve({ ok: code === 0 && out.includes('OK'), error: out.trim() }));
+    ps.on('close', code => {
+      const ok = code === 0 && out.includes('OK:');
+      const vaultName = ok ? out.match(/OK:(.+)/)?.[1]?.trim() : '';
+      const error = ok ? '' : out.replace(/OK:[^\n]*/g,'').trim();
+      resolve({ ok, vaultName, error });
+    });
   });
 });
+
 
 // Push workflow JSON to M-Files vault via PowerShell COM bridge
 ipcMain.handle('mfiles:push', async (event, payload) => {
