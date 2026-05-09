@@ -2,13 +2,43 @@ import { create } from 'zustand';
 
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
-// ── Blank initial state ─────────────────────────────────────────
-// No demo data. Use ⚡ Stress Test to populate, or build from scratch.
-const BLANK_ID = 'wf-1';
+// ── Starting workflows ──────────────────────────────────────────
+// Tab 1: Service Agreement — real domain workflow, diagram visible on load
+// Tab 2: Workflow A · 25 States — empty placeholder for 🔥 Low stress test
+// Tab 3: Workflow B · 100 States — empty placeholder for 🔥🔥 Max stress test
+
+const SERVICE_AGREEMENT = {
+  id: 'wf-sa',
+  name: 'Service Agreement',
+  states: [
+    { id: 'sa01', name: 'Draft',         initial: true  },
+    { id: 'sa02', name: 'Under Review',  initial: false },
+    { id: 'sa03', name: 'Approved',      initial: false },
+    { id: 'sa04', name: 'Active',        initial: false },
+    { id: 'sa05', name: 'Expiring Soon', initial: false },
+    { id: 'sa06', name: 'Expired',       initial: false },
+    { id: 'sa07', name: 'Terminated',    initial: false },
+  ],
+  transitions: [
+    { id: 'st01', from: 'Draft',         to: 'Under Review',  conditions: null, permissions: null },
+    { id: 'st02', from: 'Under Review',  to: 'Draft',         conditions: null, permissions: null },
+    { id: 'st03', from: 'Under Review',  to: 'Approved',      conditions: null, permissions: null },
+    { id: 'st04', from: 'Approved',      to: 'Active',        conditions: null, permissions: null },
+    { id: 'st05', from: 'Active',        to: 'Expiring Soon', conditions: null, permissions: null },
+    { id: 'st06', from: 'Expiring Soon', to: 'Active',        conditions: null, permissions: null },
+    { id: 'st07', from: 'Expiring Soon', to: 'Expired',       conditions: null, permissions: null },
+    { id: 'st08', from: 'Active',        to: 'Terminated',    conditions: null, permissions: null },
+    { id: 'st09', from: 'Draft',         to: 'Terminated',    conditions: null, permissions: null },
+  ],
+};
 
 const fresh = () => ({
-  workflows:  [{ id: BLANK_ID, name: 'New Workflow', states: [], transitions: [] }],
-  activeId:   BLANK_ID,
+  workflows: [
+    JSON.parse(JSON.stringify(SERVICE_AGREEMENT)),
+    { id: 'wf-a', name: 'Workflow A \u00b7 25 States',  states: [], transitions: [] },
+    { id: 'wf-b', name: 'Workflow B \u00b7 100 States', states: [], transitions: [] },
+  ],
+  activeId:   'wf-sa',
   users:      [],
   properties: [],
   rules:      [],
