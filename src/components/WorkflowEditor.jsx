@@ -16,7 +16,7 @@ export default function WorkflowEditor({ onSave }) {
   const addWorkflow    = useWorkflowStore(s => s.addWorkflow);
   const deleteWorkflow = useWorkflowStore(s => s.deleteWorkflow);
   const renameWorkflow = useWorkflowStore(s => s.renameWorkflow);
-  const resetAll       = useWorkflowStore(s => s.resetAll);
+  const clearWorkflow = useWorkflowStore(s => s.clearWorkflow);
 
   const [leftTab,     setLeftTab]     = useState('diagram'); // diagram | global
   const [rightTab,    setRightTab]    = useState('diagram'); // diagram | json
@@ -37,10 +37,11 @@ export default function WorkflowEditor({ onSave }) {
     setTimeout(() => setFlash(false), 1800);
   };
 
-  const handleReset = () => {
-    resetAll();
+  const handleClear = () => {
+    if (!activeId) return;
+    clearWorkflow(activeId);          // empties states + transitions of active tab only
     setSelectedState('');
-    setResetCount(c => c + 1); // bump key → DiagramPane fully remounts, Mermaid DOM cache cleared
+    setResetCount(c => c + 1);        // force DiagramPane remount
     setResetFlash(true);
     setTimeout(() => setResetFlash(false), 1800);
   };
@@ -101,8 +102,8 @@ export default function WorkflowEditor({ onSave }) {
 
           {/* Action buttons */}
           <div style={{display:'flex',gap:6,padding:'6px 12px',flexShrink:0,borderBottom:'1px solid var(--border)',alignItems:'center'}}>
-            <button className={`xb ${resetFlash ? 'green' : ''}`} onClick={handleReset}>
-              {resetFlash ? '✓ Reset' : '↺ Reset'}
+            <button className={`xb ${resetFlash ? 'green' : ''}`} onClick={handleClear} title="Clear all states and transitions for this workflow tab">
+              {resetFlash ? '✓ Cleared' : '↺ Clear'}
             </button>
             {/* Spacer pushes Export + Save group to the right */}
             <div style={{flex:1}}/>

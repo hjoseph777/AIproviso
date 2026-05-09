@@ -97,6 +97,11 @@ export const useWorkflowStore = create((set, get) => ({
   })),
   setActive: (id) => set({ activeId: id }),
 
+  // Clears only states + transitions of one workflow — keeps name, keeps other tabs
+  clearWorkflow: (wfId) => set(s => ({
+    workflows: s.workflows.map(w => w.id !== wfId ? w : { ...w, states: [], transitions: [] })
+  })),
+
   // ── State CRUD ─────────────────────────────────────────────
   addState: (wfId) => set(s => ({
     workflows: s.workflows.map(w => w.id !== wfId ? w : {
