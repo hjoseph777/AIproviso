@@ -116,26 +116,72 @@ renameState: (wfId, stateId, newName) => {
 ```js
 // Returns null → diagram clears (no initial state set)
 // All state nodes declared explicitly → isolated states still show as boxes
-const useMermaid = (workflow) => useMemo(() => {
-  if (!workflow?.states.length) return null;
-  if (!workflow.states.some(s => s.initial)) return null;
-  let d = 'stateDiagram-v2\n';
-  workflow.states.forEach(s => {
-    const id = s.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-    d += `  ${id} : ${s.name}\n`;
-    if (s.initial) d += `  [*] --> ${id}\n`;
-  });
-  workflow.transitions.forEach(t => {
-    if (!t.from || !t.to) return;
-    const f  = t.from.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-    const to = t.to.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-    d += `  ${f} --> ${to}\n`;
-  });
-  return d;
-}, [workflow]);
+//
+// ⚠ CRITICAL: dependency must be content keys, NOT the workflow object reference.
+// If you use [workflow], useMemo uses Object.is() — same reference = skip recompute.
+// After resetAll(), Zustand creates new objects (JSON.parse/stringify), so reference
+// changes. But as a belt-and-suspenders guard, we derive string keys from the
+// actual data content so the memo ALWAYS recomputes when data changes.
+export const useMermaid = (workflow) => {
+  const stateKey = workflow?.states.map(s => `${s.name}:${s.initial}`).join('|') ?? '';
+  const transKey = workflow?.transitions.map(t => `${t.from}→${t.to}`).join('|') ?? '';
+  return useMemo(() => {
+    if (!workflow?.states.length) return null;
+    if (!workflow.states.some(s => s.initial)) return null;
+    let d = 'stateDiagram-v2\n';
+    workflow.states.forEach(s => {
+      const id = s.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+      d += `  ${id} : ${s.name}\n`;
+      if (s.initial) d += `  [*] --> ${id}\n`;
+    });
+    workflow.transitions.forEach(t => {
+      if (!t.from || !t.to) return;
+      const f  = t.from.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+      const to = t.to.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+      d += `  ${f} --> ${to}\n`;
+    });
+    return d;
+  }, [stateKey, transKey]); // ← granular content keys, not whole object
+};
 ```
 
 ---
+
+## Reset Button / Mermaid DOM Cache — Known Issue & Fix
+
+**Symptom:** Clicking ↺ Reset clears the spreadsheet grid but the Mermaid diagram stays frozen showing old data.
+
+**Root Causes:**
+
+| # | Cause | Description |
+| :- | :--- | :--- |
+| 1 | **useMemo stale reference** | `useMemo([workflow])` uses `Object.is()` — if Zustand re-uses the same object reference, memo skips recompute and returns the old diagram string |
+| 2 | **Mermaid DOM cache** | Mermaid injects SVG directly into the DOM. If React doesn't remount the component, the old SVG stays painted even if props change |
+| 3 | **Empty string edge case** | If `useMermaid` returns `""` instead of `null`, Mermaid may crash silently and freeze on the last valid render |
+
+**Our Fixes (all three applied):**
+
+```jsx
+// Fix 1 — useMermaid uses content keys, not object reference
+const stateKey = workflow?.states.map(s => `${s.name}:${s.initial}`).join('|') ?? '';
+return useMemo(() => { ... }, [stateKey, transKey]); // ← NOT [workflow]
+
+// Fix 2 — resetCount bumps on every Reset → forces DiagramPane to fully remount
+// WorkflowEditor.jsx:
+const [resetCount, setResetCount] = useState(0);
+const handleReset = () => {
+  resetAll();
+  setResetCount(c => c + 1); // React destroys + recreates DiagramPane → Mermaid DOM wiped
+};
+<DiagramPane key={resetCount} mermaidCode={mermaidStr} selectedState={selectedState} />
+
+// Fix 3 — useMermaid returns null (not '') for empty state → DiagramPane clears innerHTML
+if (!states.length) return null;
+// DiagramPane:
+if (!mermaidCode) { dRef.current.innerHTML = ''; return; }
+```
+
+**Rule:** Never use `key={JSON.stringify(data)}` on a component that renders on every keystroke — that would remount on every character typed. Use a counter that only increments on hard resets.
 
 ## Key Decision Log
 
@@ -151,6 +197,8 @@ const useMermaid = (workflow) => useMemo(() => {
 | Max-height scroll areas | Keeps diagram always visible on right pane |
 | Zebra striping | Visual row tracking for large datasets |
 | Ghost row | Eliminates "huge gap" at bottom of short lists |
+| `useMermaid` content keys | `[stateKey, transKey]` instead of `[workflow]` — prevents stale memo |
+| `resetCount` key on DiagramPane | Increments on Reset → React remounts DiagramPane → Mermaid DOM wiped |
 
 ---
 

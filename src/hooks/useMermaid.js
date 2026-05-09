@@ -3,7 +3,21 @@ import { useMemo } from 'react';
 // ── useMermaid ─────────────────────────────────────────────────
 // Transforms a workflow object into a valid stateDiagram-v2 string.
 // Returns null if there are no states or no initial state (canvas stays blank).
+//
+// DEFENSIVE NOTE — dependency design:
+// We derive a stable string key from the actual data instead of depending on
+// the workflow object reference. This prevents two known bugs:
+//   1. Stale memo: object reference unchanged but content has changed
+//   2. Frozen diagram after Reset: useMemo skips recompute if reference
+//      equality passes even though data was cleared
+// Zustand's resetAll() creates new object references via JSON.parse/stringify
+// so reference equality usually works, but the string key is a belt-and-suspenders
+// guard for edge cases (e.g. same workflow ID reused after reset).
 export const useMermaid = (workflow) => {
+  // Derive a stable cache key from the actual content — not the object reference
+  const stateKey = workflow?.states.map(s => `${s.name}:${s.initial}`).join('|') ?? '';
+  const transKey = workflow?.transitions.map(t => `${t.from}→${t.to}`).join('|') ?? '';
+
   return useMemo(() => {
     if (!workflow) return null;
     const { states, transitions } = workflow;
@@ -29,5 +43,6 @@ export const useMermaid = (workflow) => {
     });
 
     return d;
-  }, [workflow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateKey, transKey]); // ← granular content keys, not the whole object reference
 };

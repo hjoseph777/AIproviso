@@ -23,6 +23,7 @@ export default function WorkflowEditor({ onSave }) {
   const [selectedState, setSelectedState] = useState('');
   const [flash,        setFlash]        = useState(false);
   const [resetFlash,   setResetFlash]   = useState(false);
+  const [resetCount,   setResetCount]   = useState(0);       // forces DiagramPane remount on Reset
   const [editingTabId, setEditingTabId] = useState(null);
   const [tabDraft,     setTabDraft]     = useState('');
 
@@ -39,6 +40,7 @@ export default function WorkflowEditor({ onSave }) {
   const handleReset = () => {
     resetAll();
     setSelectedState('');
+    setResetCount(c => c + 1); // bump key → DiagramPane fully remounts, Mermaid DOM cache cleared
     setResetFlash(true);
     setTimeout(() => setResetFlash(false), 1800);
   };
@@ -102,9 +104,11 @@ export default function WorkflowEditor({ onSave }) {
             <button className={`xb ${resetFlash ? 'green' : ''}`} onClick={handleReset}>
               {resetFlash ? '✓ Reset' : '↺ Reset'}
             </button>
+            {/* Spacer pushes Export + Save group to the right */}
+            <div style={{flex:1}}/>
             <button className="xb" onClick={exportJSON} title="Export all workflows as JSON">↓ Export JSON</button>
-            <button className={`xb ${flash ? 'green' : 'blue'}`} onClick={handleSave} style={{marginLeft:'auto'}}>
-              {flash ? '✓ Saved' : 'Save JSON'}
+            <button className={`xb ${flash ? 'green' : ''}`} onClick={handleSave} title="Mark workflow as saved">
+              {flash ? '✓ Saved' : '↓ Save JSON'}
             </button>
           </div>
 
@@ -163,7 +167,7 @@ export default function WorkflowEditor({ onSave }) {
             </pre>
           </div>
         ) : (
-          <DiagramPane mermaidCode={mermaidStr} selectedState={selectedState} />
+          <DiagramPane key={resetCount} mermaidCode={mermaidStr} selectedState={selectedState} />
         )}
       </div>
     </div>
