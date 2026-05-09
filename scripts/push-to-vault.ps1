@@ -1,24 +1,22 @@
 <#
 .SYNOPSIS
-    Proviso — Push workflow JSON into an M-Files blank vault via COM API
-.DESCRIPTION
-    Called by Electron main process IPC handler.
-    Outputs [PROGRESS], [SUCCESS], [WARN], [ERROR] prefixed lines
-    that Electron streams back to the renderer log panel.
-.PARAMETER JsonPath
-    Path to the temp JSON file written by the Electron main process
-.PARAMETER VaultGuid
-    M-Files vault GUID  e.g. {08E9A947-7E05-4722-A890-559D36FDC8FF}
-.PARAMETER ServerAddress
-    M-Files server hostname or IP  (default: localhost)
-.PARAMETER Port
-    M-Files TCP port  (default: 2266)
+    Proviso — Push workflow JSON into an M-Files vault via COM API
+.PARAMETER JsonPath      Path to the temp JSON file
+.PARAMETER VaultGuid     M-Files vault GUID
+.PARAMETER ServerAddress M-Files server hostname
+.PARAMETER Port          M-Files TCP port (default 2266)
+.PARAMETER AuthType      "Windows" (SSO) or "MFiles" (credentials)
+.PARAMETER Username      M-Files username  (only used when AuthType=MFiles)
+.PARAMETER Password      M-Files password  (only used when AuthType=MFiles)
 #>
 param(
     [Parameter(Mandatory=$true)] [string]$JsonPath,
     [string]$VaultGuid     = '{08E9A947-7E05-4722-A890-559D36FDC8FF}',
     [string]$ServerAddress = 'localhost',
-    [int]   $Port          = 2266
+    [int]   $Port          = 2266,
+    [string]$AuthType      = 'Windows',    # 'Windows' | 'MFiles'
+    [string]$Username      = '',
+    [string]$Password      = ''
 )
 
 Set-StrictMode -Version Latest
@@ -42,17 +40,44 @@ try {
 
     pLog "Workflow: '$($wf.name)'  |  $($wf.states.Count) states  |  $($wf.transitions.Count) transitions"
 
-    # ── 2. Connect to M-Files (Windows SSO) ───────────────────────
+    # ── 2. Connect to M-Files ─────────────────────────────────────
+    pLog "Auth type: $AuthType"
     pLog "Connecting to M-Files at $ServerAddress : $Port ..."
-    $app = New-Object -ComObject MFilesAPI.MFilesClientApplication
-    # SSO — uses the current Windows identity, no credentials needed
-    $app.Connect("TCP", $ServerAddress, $Port, $false)
-    pLog "Server connection established"
 
-    # ── 3. Bind to vault ──────────────────────────────────────────
-    pLog "Binding to vault $VaultGuid ..."
-    $vault = $app.BindToVault($VaultGuid, $false, $true, $null)
-    pOK   "Bound to vault: '$($vault.Name)'"
+    $app = New-Object -ComObject MFilesAPI.MFilesClientApplication
+
+    if ($AuthType -ieq 'Windows') {
+        # ── Windows SSO ───────────────────────────────────────────
+        pLog "Using Windows SSO (current Windows identity)"
+        $app.Connect("TCP", $ServerAddress, $Port, $false)
+        pLog "Server connection established"
+
+        pLog "Binding to vault $VaultGuid ..."
+        $vault = $app.BindToVault($VaultGuid, $false, $true, $null)
+
+    } else {
+        # ── M-Files Credentials ───────────────────────────────────
+        if (-not $Username) { throw "Username is required for M-Files authentication" }
+        pLog "Using M-Files credentials (user: $Username)"
+
+        # Primary method: Connect then LogInWithCredentials
+        try {
+            $app.Connect("TCP", $ServerAddress, $Port, $false)
+            $vault = $app.BindToVault($VaultGuid, $false, $true, $null)
+            $vault.LogInWithCredentials($Username, $Password, "MFiles", $ServerAddress)
+            pLog "Authenticated with M-Files credentials"
+        } catch {
+            pWarn "Primary auth failed: $($_.Exception.Message)"
+            pLog "Trying alternative credential method..."
+            # Fallback: ConnectWithUserCredentials
+            $app2 = New-Object -ComObject MFilesAPI.MFilesClientApplication
+            $app2.ConnectWithUserCredentials("TCP", $ServerAddress, $Port, $false, $Username, $Password, "MFiles", $ServerAddress)
+            $vault = $app2.BindToVault($VaultGuid, $false, $true, $null)
+            pLog "Authenticated via alternative method"
+        }
+    }
+
+    pOK "Bound to vault: '$($vault.Name)'"
 
     # ── 4. Duplicate check (skip if workflow already exists) ───────
     pLog "Checking for existing workflow with same name..."

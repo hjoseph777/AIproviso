@@ -10,6 +10,9 @@ export default function IngestWorkflow() {
 
   const [server,    setServer]    = useState('localhost');
   const [vault,     setVault]     = useState(VAULT_GUID);
+  const [authType,  setAuthType]  = useState('windows');   // 'windows' | 'mfiles'
+  const [username,  setUsername]  = useState('admin');
+  const [password,  setPassword]  = useState('');
   const [wfId,      setWfId]      = useState(activeId || '');
   const [conning,   setConning]   = useState(false);
   const [connected, setConnected] = useState(false);
@@ -44,24 +47,30 @@ export default function IngestWorkflow() {
   // ── Connect (Windows SSO — no password needed) ─────────────────
   const connect = async () => {
     if (!server || !vault) return;
+    if (authType === 'mfiles' && !username) return;
     setConning(true);
-    addLog(`Connecting to ${server}...`, 'info');
+    // Strip any \username suffix the user may have typed in the server field
+    const cleanServer = server.split('\\')[0].trim();
+    if (cleanServer !== server) setServer(cleanServer);
+    addLog(`Connecting to ${cleanServer} [${authType === 'windows' ? 'Windows SSO' : 'M-Files: ' + username}]...`, 'info');
 
     if (isElectron) {
-      const res = await window.mfiles.listVaults(server).catch(e => ({ ok: false, vaults: [], error: e.message }));
-      if (res.ok || res.vaults?.length >= 0) {
+      const res = await window.mfiles.listVaults({
+        server: cleanServer, vaultGuid: vault,
+        authType, username, password,
+      }).catch(e => ({ ok: false, error: e.message }));
+      if (res.ok) {
         setConnected(true);
-        addLog(`Connected: ${server}`, 'ok');
+        addLog(`Connected: ${cleanServer}`, 'ok');
         addLog(`Vault: ${vault}`, 'info');
-        addLog(`Auth: Windows SSO (current user)`, 'ok');
+        addLog(`Auth: ${authType === 'windows' ? 'Windows SSO' : 'M-Files (' + username + ')'}`, 'ok');
       } else {
-        addLog(`Connection failed — check M-Files client is running`, 'error');
+        addLog(`Connection failed — ${res.error || 'check M-Files client is running'}`, 'error');
       }
     } else {
-      // Browser preview mode (no Electron)
       await new Promise(r => setTimeout(r, 800));
       setConnected(true);
-      addLog(`[PREVIEW] Connected: ${server}`, 'ok');
+      addLog(`[PREVIEW] Connected: ${cleanServer}`, 'ok');
       addLog(`[PREVIEW] Vault: ${vault}`, 'info');
     }
     setConning(false);
@@ -79,7 +88,8 @@ export default function IngestWorkflow() {
       const res = await window.mfiles.pushWorkflow({
         json:      selectedWf,
         vaultGuid: vault,
-        server,
+        server:    server.split('\\')[0].trim(),
+        authType, username, password,
       });
       setStatus(res.ok ? 'done' : 'error');
     } else {
@@ -139,30 +149,67 @@ export default function IngestWorkflow() {
         <div className="stat"><div className="sv off">Ph.2</div><div className="sl">Rules</div></div>
       </div>
 
-      {/* Connection card */}
       <div className="card">
         <div className="card-head">
-          <span className="card-title">M-Files Vault — Windows SSO Connection</span>
+          <span className="card-title">M-Files Vault Connection</span>
           {connected && <span className="cbadge">Connected</span>}
         </div>
         <div className="card-body">
+          {/* Auth type toggle */}
+          <div style={{display:'flex',gap:6,marginBottom:12}}>
+            {[['windows','🪟 Windows SSO'],['mfiles','🔑 M-Files Credentials']].map(([v,lbl]) => (
+              <button key={v}
+                onClick={() => { setAuthType(v); setConnected(false); }}
+                style={{
+                  flex:1, padding:'6px 0', fontSize:10, fontFamily:'var(--mono)',
+                  borderRadius:4, cursor:'pointer',
+                  border: authType===v ? '1px solid var(--blue)' : '1px solid var(--border)',
+                  background: authType===v ? 'rgba(59,130,246,.15)' : 'var(--surface)',
+                  color: authType===v ? 'var(--blue)' : 'var(--mid)',
+                  transition:'all .15s',
+                }}>{lbl}</button>
+            ))}
+          </div>
           <div className="fields">
             <div>
               <label className="fl">Server</label>
-              <input className="fi" value={server} onChange={e => { setServer(e.target.value); setConnected(false); }} placeholder="localhost" disabled={conning}/>
+              <input className="fi" value={server}
+                onChange={e => { setServer(e.target.value); setConnected(false); }}
+                placeholder="DESKTOP-DKCS42P  (machine name only)"
+                disabled={conning}/>
+              <div style={{fontSize:8,color:'var(--dim)',marginTop:2}}>Enter machine name only — do not include \username</div>
             </div>
             <div className="ff">
               <label className="fl">Vault GUID</label>
-              <input className="fi" value={vault} onChange={e => { setVault(e.target.value); setConnected(false); }} placeholder="{XXXXXXXX-...}" disabled={conning}/>
+              <input className="fi" value={vault}
+                onChange={e => { setVault(e.target.value); setConnected(false); }}
+                placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}" disabled={conning}/>
             </div>
+            {authType === 'mfiles' && (<>
+              <div>
+                <label className="fl">Username</label>
+                <input className="fi" value={username}
+                  onChange={e => { setUsername(e.target.value); setConnected(false); }}
+                  placeholder="admin" disabled={conning}/>
+              </div>
+              <div>
+                <label className="fl">Password</label>
+                <input className="fi" type="password" value={password}
+                  onChange={e => { setPassword(e.target.value); setConnected(false); }}
+                  placeholder="••••••••" disabled={conning}/>
+              </div>
+            </>)}
             <div style={{display:'flex',alignItems:'flex-end'}}>
-              <button className="xb blue" style={{width:'100%',padding:'8px 0',fontSize:11}} onClick={connect} disabled={conning || connected || !server || !vault}>
+              <button className="xb blue" style={{width:'100%',padding:'8px 0',fontSize:11}}
+                onClick={connect}
+                disabled={conning || connected || !server || !vault || (authType==='mfiles' && !username)}>
                 {conning ? <><div className="spin" style={{width:10,height:10,marginRight:6}}/>Connecting...</> : connected ? '✓ Connected' : 'Connect'}
               </button>
             </div>
           </div>
           <div style={{marginTop:10,fontSize:9,color:'var(--dim)',lineHeight:1.8}}>
-            Windows SSO — authenticates as current Windows user · M-Files client must be installed locally
+            {authType === 'windows' ? 'Windows SSO — authenticates as current Windows user · M-Files client must be installed locally'
+                                    : 'M-Files credentials — uses vault-level username and password'}
           </div>
         </div>
       </div>
