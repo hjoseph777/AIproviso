@@ -22,11 +22,12 @@ export default function WorkflowEditor({ onSave }) {
   const [leftTab,     setLeftTab]     = useState('diagram'); // diagram | global
   const [rightTab,    setRightTab]    = useState('diagram'); // diagram | json
   const [selectedState, setSelectedState] = useState('');
-  const [flash,        setFlash]        = useState(false);
-  const [resetFlash,   setResetFlash]   = useState(false);
-  const [stressFlash,  setStressFlash]  = useState(false);
-  const [stressMode,   setStressMode]   = useState('low'); // 'low'=25/50 | 'max'=100/150
-  const [resetCount,   setResetCount]   = useState(0);     // forces DiagramPane remount
+  const [flash,          setFlash]          = useState(false);
+  const [resetFlash,     setResetFlash]     = useState(false);
+  const [stressFlash,    setStressFlash]    = useState(false);
+  const [stressFlashLbl, setStressFlashLbl] = useState('');   // blink label showing loaded counts
+  const [stressMode,     setStressMode]     = useState('low'); // toggles: 'low'=25/50 | 'max'=100/150
+  const [resetCount,     setResetCount]     = useState(0);     // forces DiagramPane remount
   const [editingTabId, setEditingTabId] = useState(null);
   const [tabDraft,     setTabDraft]     = useState('');
 
@@ -50,12 +51,18 @@ export default function WorkflowEditor({ onSave }) {
   };
   const handleStress = () => {
     if (!activeId) return;
-    const [N, target] = stressMode === 'low' ? [25, 50] : [100, 150];
+    const isLow       = stressMode === 'low';
+    const [N, target] = isLow ? [25, 50] : [100, 150];
     loadStressTest(activeId, N, target);
     setSelectedState('');
     setResetCount(c => c + 1);
+    setStressFlashLbl(isLow ? '⚡ 25 States · 50 Trans.' : '⚡ 100 States · 150 Trans.');
     setStressFlash(true);
-    setTimeout(() => setStressFlash(false), 1800);
+    // blink until diagram renders, then flip mode for next click
+    setTimeout(() => {
+      setStressFlash(false);
+      setStressMode(isLow ? 'max' : 'low');
+    }, isLow ? 1500 : 3000);
   };
 
   const startRenameTab = (wf) => {
@@ -117,19 +124,14 @@ export default function WorkflowEditor({ onSave }) {
             <button className={`xb ${resetFlash ? 'green' : ''}`} onClick={handleClear} title="Clear all states and transitions for this workflow tab">
               {resetFlash ? '✓ Cleared' : '↺ Clear'}
             </button>
-            <button className={`xb ${stressFlash ? 'green' : ''}`} onClick={handleStress}
-              title={stressMode === 'low' ? 'Load 25 states / 50 transitions' : 'Load 100 states / 150 transitions'}>
-              {stressFlash ? '✓ Loaded' : '⚡ Stress Test'}
+            <button
+              className={`xb ${stressFlash ? 'green' : ''}`}
+              onClick={handleStress}
+              title={stressMode === 'low'
+                ? '🔥 Load: 25 States / 50 Transitions · click again for 100/150'
+                : '🔥🔥 Load: 100 States / 150 Transitions · click again for 25/50'}>
+              {stressFlash ? stressFlashLbl : '⚡ Stress Test'}
             </button>
-            <select
-              value={stressMode}
-              onChange={e => setStressMode(e.target.value)}
-              title="Select stress test intensity"
-              style={{fontFamily:'var(--mono)',fontSize:9.5,background:'var(--surface)',color:'var(--mid)',
-                border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px',cursor:'pointer'}}>
-              <option value="low">🔥 Low (25/50)</option>
-              <option value="max">🔥🔥 Max (100/150)</option>
-            </select>
             {/* Spacer pushes Export + Save group to the right */}
             <div style={{flex:1}}/>
             <button className="xb" onClick={exportJSON} title="Export all workflows as JSON">↓ Export JSON</button>
