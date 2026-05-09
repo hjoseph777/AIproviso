@@ -183,6 +183,59 @@ if (!mermaidCode) { dRef.current.innerHTML = ''; return; }
 
 **Rule:** Never use `key={JSON.stringify(data)}` on a component that renders on every keystroke — that would remount on every character typed. Use a counter that only increments on hard resets.
 
+---
+
+## ⚡ Stress Test Generator
+
+**Trigger:** `⚡ Stress Test` button in the SOW Editor toolbar
+**Action:** `loadStressTest(wfId)` in `useWorkflowStore.js`
+**Output:** 100 states + 150 transitions loaded into the active workflow tab
+
+### Generation Pattern (deterministic — same result every run)
+
+| Layer | Pattern | Count | Cumulative |
+| :--- | :--- | :---: | :---: |
+| 1 | Linear chain: State 01 to 02 to 100 | 99 | 99 |
+| 2 | Back to initial every 10th state | 10 | 109 |
+| 3 | Skip-forward by 10 | 9 | 118 |
+| 4 | Skip-forward by 5 | 19 | 137 |
+| 5 | Branch +3 from even-indexed states (fills to 150) | 13 | 150 |
+| 6 | Reverse -2 from tail (safety top-up if under 150) | 0 | 150 |
+
+### Key Design Rules
+```js
+// Deduplication — O(1) per check, no nested loops
+const seen = new Set();
+const addT = (from, to) => {
+  const key = `${from}|${to}`;
+  if (seen.has(key) || from === to) return; // skip duplicates and self-loops
+  seen.add(key);
+  transitions.push(...);
+};
+// State naming — "State 01" to "State 100"
+const pad = n => String(n).padStart(2, '0');
+const nm  = i => `State ${pad(i + 1)}`;
+```
+
+### Performance Observations at 100 States / 150 Transitions
+| Metric | Result |
+| :--- | :--- |
+| Grid render (initial load) | instant |
+| Filter/search response | instant (Array.filter on 100 rows) |
+| Mermaid diagram render | 1-3 sec (CPU layout, expected) |
+| Cell edit latency | instant (content-key memo prevents diagram re-draw on keystroke) |
+| Export JSON | instant |
+
+### To Scale Further
+Change N and target cap in loadStressTest:
+```js
+const N = 150; // states
+for (let i = 0; transitions.length < 200 && ...) // target transitions
+```
+No other changes required — the layered generator fills to any target.
+
+---
+
 ## Key Decision Log
 
 | Decision | Reason |
