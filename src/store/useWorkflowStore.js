@@ -2,74 +2,18 @@ import { create } from 'zustand';
 
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
-// ── Default seed data ──────────────────────────────────────────
-const DEFAULT_WORKFLOW = {
-  id: 'wf-default',
-  name: 'Contract Lifecycle',
-  states: [
-    { id: 's01', name: 'Draft',              initial: true  },
-    { id: 's02', name: 'Under Review',       initial: false },
-    { id: 's03', name: 'Reviewed',           initial: false },
-    { id: 's04', name: 'Approve 50k',        initial: false },
-    { id: 's05', name: 'Approve High',       initial: false },
-    { id: 's06', name: 'Signed Internally',  initial: false },
-    { id: 's07', name: 'Sent to Customer',   initial: false },
-    { id: 's08', name: 'Signed by Customer', initial: false },
-    { id: 's09', name: 'About to Expire',    initial: false },
-    { id: 's10', name: 'Expired',            initial: false },
-    { id: 's11', name: 'Discarded',          initial: false },
-  ],
-  transitions: [
-    { id: 't01', from: 'Draft',              to: 'Under Review',       conditions: null, permissions: null },
-    { id: 't02', from: 'Under Review',       to: 'Reviewed',           conditions: null, permissions: null },
-    { id: 't03', from: 'Under Review',       to: 'Draft',              conditions: null, permissions: null },
-    { id: 't04', from: 'Reviewed',           to: 'Approve 50k',        conditions: null, permissions: null },
-    { id: 't05', from: 'Reviewed',           to: 'Approve High',       conditions: null, permissions: null },
-    { id: 't06', from: 'Approve 50k',        to: 'Signed Internally',  conditions: null, permissions: null },
-    { id: 't07', from: 'Approve High',       to: 'Signed Internally',  conditions: null, permissions: null },
-    { id: 't08', from: 'Signed Internally',  to: 'Sent to Customer',   conditions: null, permissions: null },
-    { id: 't09', from: 'Sent to Customer',   to: 'Signed by Customer', conditions: null, permissions: null },
-    { id: 't10', from: 'Signed by Customer', to: 'About to Expire',    conditions: null, permissions: null },
-    { id: 't11', from: 'About to Expire',    to: 'Expired',            conditions: null, permissions: null },
-    { id: 't12', from: 'Draft',              to: 'Discarded',          conditions: null, permissions: null },
-    { id: 't13', from: 'Under Review',       to: 'Discarded',          conditions: null, permissions: null },
-    { id: 't14', from: 'Reviewed',           to: 'Discarded',          conditions: null, permissions: null },
-    { id: 't15', from: 'Discarded',          to: 'Draft',              conditions: null, permissions: null },
-  ],
-};
-
-const DEFAULT_USERS = [
-  { id: 'u01', name: 'Bill Ward',      role: 'CEO',             email: 'bill.ward@acme.com',      isCM: true  },
-  { id: 'u02', name: 'Betty Black',    role: 'CFO',             email: 'betty.black@acme.com',    isCM: true  },
-  { id: 'u03', name: 'Molly Chambers', role: 'Sales Director',  email: 'molly.chambers@acme.com', isCM: true  },
-  { id: 'u04', name: 'Raymond Oakley', role: 'Sales Engineer',  email: 'raymond.oakley@acme.com', isCM: false },
-  { id: 'u05', name: 'Tom McKenzie',   role: 'Service Manager', email: 'tom.mckenzie@acme.com',   isCM: false },
-];
-
-const DEFAULT_PROPERTIES = [
-  { id: 'p01', name: 'Contract Title',  type: 'Text',    required: true  },
-  { id: 'p02', name: 'Contract Number', type: 'Integer', required: true  },
-  { id: 'p03', name: 'Contract Value',  type: 'Decimal', required: true  },
-  { id: 'p04', name: 'Customer',        type: 'Lookup',  required: true  },
-  { id: 'p05', name: 'Contract Owner',  type: 'Lookup',  required: true  },
-  { id: 'p06', name: 'Effective Date',  type: 'Date',    required: false },
-  { id: 'p07', name: 'Expiration Date', type: 'Date',    required: false },
-];
-
-const DEFAULT_RULES = [
-  { id: 'r01', text: 'Service Agreements over 50,000 euros require Executive Management approval' },
-  { id: 'r02', text: 'Only Contract Managers can create and edit contracts' },
-  { id: 'r03', text: 'All users can view all contracts at all times' },
-  { id: 'r04', text: 'Signed contracts are converted to PDF and locked from editing' },
-];
+// ── Blank initial state ─────────────────────────────────────────
+// No demo data. Use ⚡ Stress Test to populate, or build from scratch.
+const BLANK_ID = 'wf-1';
 
 const fresh = () => ({
-  workflows:  [JSON.parse(JSON.stringify(DEFAULT_WORKFLOW))],
-  activeId:   'wf-default',
-  users:      JSON.parse(JSON.stringify(DEFAULT_USERS)),
-  properties: JSON.parse(JSON.stringify(DEFAULT_PROPERTIES)),
-  rules:      JSON.parse(JSON.stringify(DEFAULT_RULES)),
+  workflows:  [{ id: BLANK_ID, name: 'New Workflow', states: [], transitions: [] }],
+  activeId:   BLANK_ID,
+  users:      [],
+  properties: [],
+  rules:      [],
 });
+
 
 // ── Store ─────────────────────────────────────────────────────
 export const useWorkflowStore = create((set, get) => ({
