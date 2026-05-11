@@ -131,10 +131,12 @@ function addClicks(el, onNode, onEdge, edgeMap) {
   const allTransPaths = [...svg.querySelectorAll('path.transition')];
   const transPaths = allTransPaths.filter(p => !p.getAttribute('marker-start'));
 
-  // Create a top-level ghost overlay group (renders above everything)
+  // Remove any stale ghost overlays from previous renders before adding new ones
+  svg.querySelectorAll('.ghost-overlay').forEach(g => g.remove());
+  // Create a top-level ghost overlay group — appended last so it renders above all nodes
   const ghostLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   ghostLayer.setAttribute('class', 'ghost-overlay');
-  svg.querySelector('g')?.appendChild(ghostLayer) || svg.appendChild(ghostLayer);
+  svg.appendChild(ghostLayer);
 
   transPaths.forEach((p, idx) => {
     const entry = edgeMap[idx];
@@ -275,8 +277,11 @@ export default function CommandCenter() {
     if(!diagRef.current) return;
     if(selTrans==null){
       const svg=diagRef.current.querySelector('svg');
-      svg?.querySelectorAll('.edgePath path,.transition-state-end path').forEach(p=>{
-        p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
+      // Use correct selector for stateDiagram-v2 (not .edgePath which is flowchart-only)
+      svg?.querySelectorAll('path.transition').forEach(p=>{
+        if(!p.getAttribute('marker-start')){
+          p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
+        }
       });
     } else {
       // Pass edgeMap from ref so highlightEdge can find the correct SVG edge by name
