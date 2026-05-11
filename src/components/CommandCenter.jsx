@@ -210,7 +210,18 @@ export default function CommandCenter() {
   },[mermaidStr,centerView,resetKey]);
 
   useEffect(()=>{if(diagRef.current)highlightNode(diagRef.current,sel);},[sel]);
-  useEffect(()=>{if(diagRef.current)highlightEdge(diagRef.current,selTrans);},[selTrans]);
+  useEffect(()=>{
+    if(!diagRef.current) return;
+    if(selTrans==null){
+      // Reset all edge highlights
+      const svg=diagRef.current.querySelector('svg');
+      svg?.querySelectorAll('.edgePath path,.transition-state-end path').forEach(p=>{
+        p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
+      });
+    } else {
+      highlightEdge(diagRef.current,selTrans);
+    }
+  },[selTrans]);
 
   const changeMode=m=>{setMode(m);setLog([]);setSel('');};
   const applyExtracted=r=>{
@@ -376,9 +387,11 @@ export default function CommandCenter() {
             {/* Transitions */}
             <Sec icon="→" title="Transitions" count={wf?.transitions.length||0} isOpen={open.trans} onToggle={()=>tog('trans')} onAdd={()=>wf&&addTransition(activeId)}>
               {wf?.transitions.length>0&&<table className="inline-mini"><thead><tr><th>From</th><th>To</th><th style={{width:22}}/></tr></thead>
-                <tbody>{wf.transitions.map((t,i)=>(<tr key={t.id} className={`trans-row ${selTrans===i?'sel-row':''}`} onClick={()=>{setSelTrans(i);setSel('');}}>
-                  <td><input value={t.from} placeholder="From…" onChange={e=>updateTransition(activeId,t.id,{from:e.target.value})}/></td>
-                  <td><input value={t.to} placeholder="To…" onChange={e=>updateTransition(activeId,t.id,{to:e.target.value})}/></td>
+                <tbody>{wf.transitions.map((t,i)=>(<tr key={t.id} className={`trans-row ${selTrans===i?'sel-row':''}`}
+                  onClick={()=>{setSel('');setSelTrans(i);setOpen(o=>({...o,trans:true}));
+                    setTimeout(()=>{const rows=document.querySelectorAll('.trans-row');if(rows[i])rows[i].scrollIntoView({behavior:'smooth',block:'nearest'});},50);}}>
+                  <td><input value={t.from} placeholder="From…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{from:e.target.value})}/></td>
+                  <td><input value={t.to} placeholder="To…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{to:e.target.value})}/></td>
                   <td><button className="mini-del" onClick={e=>{e.stopPropagation();deleteTransition(activeId,t.id);}}>✕</button></td>
                 </tr>))}</tbody>
               </table>}
@@ -433,10 +446,10 @@ export default function CommandCenter() {
             </div>
           </div>
           {centerView==='diagram'&&(
-            <div className="diagram-wrap">
+            <div className="diagram-wrap" onClick={()=>{setSel('');setSelTrans(null);}}>
               {!mermaidStr
                 ?<div className="cc-empty"><div className="cc-empty-icon">⬡</div><div>Add states to see the diagram<br/><span style={{fontSize:9,color:'var(--dim)'}}>Mark one state as Initial</span></div></div>
-                :<div ref={diagRef} style={{width:'100%'}}/>}
+                :<div ref={diagRef} style={{width:'100%'}} onClick={e=>e.stopPropagation()}/>}
             </div>
           )}
           {centerView==='json'&&(
