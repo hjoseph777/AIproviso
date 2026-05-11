@@ -125,26 +125,28 @@ function addClicks(el, onNode, onEdge, edgeMap) {
   });
 
   // ── Transition arrow clicks ──
-  // stateDiagram-v2 renders each transition as a direct <path class="transition">
-  // (no g.edgePath wrapper — that only exists in flowchart diagrams).
-  // Initial [*]→State arrows also get class "transition" but have a marker-start
-  // attribute pointing to the start-circle symbol. Real transitions do NOT.
+  // Ghost paths go into an overlay <g> appended at the END of the SVG so they
+  // render ABOVE all nodes and arrowheads. This prevents the race condition where
+  // clicking near an arrowhead fires both onEdge (ghost) and onNode simultaneously.
   const allTransPaths = [...svg.querySelectorAll('path.transition')];
   const transPaths = allTransPaths.filter(p => !p.getAttribute('marker-start'));
+
+  // Create a top-level ghost overlay group (renders above everything)
+  const ghostLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  ghostLayer.setAttribute('class', 'ghost-overlay');
+  svg.querySelector('g')?.appendChild(ghostLayer) || svg.appendChild(ghostLayer);
 
   transPaths.forEach((p, idx) => {
     const entry = edgeMap[idx];
     if (!entry) return;
-    // Ghost path: wide transparent stroke for easy clicking, no visual markers
     const ghost = p.cloneNode(false);
     ghost.removeAttribute('id');
     ghost.removeAttribute('marker-end');
     ghost.removeAttribute('marker-start');
     ghost.removeAttribute('marker-mid');
-    ghost.style.cssText = 'stroke-width:20px;stroke:transparent;fill:none;cursor:pointer;pointer-events:stroke';
+    ghost.style.cssText = 'stroke-width:32px;stroke:transparent;fill:transparent;cursor:pointer;pointer-events:all';
     ghost.onclick = e => { e.stopPropagation(); onEdge(entry); };
-    // Insert AFTER real path so it sits on top for click interception
-    p.parentNode.insertBefore(ghost, p.nextSibling);
+    ghostLayer.appendChild(ghost); // top layer — wins over nodes
   });
 }
 
