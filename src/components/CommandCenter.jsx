@@ -180,9 +180,12 @@ export default function CommandCenter() {
   const [mfVault,setMfVault]=useState('{E7E445BE-3AEF-425F-9D4D-BFCC33008C9E}');
   const [mfAuth,setMfAuth]=useState('windows'), [mfUser,setMfUser]=useState(''), [mfPass,setMfPass]=useState('');
   const [open,setOpen]=useState({states:true,trans:true,users:false,props:false,rules:false});
+  const [stateFilter,setStateFilter]=useState(''), [transFilter,setTransFilter]=useState('');
   const [editTabId,setEditTabId]=useState(null), [tabDraft,setTabDraft]=useState('');
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
+  const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
+  const filteredTrans=(wf?.transitions||[]).filter(t=>!transFilter||t.from.toLowerCase().includes(transFilter.toLowerCase())||t.to.toLowerCase().includes(transFilter.toLowerCase()));
   const {exportJSON}=useExport();
   const diagRef=useRef(null), rcRef=useRef(0);
   const tog=k=>setOpen(o=>({...o,[k]:!o[k]}));
@@ -286,7 +289,7 @@ export default function CommandCenter() {
     }catch(e){addLog(`Error: ${e.message}`,'error');}
     setBusy(false);
   };
-  const handleReset=()=>{resetAll();setLog([]);setSel('');setSelTrans(null);setMfLog([]);setMfOk(null);setSaved(false);setResetKey(k=>k+1);};
+  const handleReset=()=>{resetAll();setLog([]);setSel('');setSelTrans(null);setMfLog([]);setMfOk(null);setSaved(false);setResetKey(k=>k+1);setStateFilter('');setTransFilter('');};
   const handleSave=()=>{exportJSON();setSaved(true);setSaveFlash(true);setTimeout(()=>setSaveFlash(false),2000);};
   const handleSOW=()=>{if(wf?.states.length)dl(buildSOW(wf,users,properties,rules),`${(wf.name||'sow').replace(/\s+/g,'_')}.md`);};
   const handlePRD=()=>{if(wf?.states.length)dl(buildPRD(wf,users,properties,rules),`${(wf.name||'prd').replace(/\s+/g,'_')}_PRD.md`);};
@@ -392,26 +395,55 @@ export default function CommandCenter() {
           {/* Sections — States, Transitions, Users, Props, Rules */}
           <div className="cc-col-body">
             {/* States */}
-            <Sec icon="○" title="States" count={wf?.states.length||0} isOpen={open.states} onToggle={()=>tog('states')} onAdd={()=>wf&&addState(activeId)}>
+            <Sec icon="○" title="States" count={wf?.states.length||0} isOpen={open.states} onToggle={()=>tog('states')} onAdd={()=>wf&&addState(activeId)}
+              filterSlot={open.states&&(
+                <input className="sec-filter" placeholder="Filter states…" value={stateFilter}
+                  onClick={e=>e.stopPropagation()}
+                  onChange={e=>setStateFilter(e.target.value)}
+                  onKeyDown={e=>{if(e.key==='Escape')setStateFilter('');e.stopPropagation();}}/>
+              )}>
               {wf?.states.length>0&&<table className="inline-mini"><thead><tr><th>Name</th><th style={{width:50}}>Initial</th><th style={{width:22}}/></tr></thead>
-                <tbody>{wf.states.map(s=>(<tr key={s.id} className={sel===s.name?'sel-row':''} onClick={()=>setSel(s.name)}>
-                  <td><input value={s.name} placeholder="State name…" onChange={e=>renameState(activeId,s.id,e.target.value)}/></td>
-                  <td><div className="mini-check"><input type="checkbox" checked={!!s.initial} onChange={e=>updateState(activeId,s.id,{initial:e.target.checked})}/></div></td>
-                  <td><button className="mini-del" onClick={e=>{e.stopPropagation();const r=deleteState(activeId,s.id);if(!r?.ok)alert(r?.error);}}>✕</button></td>
-                </tr>))}</tbody>
+                <tbody>
+                  {filteredStates.map(s=>(<tr key={s.id} className={sel===s.name?'sel-row':''} onClick={()=>setSel(s.name)}>
+                    <td><input value={s.name} placeholder="State name…" onChange={e=>renameState(activeId,s.id,e.target.value)}/></td>
+                    <td><div className="mini-check"><input type="checkbox" checked={!!s.initial} onChange={e=>updateState(activeId,s.id,{initial:e.target.checked})}/></div></td>
+                    <td><button className="mini-del" onClick={e=>{e.stopPropagation();const r=deleteState(activeId,s.id);if(!r?.ok)alert(r?.error);}}>✕</button></td>
+                  </tr>))}
+                  <tr className="ghost-row"><td colSpan={3}>
+                    {stateFilter
+                      ?`${filteredStates.length} of ${wf.states.length} shown — ESC to clear`
+                      :`─ ─  ${wf.states.length} state${wf.states.length!==1?'s':''} · click + Add for more  ─ ─`}
+                  </td></tr>
+                </tbody>
               </table>}
             </Sec>
 
             {/* Transitions */}
-            <Sec icon="→" title="Transitions" count={wf?.transitions.length||0} isOpen={open.trans} onToggle={()=>tog('trans')} onAdd={()=>wf&&addTransition(activeId)}>
+            <Sec icon="→" title="Transitions" count={wf?.transitions.length||0} isOpen={open.trans} onToggle={()=>tog('trans')} onAdd={()=>wf&&addTransition(activeId)}
+              filterSlot={open.trans&&(
+                <input className="sec-filter" placeholder="Filter transitions…" value={transFilter}
+                  onClick={e=>e.stopPropagation()}
+                  onChange={e=>setTransFilter(e.target.value)}
+                  onKeyDown={e=>{if(e.key==='Escape')setTransFilter('');e.stopPropagation();}}/>
+              )}>
               {wf?.transitions.length>0&&<table className="inline-mini"><thead><tr><th>From</th><th>To</th><th style={{width:22}}/></tr></thead>
-                <tbody>{wf.transitions.map((t,i)=>(<tr key={t.id} className={`trans-row ${selTrans===i?'sel-row':''}`}
-                  onClick={()=>{setSel('');setSelTrans(i);setOpen(o=>({...o,trans:true}));
-                    setTimeout(()=>{const rows=document.querySelectorAll('.trans-row');if(rows[i])rows[i].scrollIntoView({behavior:'smooth',block:'nearest'});},50);}}>
-                  <td><input value={t.from} placeholder="From…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{from:e.target.value})}/></td>
-                  <td><input value={t.to} placeholder="To…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{to:e.target.value})}/></td>
-                  <td><button className="mini-del" onClick={e=>{e.stopPropagation();deleteTransition(activeId,t.id);}}>✕</button></td>
-                </tr>))}</tbody>
+                <tbody>
+                  {filteredTrans.map((t,i)=>{
+                    const realIdx=(wf?.transitions||[]).findIndex(x=>x.id===t.id);
+                    return(<tr key={t.id} className={`trans-row ${selTrans===realIdx?'sel-row':''}`}
+                      onClick={()=>{setSel('');setSelTrans(realIdx);setOpen(o=>({...o,trans:true}));
+                        setTimeout(()=>{const rows=document.querySelectorAll('.trans-row');if(rows[realIdx])rows[realIdx].scrollIntoView({behavior:'smooth',block:'nearest'});},50);}}>
+                      <td><input value={t.from} placeholder="From…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{from:e.target.value})}/></td>
+                      <td><input value={t.to} placeholder="To…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{to:e.target.value})}/></td>
+                      <td><button className="mini-del" onClick={e=>{e.stopPropagation();deleteTransition(activeId,t.id);}}>✕</button></td>
+                    </tr>);
+                  })}
+                  <tr className="ghost-row"><td colSpan={3}>
+                    {transFilter
+                      ?`${filteredTrans.length} of ${wf.transitions.length} shown — ESC to clear`
+                      :`─ ─  ${wf.transitions.length} transition${wf.transitions.length!==1?'s':''} · click + Add for more  ─ ─`}
+                  </td></tr>
+                </tbody>
               </table>}
             </Sec>
 
@@ -549,7 +581,7 @@ export default function CommandCenter() {
   );
 }
 
-function Sec({icon,title,count,isOpen,onToggle,onAdd,children}){
+function Sec({icon,title,count,isOpen,onToggle,onAdd,filterSlot,children}){
   return(
     <div className="cc-sec">
       <div className="cc-sec-hd" onClick={onToggle}>
@@ -557,6 +589,7 @@ function Sec({icon,title,count,isOpen,onToggle,onAdd,children}){
         <span className="cc-sec-icon">{icon}</span>
         <span className="cc-sec-title">{title}</span>
         <span className="cc-sec-count">{count} rows</span>
+        {filterSlot}
         <button className="cc-sec-add" onClick={e=>{e.stopPropagation();onAdd();}}>+ Add</button>
       </div>
       {isOpen&&<div>{children||<div style={{padding:'6px 12px 8px',fontSize:9,color:'var(--dim)',fontStyle:'italic'}}>No {title.toLowerCase()} yet — click + Add</div>}</div>}

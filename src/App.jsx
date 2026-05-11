@@ -71,6 +71,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .mini-del:hover{color:var(--red)}
 .mini-check{display:flex;align-items:center;justify-content:center;padding:4px}
 .mini-check input[type=checkbox]{width:12px;height:12px;cursor:pointer;accent-color:var(--accent)}
+.sec-filter{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 7px;font-family:var(--mono);font-size:9px;color:var(--text);outline:none;width:120px;flex-shrink:0;transition:border-color .15s}
+.sec-filter:focus{border-color:var(--a2)}
+.sec-filter::placeholder{color:var(--dim)}
+.ghost-row td{padding:6px 10px;font-size:8.5px;color:var(--dim);text-align:center;font-style:italic;background:var(--s3);border-top:1px solid var(--border)}
 
 /* ── Parse input panel ── */
 .parse-panel{padding:12px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;border-bottom:1px solid var(--border)}
