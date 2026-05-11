@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { useMermaid } from '../hooks/useMermaid';
 import { useExport } from '../hooks/useExport';
@@ -164,7 +164,7 @@ export default function CommandCenter() {
   const [log,setLog]=useState([]), [busy,setBusy]=useState(false);
   const [sel,setSel]=useState(''), [selTrans,setSelTrans]=useState(null);
   const [centerView,setCenterView]=useState('diagram'), [resetKey,setResetKey]=useState(0);
-  const [saveFlash,setSaveFlash]=useState(false);
+  const [saveFlash,setSaveFlash]=useState(false), [hasSaved,setHasSaved]=useState(false);
   const [mfLog,setMfLog]=useState([]), [mfBusy,setMfBusy]=useState(false), [mfOk,setMfOk]=useState(null);
   const [mfAdv,setMfAdv]=useState(false), [mfServer,setMfServer]=useState('localhost');
   const [mfVault,setMfVault]=useState('{E7E445BE-3AEF-425F-9D4D-BFCC33008C9E}');
@@ -276,8 +276,8 @@ export default function CommandCenter() {
     }catch(e){addLog(`Error: ${e.message}`,'error');}
     setBusy(false);
   };
-  const handleReset=()=>{resetAll();setLog([]);setSel('');setMfLog([]);setMfOk(null);setResetKey(k=>k+1);};
-  const handleSave=()=>{exportJSON();setSaveFlash(true);setTimeout(()=>setSaveFlash(false),2000);};
+  const handleReset=()=>{resetAll();setLog([]);setSel('');setMfLog([]);setMfOk(null);setHasSaved(false);setResetKey(k=>k+1);};
+  const handleSave=()=>{exportJSON();setSaveFlash(true);setHasSaved(true);setTimeout(()=>setSaveFlash(false),2000);};
   const handleSOW=()=>{if(wf?.states.length)dl(buildSOW(wf,users,properties,rules),`${(wf.name||'sow').replace(/\s+/g,'_')}.md`);};
   const handlePRD=()=>{if(wf?.states.length)dl(buildPRD(wf,users,properties,rules),`${(wf.name||'prd').replace(/\s+/g,'_')}_PRD.md`);};
   const handleMFiles=async()=>{
@@ -470,13 +470,10 @@ export default function CommandCenter() {
             </div>
           )}
         </div>
-
-        {/* ═══ RIGHT — DELIVER ═══ */}
+        {/* RIGHT - DELIVER */}
         <div className="cc-right">
           <div className="cc-col-head"><span className="cc-col-lbl">Deliver</span></div>
           <div className="cc-col-body">
-
-            {/* SOW */}
             <div className="deliver-section">
               <div className="deliver-section-lbl">Documents</div>
               <div className="deliver-row">
@@ -493,19 +490,9 @@ export default function CommandCenter() {
                   <div className="deliver-title">PRD</div>
                   <div className="deliver-sub">Product Requirements · .md</div>
                 </div>
-                <button className={`xb ${hasRules?'green':''}`} disabled={!hasSates} onClick={handlePRD}>↓</button>
-              </div>
-              <div className="deliver-row">
-                <div className="deliver-icon">📦</div>
-                <div className="deliver-info">
-                  <div className="deliver-title">JSON Export</div>
-                  <div className="deliver-sub">Full store · M-Files format</div>
-                </div>
-                <button className="xb" onClick={exportJSON}>↓</button>
+                <button className={`xb ${hasSates?'green':''}`} disabled={!hasSates} onClick={handlePRD}>↓</button>
               </div>
             </div>
-
-            {/* M-Files */}
             <div className="deliver-section">
               <div className="deliver-section-lbl">M-Files Vault</div>
               <button onClick={()=>setMfAdv(a=>!a)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--mid)',fontSize:9,fontFamily:'var(--mono)',padding:'2px 0',marginBottom:4,textAlign:'left'}}>
@@ -525,10 +512,15 @@ export default function CommandCenter() {
                   <input className="mf-input" type="password" value={mfPass} onChange={e=>setMfPass(e.target.value)} placeholder="Password"/>
                 </>}
               </div>}
-              <button className={`xb ${mfOk===true?'green':mfOk===false?'':'blue'}`} style={{width:'100%',padding:'9px 0',fontSize:11,marginTop:4}} onClick={handleMFiles} disabled={mfBusy||!saveFlash&&!mfOk}>
-                {mfBusy?<><span className="spin"/> Pushing…</>:mfOk===true?'✓ Ingested':mfOk===false?'✗ Retry':'→ Push to M-Files'}
+              <button
+                className={`xb ${mfOk===true?'green':hasSaved?'blue':''}`}
+                style={{width:'100%',padding:'9px 0',fontSize:11,marginTop:8}}
+                onClick={handleMFiles}
+                disabled={mfBusy||!hasSaved}
+              >
+                {mfBusy?<><span className="spin"/> Pushing...</>:mfOk===true?'✓ Ingested':mfOk===false?'✗ Retry':'→ Push to M-Files'}
               </button>
-              {!saveFlash&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--dim)',marginTop:4,lineHeight:1.6}}>Click "Review & Save" first to enable push</div>}
+              {!hasSaved&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--dim)',marginTop:4,lineHeight:1.6}}>Click "Review and Save" to enable push</div>}
               {mfLog.length>0&&<div className="mf-log">{mfLog.map((l,i)=><div key={i} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
           </div>
