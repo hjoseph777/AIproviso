@@ -296,7 +296,15 @@ export default function CommandCenter() {
     if(!window.mfiles){addMfLog('window.mfiles not found — run in Electron','error');setMfBusy(false);return;}
     window.mfiles.offProgress(); window.mfiles.onProgress(msg=>addMfLog(msg));
     try{
-      const json={workflows:workflows.map(w=>({id:w.id,name:w.name,states:w.states.map(s=>({name:s.name,initial:s.initial})),transitions:w.transitions.map(t=>({from:t.from,to:t.to,conditions:t.conditions||null,permissions:t.permissions||null}))})),users:users.map(u=>({name:u.name,role:u.role,email:u.email,isContractManager:u.isCM})),properties:properties.map(p=>({name:p.name,type:p.type,required:p.required})),rules:rules.map(r=>r.text).filter(Boolean)};
+      // Script expects: { name, states:[{name,initial}], transitions:[{from,to}] }
+      // or an array of that shape. Send active workflow only.
+      if(!wf?.states.length){addMfLog('No states to push — add states first','error');setMfBusy(false);return;}
+      const json={
+        name: wf.name||'Unnamed Workflow',
+        states: wf.states.map(s=>({name:s.name, initial:!!s.initial})),
+        transitions: wf.transitions.map(t=>({from:t.from, to:t.to, ...(t.conditions?{conditions:t.conditions}:{}), ...(t.permissions?{allowedUsers:t.permissions}:{})})),
+      };
+      addMfLog(`Pushing "${json.name}" — ${json.states.length} states, ${json.transitions.length} transitions`);
       const res=await window.mfiles.pushWorkflow({json,vaultGuid:mfVault,server:mfServer,authType:mfAuth,username:mfUser,password:mfPass});
       setMfOk(res.ok); addMfLog(res.ok?'✓ Ingested successfully':'✗ Ingest failed',res.ok?'ok':'error');
     }catch(e){addMfLog(`Error: ${e.message}`,'error');setMfOk(false);}
