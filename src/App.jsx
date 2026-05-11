@@ -161,6 +161,22 @@ tr.selected .row-idx{color:var(--a3);font-weight:700}
 
 /* PRD screen */
 .prd-screen{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+
+/* SOW template sections */
+.sow-section{border-bottom:1px solid rgba(255,255,255,.04)}
+.sow-section-hd{display:flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;user-select:none;transition:background .15s}
+.sow-section-hd:hover{background:rgba(255,255,255,.025)}
+.sow-sec-icon{font-size:11px;color:var(--mid);width:14px;text-align:center;flex-shrink:0}
+.sow-sec-lbl{font-size:11px;font-weight:600;color:var(--text);flex:1}
+.sow-sec-count{font-size:9px;color:var(--dim);font-family:var(--mono)}
+.sow-sec-chev{font-size:10px;color:var(--dim);margin-left:6px}
+.sow-sec-body{padding:0 16px 10px}
+.sow-sec-empty{padding:6px 16px 10px;font-size:9.5px;color:var(--dim);font-style:italic}
+.sow-mini-table{width:100%;border-collapse:collapse;font-size:9.5px}
+.sow-mini-table th{color:var(--mid);font-weight:500;padding:4px 8px;text-align:left;border-bottom:1px solid var(--border);font-size:8.5px;letter-spacing:.5px;text-transform:uppercase}
+.sow-mini-table td{color:var(--text);padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.03);font-family:var(--mono);font-size:9px}
+.sow-mini-table tr:hover td{background:rgba(255,255,255,.02)}
+
 .prd-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
 .prd-preview{flex:1;overflow:auto;padding:18px 22px;font-size:12px;line-height:1.8;color:var(--text)}
 .prd-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:11px;gap:12px;text-align:center;line-height:1.7}

@@ -4,6 +4,21 @@ import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# =============================================================================
+# FUTURE UPDATE MEMO
+# Feature:  Cacoo Diagram Import (XML -> Workflow JSON)
+# Status:   Preserved for Phase 2/3 implementation
+# Purpose:  Allow users to import an existing Cacoo state-diagram directly
+#           into Proviso instead of building the workflow manually.
+#           The /api/cacoo-fetch endpoint fetches the diagram XML from the
+#           Cacoo API and transforms it into the Proviso workflow JSON format
+#           { name, states[], transitions[] } ready for vault ingestion.
+# TODO:     1. Complete parse_cacoo_xml() with real Cacoo XML shape/line schema
+#           2. Wire a "Import from Cacoo" button into WorkflowEditor.jsx
+#           3. Call this Flask endpoint from Electron main.cjs via fetch()
+#           4. Map parsed diagram to useWorkflowStore.addWorkflow() payload
+# =============================================================================
+
 app = Flask(__name__)
 CORS(app)
 

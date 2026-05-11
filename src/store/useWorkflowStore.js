@@ -47,8 +47,8 @@ const SERVICE_AGREEMENT = {
 const fresh = () => ({
   workflows: [
     JSON.parse(JSON.stringify(SERVICE_AGREEMENT)),
-    { id: 'wf-a', name: 'Workflow A \u00b7 25 States',  states: [], transitions: [] },
-    { id: 'wf-b', name: 'Workflow B \u00b7 100 States', states: [], transitions: [] },
+    { id: 'wf-a', name: 'Workflow A | 25 States',  states: [], transitions: [] },
+    { id: 'wf-b', name: 'Workflow B | 100 States', states: [], transitions: [] },
   ],
   activeId:   'wf-sa',
   users:      [],
@@ -227,6 +227,26 @@ export const useWorkflowStore = create((set, get) => ({
     rules: s.rules.map(r => r.id !== id ? r : { ...r, text })
   })),
   deleteRule: (id) => set(s => ({ rules: s.rules.filter(r => r.id !== id) })),
+
+  // ── Import from SOW parser (NLP / AI / Cacoo) ──────────────────
+  // Accepts a fully-parsed object and adds it as a new workflow tab,
+  // merging users/properties/rules into the global store arrays.
+  importWorkflow: ({ workflow, users = [], properties = [], rules = [] }) => {
+    const wf = {
+      id:          makeId(),
+      name:        workflow.name || 'Imported Workflow',
+      states:      (workflow.states      || []).map(s => ({ id: makeId(), ...s })),
+      transitions: (workflow.transitions || []).map(t => ({ id: makeId(), ...t })),
+    };
+    set(s => ({
+      workflows:  [...s.workflows, wf],
+      activeId:   wf.id,
+      users:      [...s.users,      ...users.map(u => ({ id: makeId(), ...u }))],
+      properties: [...s.properties, ...properties.map(p => ({ id: makeId(), ...p }))],
+      rules:      [...s.rules,      ...rules.map(r => ({ id: makeId(), ...r }))],
+    }));
+    return wf.id;
+  },
 
   // ── Reset everything ───────────────────────────────────────
   resetAll: () => set(fresh()),

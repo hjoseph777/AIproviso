@@ -17,6 +17,18 @@ export const useExport = () => {
         tool:        'Proviso Workflow Designer',
         target:      'M-Files COM API',
       },
+      // ── Vault push payload (workflows only) ────────────────────────
+      // NOTE: Only workflows[].{name, states, transitions} are consumed
+      // by push-to-vault.ps1 during M-Files ingestion.
+      //
+      // The fields below (users, properties, rules) are included in the
+      // exported JSON for human-readable SOW documentation and are intentionally
+      // NOT pushed to the vault in Phase 1.
+      //
+      // FUTURE UPDATE — Phase 2:
+      //   - users[]      → vault LoginAccounts / UserGroups (ACL setup)
+      //   - properties[] → vault PropertyDefinitions (metadata card)
+      //   - rules[]      → state Preconditions / transition TriggerCriteria
       workflows: workflows.map(wf => ({
         id:          wf.id,
         name:        wf.name,

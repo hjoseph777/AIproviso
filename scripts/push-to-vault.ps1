@@ -1,149 +1,119 @@
-<#
-.SYNOPSIS
-    Proviso — Push workflow JSON into an M-Files vault via COM API
-.PARAMETER JsonPath      Path to the temp JSON file
-.PARAMETER VaultGuid     M-Files vault GUID
-.PARAMETER ServerAddress M-Files server hostname
-.PARAMETER Port          M-Files TCP port (default 2266)
-.PARAMETER AuthType      "Windows" (SSO) or "MFiles" (credentials)
-.PARAMETER Username      M-Files username  (only used when AuthType=MFiles)
-.PARAMETER Password      M-Files password  (only used when AuthType=MFiles)
-#>
 param(
     [Parameter(Mandatory=$true)] [string]$JsonPath,
-    [string]$VaultGuid     = '{08E9A947-7E05-4722-A890-559D36FDC8FF}',
+    [string]$VaultGuid     = '{E7E445BE-3AEF-425F-9D4D-BFCC33008C9E}',
     [string]$ServerAddress = 'localhost',
     [int]   $Port          = 2266,
-    [string]$AuthType      = 'Windows',    # 'Windows' | 'MFiles'
+    [string]$AuthType      = 'Windows',
     [string]$Username      = '',
-    [string]$Password      = ''
+    [string]$Password      = '',
+    [int]   $LicenseType   = 0
 )
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
 function pLog  { param([string]$m) Write-Output "[PROGRESS] $m"; [Console]::Out.Flush() }
 function pOK   { param([string]$m) Write-Output "[SUCCESS] $m";  [Console]::Out.Flush() }
 function pWarn { param([string]$m) Write-Output "[WARN] $m";     [Console]::Out.Flush() }
 function pErr  { param([string]$m) Write-Output "[ERROR] $m";    [Console]::Out.Flush() }
-
 try {
-    # ── 1. Load & validate JSON ────────────────────────────────────
-    if (-not (Test-Path $JsonPath)) { throw "JSON file not found: $JsonPath" }
+    if (-not (Test-Path $JsonPath)) { throw "JSON not found: $JsonPath" }
     $json = Get-Content $JsonPath -Raw | ConvertFrom-Json
-
-    # Support single workflow object OR array (take first)
-    $wf = if ($json -is [array]) { $json[0] } else { $json }
-
-    if (-not $wf.name)   { throw "Workflow JSON missing 'name' field" }
-    if (-not $wf.states) { throw "Workflow JSON missing 'states' array" }
-
-    pLog "Workflow: '$($wf.name)'  |  $($wf.states.Count) states  |  $($wf.transitions.Count) transitions"
-
-    # ── 2. Connect to M-Files ─────────────────────────────────────
-    pLog "Auth type: $AuthType"
-    pLog "Looking up vault $VaultGuid in registered connections..."
-
-    $app = New-Object -ComObject MFilesAPI.MFilesClientApplication
-
-    # Find the registered VaultConnection by GUID
-    $allConns = $app.GetVaultConnections()
-    $conn = $null
-    foreach ($c in $allConns) {
-        if ($c.GetGUID() -ieq $VaultGuid) { $conn = $c; break }
-    }
-    if (-not $conn) {
-        throw "Vault $VaultGuid is not registered in M-Files Desktop on this machine. Open M-Files Desktop and add the vault connection first."
-    }
-    pLog "Found vault: '$($conn.Name)' ($($conn.GetGUID()))"
-
-    # Test connectivity first
-    $testResult = $conn.TestConnectionToVaultSilent()
-    pLog "Connectivity test: $testResult"
-
+    $wf   = if ($json -is [array]) { $json[0] } else { $json }
+    if (-not $wf.name)   { throw "Missing name" }
+    if (-not $wf.states) { throw "Missing states" }
+    pLog "Workflow: '$($wf.name)'  $($wf.states.Count) states  $($wf.transitions.Count) transitions"
+    pLog "Connecting to $ServerAddress via MFilesServerApplication..."
+    $srvApp = New-Object -ComObject MFilesAPI.MFilesServerApplication
+    $srvApp.ConnectWithoutLogin($null, 'ncacn_ip_tcp', $ServerAddress, [string]$Port, '', '', '') | Out-Null
+    pLog "Transport connected"
     if ($AuthType -ieq 'Windows') {
-        # ── Windows SSO (current logged-on Windows user) ──────────
-        pLog "Using Windows SSO (current Windows identity)"
-        # MFAuthType 0 = MFAuthTypeLoggedOnWindowsUser
-        $vault = $conn.LogInAs(0, 0, $false)
-
+        pLog "Auth: Windows SSO (MFAuthType=1)"
+        $vault = $srvApp.LogInAsUserToVault($VaultGuid, $null, 1, $null, $null, $null)
     } else {
-        # ── M-Files Credentials ───────────────────────────────────
-        if (-not $Username) { throw "Username is required for M-Files authentication" }
-        pLog "Using M-Files credentials (user: $Username)"
-        # MFAuthType 2 = MFAuthTypeSpecificMFilesUser
-        $vault = $conn.LogInAsUser(2, $Username, $Password, $null, $null)
+        if (-not $Username) { throw "Username required for M-Files auth" }
+        pLog "Auth: M-Files credentials (user: $Username)"
+        $vault = $srvApp.LogInAsUserToVault($VaultGuid, $null, 3, $Username, $Password, $null)
     }
-
-    pOK "Authenticated to vault: '$($vault.Name)'"
-
-    # ── 4. Duplicate check (skip if workflow already exists) ───────
-    pLog "Checking for existing workflow with same name..."
+    pOK "Authenticated: '$($vault.Name)'"
+    pLog "Checking for duplicate workflow..."
     $existingWFs = $vault.WorkflowOperations.GetWorkflowsAdmin()
     foreach ($e in $existingWFs) {
-        if ($e.Name -ieq $wf.name) {
-            pWarn "Workflow '$($wf.name)' already exists in vault — skipping to prevent duplicate"
-            pOK   "Done (no changes made)"
+        if ($e.Workflow.Name -ieq $wf.name) {
+            pWarn "Workflow '$($wf.name)' already exists (ID=$($e.Workflow.ID)) - skipping"
+            pOK "Done (no changes made)"
             exit 0
         }
     }
-
-    # ── 5. Build WorkflowAdmin object ─────────────────────────────
-    pLog "Creating WorkflowAdmin object..."
-    $wfAdmin      = New-Object -ComObject MFilesAPI.WorkflowAdmin
-    $wfAdmin.Name = $wf.name
-
-    # ── 6. Add states ─────────────────────────────────────────────
+    pLog "Creating workflow shell: '$($wf.name)'..."
+    $wfAdmin = New-Object -ComObject MFilesAPI.WorkflowAdmin
+    $wfAdmin.Workflow.Name = $wf.name
+    $createdWf = $vault.WorkflowOperations.AddWorkflowAdmin($wfAdmin)
+    $wfId = $createdWf.Workflow.ID
+    pOK "Workflow shell created (ID=$wfId)"
     pLog "Adding $($wf.states.Count) states..."
-    $nameToId = @{}   # maps state name → M-Files state ID
-
+    $nameToStateId = @{}
+    $wfAdminFresh  = $vault.WorkflowOperations.GetWorkflowAdmin($wfId)
     foreach ($s in $wf.states) {
         $stAdmin      = New-Object -ComObject MFilesAPI.StateAdmin
         $stAdmin.Name = $s.name
-
-        $createdState = $wfAdmin.AddStateAdmin($stAdmin)
-        $nameToId[$s.name] = $createdState.ID
-        pLog "  + State '$($s.name)'$(if($s.initial){ ' [INITIAL]' })"
+        if ($s.PSObject.Properties['checkInOutPermissions']) {
+            $stAdmin.CheckInOutPermissions = [bool]$s.checkInOutPermissions
+        } else {
+            $stAdmin.CheckInOutPermissions = $false
+        }
+        if ($s.PSObject.Properties['restrictTransitions']) {
+            $stAdmin.RestrictTransitions = [bool]$s.restrictTransitions
+        }
+        if ($s.PSObject.Properties['preconditions'] -and $s.preconditions.Count -gt 0) {
+            pWarn "    '$($s.name)': $($s.preconditions.Count) precondition(s) require Phase 2 config"
+        }
+        $wfAdminFresh.States.Add(-1, $stAdmin)
+        if ($s.initial) { pLog "  + '$($s.name)' [INITIAL]" } else { pLog "  + '$($s.name)'" }
     }
-
-    # ── 7. Set initial state ───────────────────────────────────────
+    $vault.WorkflowOperations.UpdateWorkflowAdmin($wfAdminFresh) | Out-Null
+    pOK "$($wf.states.Count) states added"
+    $wfFinal = $vault.WorkflowOperations.GetWorkflowAdmin($wfId)
+    foreach ($st in $wfFinal.States) { $nameToStateId[$st.Name] = $st.ID }
+    pLog "State ID map built: $($nameToStateId.Count) entries"
     $initState = $wf.states | Where-Object { $_.initial -eq $true } | Select-Object -First 1
-    if ($initState) {
-        $initId = $nameToId[$initState.name]
-        $wfAdmin.ObjectClass = 0   # document class — may vary
-        $wfAdmin.InitialState = $initId
-        pLog "  → Initial state: '$($initState.name)' (ID=$initId)"
-    } else {
-        pWarn "No initial state flagged — M-Files requires one; set it manually in Admin"
-    }
-
-    # ── 8. Add transitions ────────────────────────────────────────
+    if ($initState -and $nameToStateId.ContainsKey($initState.name)) {
+        $wfInit = $vault.WorkflowOperations.GetWorkflowAdmin($wfId)
+        foreach ($st in $wfInit.States) {
+            if ($st.Name -ieq $initState.name) { $st.StateFlag = 1 }
+        }
+        $vault.WorkflowOperations.UpdateWorkflowAdmin($wfInit) | Out-Null
+        pLog "Initial state set: '$($initState.name)'"
+    } else { pWarn "No initial state found - set manually in M-Files Admin" }
     pLog "Adding $($wf.transitions.Count) transitions..."
     $skipped = 0
+    $wfForTr = $vault.WorkflowOperations.GetWorkflowAdmin($wfId)
     foreach ($t in $wf.transitions) {
-        $fromId = $nameToId[$t.from]
-        $toId   = $nameToId[$t.to]
-        if (-not $fromId) { pWarn "  ⚠ Unknown FROM state '$($t.from)' — skipped"; $skipped++; continue }
-        if (-not $toId)   { pWarn "  ⚠ Unknown TO state '$($t.to)' — skipped";     $skipped++; continue }
-
-        $wfAdmin.AddStateTransitionAdmin($fromId, $toId)
-        pLog "  + $($t.from) → $($t.to)"
+        $fromId = $nameToStateId[$t.from]
+        $toId   = $nameToStateId[$t.to]
+        if (-not $fromId) { pWarn "Unknown FROM '$($t.from)' - skipped"; $skipped++; continue }
+        if (-not $toId)   { pWarn "Unknown TO '$($t.to)' - skipped";     $skipped++; continue }
+        $trAdmin           = New-Object -ComObject MFilesAPI.StateTransition
+        $trAdmin.FromState = $fromId
+        $trAdmin.ToState   = $toId
+        if ($t.PSObject.Properties['name'] -and $t.name) {
+            $trAdmin.Name = $t.name
+        } else {
+            $trAdmin.Name = "$($t.from) to $($t.to)"
+        }
+        if ($t.PSObject.Properties['allowedUsers'] -and $t.allowedUsers.Count -gt 0) {
+            pWarn "    Transition '$($trAdmin.Name)': allowedUsers ACL requires Phase 2 config"
+        }
+        $wfForTr.StateTransitions.Add(-1, $trAdmin)
+        pLog "  + $($t.from) -> $($t.to)"
     }
-    if ($skipped -gt 0) { pWarn "$skipped transition(s) skipped due to unknown state names" }
-
-    # ── 9. Commit to vault ────────────────────────────────────────
-    pLog "Committing workflow to vault..."
-    $savedId = $vault.WorkflowOperations.AddWorkflowAdmin($wfAdmin)
-
+    if ($skipped -lt $wf.transitions.Count) {
+        $vault.WorkflowOperations.UpdateWorkflowAdmin($wfForTr) | Out-Null
+    }
+    if ($skipped -gt 0) { pWarn "$skipped transition(s) skipped" }
     pOK ""
-    pOK "══ SUCCESS ══════════════════════════════════════"
-    pOK "Workflow '$($wf.name)' created  (Vault ID = $savedId)"
-    pOK "$($wf.states.Count) states  ·  $($wf.transitions.Count - $skipped) transitions"
-    pWarn "Conditions and permissions NOT set — configure in M-Files Admin (Phase 2)"
-    pOK "══════════════════════════════════════════════════"
-
+    pOK "SUCCESS: Workflow '$($wf.name)' created (ID=$wfId)"
+    pOK "$($wf.states.Count) states  $($wf.transitions.Count - $skipped) transitions"
+    pWarn "Phase 2: Preconditions, ACLs, and permissions via M-Files Admin"
     exit 0
-
 } catch {
     pErr $_.Exception.Message
     exit 1

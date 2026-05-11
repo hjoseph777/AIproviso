@@ -53,11 +53,11 @@ export default function WorkflowEditor({ onSave }) {
   // Dedicated tabs: wf-a=Low(25/50), wf-b=Max(100/150)
   // Other tabs: use stressMode toggle
   const getStressConfig = () => {
-    if (activeId === 'wf-a') return { N: 25,  target: 50,  hint: '🔥 Load 25 States · 50 Transitions into Workflow A' };
-    if (activeId === 'wf-b') return { N: 100, target: 150, hint: '🔥🔥 Load 100 States · 150 Transitions into Workflow B' };
+    if (activeId === 'wf-a') return { N: 25,  target: 50,  hint: '🔥 Load 25 States / 50 Transitions into Workflow A' };
+    if (activeId === 'wf-b') return { N: 100, target: 150, hint: '🔥🔥 Load 100 States / 150 Transitions into Workflow B' };
     return stressMode === 'low'
-      ? { N: 25,  target: 50,  hint: '🔥 Load: 25 States / 50 Transitions · click again for 100/150' }
-      : { N: 100, target: 150, hint: '🔥🔥 Load: 100 States / 150 Transitions · click again for 25/50' };
+      ? { N: 25,  target: 50,  hint: '🔥 Load: 25 States / 50 Transitions - click again for 100/150' }
+      : { N: 100, target: 150, hint: '🔥🔥 Load: 100 States / 150 Transitions - click again for 25/50' };
   };
 
   const handleStress = () => {
@@ -66,7 +66,7 @@ export default function WorkflowEditor({ onSave }) {
     loadStressTest(activeId, N, target);
     setSelectedState('');
     setResetCount(c => c + 1);
-    setStressFlashLbl(`⚡ ${N} States · ${target} Trans.`);
+    setStressFlashLbl(`⚡ ${N} States / ${target} Trans.`);
     setStressFlash(true);
     setTimeout(() => {
       setStressFlash(false);

@@ -1,18 +1,20 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useWorkflowStore } from '../store/useWorkflowStore';
+import { validateWorkflow } from '../validation/schema';
 
-const VAULT_GUID    = '{08E9A947-7E05-4722-A890-559D36FDC8FF}';
+const VAULT_GUID    = '{E7E445BE-3AEF-425F-9D4D-BFCC33008C9E}';
 const isElectron    = typeof window !== 'undefined' && !!window.mfiles;
 
 export default function IngestWorkflow() {
   const workflows = useWorkflowStore(s => s.workflows);
   const activeId  = useWorkflowStore(s => s.activeId);
 
-  const [server,    setServer]    = useState('localhost');
-  const [vault,     setVault]     = useState(VAULT_GUID);
-  const [authType,  setAuthType]  = useState('windows');   // 'windows' | 'mfiles'
-  const [username,  setUsername]  = useState('admin');
-  const [password,  setPassword]  = useState('');
+  const [server,      setServer]      = useState('localhost');
+  const [vault,       setVault]       = useState(VAULT_GUID);
+  const [authType,    setAuthType]    = useState('windows');   // 'windows' | 'mfiles'
+  const [licenseType, setLicenseType] = useState(0);           // 0=Default, 1=Named, 2=Concurrent, 3=ReadOnly
+  const [username,    setUsername]    = useState('');
+  const [password,    setPassword]    = useState('');
   const [wfId,      setWfId]      = useState(activeId || '');
   const [conning,   setConning]   = useState(false);
   const [connected, setConnected] = useState(false);
@@ -25,24 +27,37 @@ export default function IngestWorkflow() {
                   || workflows[0]
                   || null;
 
+  // Zod referential integrity check — runs on every selectedWf change.
+  // Blocks push if: no initial state, unknown from/to names, duplicate transitions.
+  const validation = useMemo(
+    () => selectedWf ? validateWorkflow(selectedWf) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedWf?.states, selectedWf?.transitions]
+  );
+
   // Auto-scroll log panel
   useEffect(() => { if (lRef.current) lRef.current.scrollTop = lRef.current.scrollHeight; }, [logs]);
+
+  const ts     = () => new Date().toLocaleTimeString('en-CA', { hour12: false });
+  const addLog = (msg, type = 'info') => setLogs(p => [...p, { t: ts(), msg, type }]);
 
   // Subscribe to streaming progress from Electron main process
   useEffect(() => {
     if (!isElectron) return;
-    window.mfiles.onProgress(line => {
-      const type = line.startsWith('[SUCCESS]') ? 'ok'
+    const handler = (line) => {
+      const isAuthConflict = line.includes('AUTH CONFLICT');
+      const type = isAuthConflict             ? 'error'
+                 : line.startsWith('[SUCCESS]') ? 'ok'
                  : line.startsWith('[WARN]')    ? 'warn'
                  : line.startsWith('[ERROR]')   ? 'error'
                  : 'info';
       const msg = line.replace(/^\[(PROGRESS|SUCCESS|WARN|ERROR)\]\s*/, '');
       addLog(msg, type);
-    });
+      if (isAuthConflict) addLog('→ Close M-Files Desktop (system tray) and click Connect again', 'warn');
+    };
+    window.mfiles.onProgress(handler);
+    return () => window.mfiles.offProgress?.();
   }, []);
-
-  const ts     = () => new Date().toLocaleTimeString('en-CA', { hour12: false });
-  const addLog = (msg, type = 'info') => setLogs(p => [...p, { t: ts(), msg, type }]);
 
   // ── Connect (Windows SSO — no password needed) ─────────────────
   const connect = async () => {
@@ -57,7 +72,7 @@ export default function IngestWorkflow() {
     if (isElectron) {
       const res = await window.mfiles.listVaults({
         server: cleanServer, vaultGuid: vault,
-        authType, username, password,
+        authType, username, password, licenseType,
       }).catch(e => ({ ok: false, error: e.message }));
       if (res.ok) {
         setConnected(true);
@@ -83,13 +98,15 @@ export default function IngestWorkflow() {
     setLogs([]);
 
     if (isElectron) {
-      // Real path — Electron IPC → PowerShell → M-Files COM
-      addLog(`Pushing "${selectedWf.name}" to vault...`, 'info');
+      // Immediate feedback while PowerShell cold-starts (~1-2s)
+      addLog(`Initializing COM bridge...`, 'info');
+      addLog(`Workflow: "${selectedWf.name}" · ${selectedWf.states.length} states · ${selectedWf.transitions.length} transitions`, 'info');
+      addLog(`Target: ${server.split('\\')[0].trim()} · ${vault}`, 'info');
       const res = await window.mfiles.pushWorkflow({
         json:      selectedWf,
         vaultGuid: vault,
         server:    server.split('\\')[0].trim(),
-        authType, username, password,
+        authType, username, password, licenseType,
       });
       setStatus(res.ok ? 'done' : 'error');
     } else {
@@ -146,7 +163,15 @@ export default function IngestWorkflow() {
         <div className="stat"><div className={`sv ${selectedWf?.name ? '' : 'off'}`}>{selectedWf?.name ? 1 : 0}</div><div className="sl">Workflow</div></div>
         <div className="stat"><div className={`sv ${selectedWf?.states.length ? '' : 'off'}`}>{selectedWf?.states.length || '—'}</div><div className="sl">States</div></div>
         <div className="stat"><div className={`sv ${selectedWf?.transitions.length ? '' : 'off'}`}>{selectedWf?.transitions.length || '—'}</div><div className="sl">Transitions</div></div>
-        <div className="stat"><div className="sv off">Ph.2</div><div className="sl">Rules</div></div>
+        <div className="stat" title={validation && !validation.valid ? validation.errors.map(e => e.message).join(' · ') : 'Referential integrity OK'}>
+          <div className={`sv ${!validation ? 'off' : validation.valid ? '' : 'off'}`}
+               style={validation && !validation.valid ? {color:'var(--red)',fontSize:18} : {color:'var(--green)'}}>
+            {!validation ? '—' : validation.valid ? '✓' : validation.errors.length}
+          </div>
+          <div className="sl" style={validation && !validation.valid ? {color:'var(--red)'} : {}}>
+            {!validation ? 'Validate' : validation.valid ? 'Valid' : 'Issues'}
+          </div>
+        </div>
       </div>
 
       <div className="card">
@@ -169,6 +194,23 @@ export default function IngestWorkflow() {
                   transition:'all .15s',
                 }}>{lbl}</button>
             ))}
+          </div>
+
+          {/* License type */}
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+            <label style={{fontSize:9,color:'var(--mid)',letterSpacing:'1px',textTransform:'uppercase',whiteSpace:'nowrap'}}>License Type</label>
+            <select
+              id="mfiles-license-type"
+              value={licenseType}
+              onChange={e => { setLicenseType(Number(e.target.value)); setConnected(false); }}
+              disabled={conning}
+              style={{flex:1,fontFamily:'var(--mono)',fontSize:10,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:4,padding:'5px 8px',outline:'none'}}
+            >
+              <option value={0}>Default (server-assigned)</option>
+              <option value={1}>Named User</option>
+              <option value={2}>Concurrent User</option>
+              <option value={3}>Read-Only User</option>
+            </select>
           </div>
           <div className="fields">
             <div>
@@ -217,7 +259,7 @@ export default function IngestWorkflow() {
       <button
         className={`big-btn ${status === 'done' ? 'done' : status === 'error' ? 'error' : ''}`}
         onClick={ingest}
-        disabled={!connected || !selectedWf?.states.length || status === 'running'}
+        disabled={!connected || !selectedWf?.states.length || status === 'running' || (validation && !validation.valid)}
       >
         {status === 'running' ? <><div className="spin"/>Pushing workflow to vault...</>
          : status === 'done'  ? '✓ Ingested — Run Again'
