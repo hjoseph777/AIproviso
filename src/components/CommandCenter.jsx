@@ -143,10 +143,11 @@ function addClicks(el, onNode, onEdge, edgeMap) {
     if (!entry) return;
     const ghost = p.cloneNode(false);
     ghost.removeAttribute('id');
+    ghost.removeAttribute('class');      // CRITICAL: strip class so Mermaid CSS doesn't override our transparent styles
     ghost.removeAttribute('marker-end');
     ghost.removeAttribute('marker-start');
     ghost.removeAttribute('marker-mid');
-    ghost.style.cssText = 'stroke-width:32px;stroke:transparent;fill:transparent;cursor:pointer;pointer-events:all';
+    ghost.style.cssText = 'stroke-width:32px;stroke:transparent;fill:none;cursor:pointer;pointer-events:stroke';
     ghost.onclick = e => { e.stopPropagation(); onEdge(entry); };
     ghostLayer.appendChild(ghost); // top layer — wins over nodes
   });
