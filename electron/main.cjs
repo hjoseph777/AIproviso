@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn }     = require('child_process');
 const { writeFile, unlink } = require('fs/promises');
@@ -127,6 +127,23 @@ ipcMain.handle('mfiles:push', async (event, payload) => {
       resolve({ ok: code === 0, exitCode: code });
     });
   });
+});
+
+// ── IPC: Native Save-As dialog ────────────────────────────────────
+// Renderer sends { content, defaultName, filters }
+// Opens OS save-as dialog, writes file, returns { ok, filePath }
+ipcMain.handle('file:save', async (_event, { content, defaultName, filters }) => {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    defaultPath: defaultName || 'export.md',
+    filters: filters || [
+      { name: 'Markdown', extensions: ['md'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+  if (canceled || !filePath) return { ok: false, cancelled: true };
+  await writeFile(filePath, content, 'utf8');
+  return { ok: true, filePath };
 });
 
 // ── Helper: HTTPS POST from Node (no CORS) ────────────────────────

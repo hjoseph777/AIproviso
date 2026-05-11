@@ -136,10 +136,20 @@ function highlightEdge(el, idx){
   }
 }
 
-function dl(content,filename){
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([content],{type:'text/markdown'}));
-  a.download=filename;a.click();URL.revokeObjectURL(a.href);
+async function dl(content, filename) {
+  if (window.file?.save) {
+    // Electron: native OS Save-As dialog
+    await window.file.save({ content, defaultName: filename });
+  } else {
+    // Browser fallback
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], {type: 'text/markdown'}));
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }
 }
 
 export default function CommandCenter() {

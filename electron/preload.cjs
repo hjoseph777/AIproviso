@@ -22,3 +22,9 @@ contextBridge.exposeInMainWorld('sow', {
   // returns: { ok, raw } | { ok: false, error }
   cacooFetch:    (payload) => ipcRenderer.invoke('sow:cacoo-fetch', payload),
 });
+contextBridge.exposeInMainWorld('file', {
+  // Opens OS Save-As dialog and writes the file
+  // payload: { content, defaultName, filters }
+  // returns: { ok, filePath } | { ok: false, cancelled: true }
+  save: (payload) => ipcRenderer.invoke('file:save', payload),
+});
