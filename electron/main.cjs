@@ -3,7 +3,9 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn }     = require('child_process');
 const { writeFile, unlink } = require('fs/promises');
-const os   = require('os');
+const os    = require('os');
+const https = require('https');
+const http  = require('http');
 
 const isDev  = !app.isPackaged;
 const DEV_URL = 'http://localhost:3000';
@@ -125,4 +127,119 @@ ipcMain.handle('mfiles:push', async (event, payload) => {
       resolve({ ok: code === 0, exitCode: code });
     });
   });
+});
+
+// ── Helper: HTTPS POST from Node (no CORS) ────────────────────────
+function httpsPost(host, urlPath, headers, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req  = https.request(
+      { hostname: host, path: urlPath, method: 'POST',
+        headers: { ...headers, 'Content-Length': Buffer.byteLength(data) } },
+      (res) => {
+        let raw = '';
+        res.on('data', c => { raw += c; });
+        res.on('end', () => {
+          if (res.statusCode >= 400) {
+            try { reject(new Error(JSON.parse(raw)?.error?.message || `HTTP ${res.statusCode}`)); }
+            catch { reject(new Error(`HTTP ${res.statusCode}`)); }
+          } else {
+            try { resolve(JSON.parse(raw)); }
+            catch { reject(new Error('Invalid JSON response')); }
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+// ── Helper: HTTPS GET from Node ───────────────────────────────────
+function httpsGet(host, urlPath, headers) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname: host, path: urlPath, method: 'GET', headers },
+      (res) => {
+        let raw = '';
+        res.on('data', c => { raw += c; });
+        res.on('end', () => {
+          if (res.statusCode >= 400) {
+            try { reject(new Error(JSON.parse(raw)?.message || `HTTP ${res.statusCode}`)); }
+            catch { reject(new Error(`HTTP ${res.statusCode}`)); }
+          } else {
+            try { resolve(JSON.parse(raw)); }
+            catch { reject(new Error('Invalid JSON response')); }
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// ── IPC: Claude SOW extraction ────────────────────────────────────
+// Renderer sends { apiKey, model, systemPrompt, text }
+// Main process calls Anthropic from Node — no CORS, key never leaves main.
+ipcMain.handle('sow:claude-extract', async (_event, { apiKey, model, systemPrompt, text }) => {
+  try {
+    const data = await httpsPost(
+      'api.anthropic.com',
+      '/v1/messages',
+      {
+        'Content-Type':      'application/json',
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      { model, max_tokens: 4096, system: systemPrompt,
+        messages: [{ role: 'user', content: text }] }
+    );
+    const raw   = data.content?.[0]?.text || '';
+    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return { ok: true, json: clean };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// ── IPC: Cacoo diagram fetch ──────────────────────────────────────
+// With apiKey  → calls Cacoo REST API directly from Node (no CORS).
+// Without key  → falls back to localhost:5000 Python proxy.
+ipcMain.handle('sow:cacoo-fetch', async (_event, { diagramId, apiKey }) => {
+  try {
+    if (apiKey && apiKey.trim()) {
+      const data = await httpsGet(
+        'cacoo.com',
+        `/api/v1/diagrams/${encodeURIComponent(diagramId)}.json`,
+        { 'X-Auth-Token': apiKey.trim() }
+      );
+      return { ok: true, raw: data };
+    }
+    // Fallback: local Python backend
+    const result = await new Promise((resolve, reject) => {
+      http.get(
+        `http://localhost:5000/api/cacoo-fetch?diagramId=${encodeURIComponent(diagramId)}`,
+        { timeout: 10000 },
+        (res) => {
+          let raw = '';
+          res.on('data', c => { raw += c; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(raw)); }
+            catch { reject(new Error('Invalid JSON from backend')); }
+          });
+        }
+      ).on('error', reject);
+    });
+    return { ok: true, raw: result };
+  } catch (e) {
+    const isDown = e.code === 'ECONNREFUSED' || e.code === 'ENOTFOUND';
+    return {
+      ok: false,
+      error: isDown
+        ? 'Backend not running — start with: python backend/app.py'
+        : e.message,
+    };
+  }
 });
