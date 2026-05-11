@@ -93,12 +93,51 @@ function highlightNode(el,name){
   });
 }
 
-function addClicks(el,cb){
+function addClicks(el, onNode, onEdge){
   const svg=el?.querySelector('svg'); if(!svg) return;
+  // State node clicks
   svg.querySelectorAll('.node').forEach(n=>{
     n.style.cursor='pointer';
-    n.onclick=()=>{const lbl=n.querySelector('.nodeLabel,text,span')?.textContent?.trim()||'';if(lbl)cb(lbl);};
+    n.onclick=e=>{e.stopPropagation();const lbl=n.querySelector('.nodeLabel,text,span')?.textContent?.trim()||'';if(lbl)onNode(lbl);};
   });
+  // Transition arrow clicks — index maps to transitions[] order
+  const edges=svg.querySelectorAll('.edgePath,.transition-state-end,[class*="edge"]');
+  edges.forEach((edge,idx)=>{
+    edge.style.cursor='pointer';
+    // Add wide invisible stroke over path for easier clicking
+    edge.querySelectorAll('path').forEach(p=>{
+      const ghost=p.cloneNode();
+      ghost.style.strokeWidth='14px';
+      ghost.style.stroke='transparent';
+      ghost.style.fill='none';
+      ghost.style.cursor='pointer';
+      ghost.onclick=e=>{e.stopPropagation();onEdge(idx);};
+      p.parentNode.insertBefore(ghost,p.nextSibling);
+    });
+    edge.onclick=e=>{e.stopPropagation();onEdge(idx);};
+  });
+  // Edge label clicks
+  svg.querySelectorAll('.edgeLabel,.label').forEach((lbl,idx)=>{
+    lbl.style.cursor='pointer';
+    lbl.onclick=e=>{e.stopPropagation();onEdge(idx);};
+  });
+}
+
+function highlightEdge(el, idx){
+  if(!el||idx==null) return;
+  const svg=el.querySelector('svg'); if(!svg) return;
+  // Reset all edges
+  svg.querySelectorAll('.edgePath path,.transition-state-end path').forEach(p=>{
+    p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
+  });
+  // Highlight selected edge
+  const edges=svg.querySelectorAll('.edgePath,.transition-state-end');
+  if(edges[idx]){
+    edges[idx].querySelectorAll('path').forEach(p=>{
+      p.style.stroke='#4A9FFF';p.style.strokeWidth='2.5';
+      p.style.filter='drop-shadow(0 0 5px rgba(74,159,255,.7))';
+    });
+  }
 }
 
 function dl(content,filename){
@@ -127,7 +166,8 @@ export default function CommandCenter() {
   const [aiKey,setAiKey]=useState(''), [aiModel,setAiModel]=useState('claude-sonnet-4-5');
   const [cacooId,setCacooId]=useState(''), [cacooKey,setCacooKey]=useState('');
   const [log,setLog]=useState([]), [busy,setBusy]=useState(false);
-  const [sel,setSel]=useState(''), [centerView,setCenterView]=useState('diagram'), [resetKey,setResetKey]=useState(0);
+  const [sel,setSel]=useState(''), [selTrans,setSelTrans]=useState(null);
+  const [centerView,setCenterView]=useState('diagram'), [resetKey,setResetKey]=useState(0);
   const [saveFlash,setSaveFlash]=useState(false);
   const [mfLog,setMfLog]=useState([]), [mfBusy,setMfBusy]=useState(false), [mfOk,setMfOk]=useState(null);
   const [mfAdv,setMfAdv]=useState(false), [mfServer,setMfServer]=useState('localhost');
@@ -153,7 +193,20 @@ export default function CommandCenter() {
         if(!dead&&diagRef.current){
           diagRef.current.innerHTML=svg;
           highlightNode(diagRef.current,sel);
-          addClicks(diagRef.current,name=>setSel(name));
+          addClicks(
+            diagRef.current,
+            name=>{setSel(name);setSelTrans(null);},
+            idx=>{
+              setSelTrans(idx);
+              setSel('');
+              // Ensure transitions section is open and scroll row into view
+              setOpen(o=>({...o,trans:true}));
+              setTimeout(()=>{
+                const rows=document.querySelectorAll('.trans-row');
+                if(rows[idx]) rows[idx].scrollIntoView({behavior:'smooth',block:'nearest'});
+              },50);
+            }
+          );
         }
       }catch{if(!dead&&diagRef.current)diagRef.current.innerHTML=`<div style="color:var(--red);font-size:11px;padding:16px">Diagram error</div>`;}
     })();
@@ -161,6 +214,7 @@ export default function CommandCenter() {
   },[mermaidStr,centerView,resetKey]);
 
   useEffect(()=>{if(diagRef.current)highlightNode(diagRef.current,sel);},[sel]);
+  useEffect(()=>{if(diagRef.current)highlightEdge(diagRef.current,selTrans);},[selTrans]);
 
   const changeMode=m=>{setMode(m);setLog([]);setSel('');};
   const applyExtracted=r=>{
@@ -235,6 +289,7 @@ export default function CommandCenter() {
   const commitTabRename=()=>{if(editTabId&&tabDraft.trim())renameWorkflow(editTabId,tabDraft.trim());setEditTabId(null);setTabDraft('');};
 
   const hasSates=!!wf?.states.length, hasRules=!!rules.length;
+  const selTransObj=selTrans!=null?wf?.transitions?.[selTrans]:null;
 
   return (
     <div className="cc-shell">
@@ -325,10 +380,10 @@ export default function CommandCenter() {
             {/* Transitions */}
             <Sec icon="→" title="Transitions" count={wf?.transitions.length||0} isOpen={open.trans} onToggle={()=>tog('trans')} onAdd={()=>wf&&addTransition(activeId)}>
               {wf?.transitions.length>0&&<table className="inline-mini"><thead><tr><th>From</th><th>To</th><th style={{width:22}}/></tr></thead>
-                <tbody>{wf.transitions.map(t=>(<tr key={t.id}>
+                <tbody>{wf.transitions.map((t,i)=>(<tr key={t.id} className={`trans-row ${selTrans===i?'sel-row':''}`} onClick={()=>{setSelTrans(i);setSel('');}}>
                   <td><input value={t.from} placeholder="From…" onChange={e=>updateTransition(activeId,t.id,{from:e.target.value})}/></td>
                   <td><input value={t.to} placeholder="To…" onChange={e=>updateTransition(activeId,t.id,{to:e.target.value})}/></td>
-                  <td><button className="mini-del" onClick={()=>deleteTransition(activeId,t.id)}>✕</button></td>
+                  <td><button className="mini-del" onClick={e=>{e.stopPropagation();deleteTransition(activeId,t.id);}}>✕</button></td>
                 </tr>))}</tbody>
               </table>}
             </Sec>
@@ -372,7 +427,9 @@ export default function CommandCenter() {
         {/* ═══ CENTER — LIVE DIAGRAM ═══ */}
         <div className="cc-center">
           <div className="cc-col-head">
-            <span className="cc-col-lbl">{mermaidStr&&sel?`Diagram — ${sel}`:mermaidStr?'Live Diagram':'Live Diagram'}</span>
+            <span className="cc-col-lbl">
+              {sel ? `State — ${sel}` : selTransObj ? `→ ${selTransObj.from} → ${selTransObj.to}` : 'Live Diagram'}
+            </span>
             <div className="tab-row">
               {[['diagram','Diagram'],['json','JSON'],['stats','Stats']].map(([id,lbl])=>(
                 <button key={id} className={`tab ${centerView===id?'on':''}`} onClick={()=>setCenterView(id)}>{lbl}</button>
