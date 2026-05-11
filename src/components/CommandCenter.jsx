@@ -95,29 +95,25 @@ function highlightNode(el,name){
 
 function addClicks(el, onNode, onEdge){
   const svg=el?.querySelector('svg'); if(!svg) return;
-  // State node clicks
   svg.querySelectorAll('.node').forEach(n=>{
     n.style.cursor='pointer';
     n.onclick=e=>{e.stopPropagation();const lbl=n.querySelector('.nodeLabel,text,span')?.textContent?.trim()||'';if(lbl)onNode(lbl);};
   });
-  // Transition arrow clicks — index maps to transitions[] order
-  const edges=svg.querySelectorAll('.edgePath,.transition-state-end,[class*="edge"]');
-  edges.forEach((edge,idx)=>{
-    edge.style.cursor='pointer';
-    // Add wide invisible stroke over path for easier clicking
+  const edgeGroups=svg.querySelectorAll('.edgePath,.transition-state-end');
+  edgeGroups.forEach((edge,idx)=>{
     edge.querySelectorAll('path').forEach(p=>{
-      const ghost=p.cloneNode();
-      ghost.style.strokeWidth='14px';
-      ghost.style.stroke='transparent';
-      ghost.style.fill='none';
-      ghost.style.cursor='pointer';
+      const ghost=p.cloneNode(false);
+      // Strip marker attrs so no arrowheads render on the hit-target
+      ghost.removeAttribute('id');
+      ghost.removeAttribute('marker-end');
+      ghost.removeAttribute('marker-start');
+      ghost.removeAttribute('marker-mid');
+      ghost.style.cssText='stroke-width:18px;stroke:transparent;fill:none;cursor:pointer';
       ghost.onclick=e=>{e.stopPropagation();onEdge(idx);};
-      p.parentNode.insertBefore(ghost,p.nextSibling);
+      p.parentNode.insertBefore(ghost,p); // before real path so arrowhead stays on top
     });
-    edge.onclick=e=>{e.stopPropagation();onEdge(idx);};
   });
-  // Edge label clicks
-  svg.querySelectorAll('.edgeLabel,.label').forEach((lbl,idx)=>{
+  svg.querySelectorAll('.edgeLabel').forEach((lbl,idx)=>{
     lbl.style.cursor='pointer';
     lbl.onclick=e=>{e.stopPropagation();onEdge(idx);};
   });
