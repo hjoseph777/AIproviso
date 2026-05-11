@@ -93,45 +93,72 @@ function highlightNode(el,name){
   });
 }
 
-function addClicks(el, onNode, onEdge){
-  const svg=el?.querySelector('svg'); if(!svg) return;
-  svg.querySelectorAll('.node').forEach(n=>{
-    n.style.cursor='pointer';
-    n.onclick=e=>{e.stopPropagation();const lbl=n.querySelector('.nodeLabel,text,span')?.textContent?.trim()||'';if(lbl)onNode(lbl);};
+// Build ordered edge map from mermaid stateDiagram-v2 string
+// Returns [{from,to},...] in the same order Mermaid processes transitions
+function buildEdgeMap(mermaidStr) {
+  if (!mermaidStr) return [];
+  const map = [];
+  // Match lines like: "  From_State --> To_State" (spaces, underscored names)
+  // Also skip [*] --> InitialState lines (those are initial arrows, not transitions)
+  const re = /^\s+([A-Za-z0-9_]+)\s+-->\s+([A-Za-z0-9_]+)/gm;
+  let m;
+  while ((m = re.exec(mermaidStr)) !== null) {
+    const from = m[1], to = m[2];
+    if (from === '[*]' || to === '[*]') continue; // skip initial state arrows
+    map.push({ fromId: from, toId: to });
+  }
+  return map;
+}
+
+// addClicks: fires onEdge({from,to}) using edgeMap for name-based matching
+function addClicks(el, onNode, onEdge, edgeMap) {
+  const svg = el?.querySelector('svg'); if (!svg) return;
+  // State node clicks — matched by label text (reliable)
+  svg.querySelectorAll('.node').forEach(n => {
+    n.style.cursor = 'pointer';
+    n.onclick = e => {
+      e.stopPropagation();
+      const lbl = n.querySelector('.nodeLabel,text,span')?.textContent?.trim() || '';
+      if (lbl) onNode(lbl);
+    };
   });
-  const edgeGroups=svg.querySelectorAll('.edgePath,.transition-state-end');
-  edgeGroups.forEach((edge,idx)=>{
-    edge.querySelectorAll('path').forEach(p=>{
-      const ghost=p.cloneNode(false);
-      // Strip marker attrs so no arrowheads render on the hit-target
+  // Edge clicks — use edgeMap position to get {from,to} names
+  const edgeGroups = svg.querySelectorAll('.edgePath,.transition-state-end');
+  edgeGroups.forEach((edge, idx) => {
+    const entry = edgeMap[idx]; // {fromId, toId} — mermaid IDs (underscored)
+    edge.querySelectorAll('path').forEach(p => {
+      const ghost = p.cloneNode(false);
       ghost.removeAttribute('id');
       ghost.removeAttribute('marker-end');
       ghost.removeAttribute('marker-start');
       ghost.removeAttribute('marker-mid');
-      ghost.style.cssText='stroke-width:18px;stroke:transparent;fill:none;cursor:pointer';
-      ghost.onclick=e=>{e.stopPropagation();onEdge(idx);};
-      p.parentNode.insertBefore(ghost,p); // before real path so arrowhead stays on top
+      ghost.style.cssText = 'stroke-width:18px;stroke:transparent;fill:none;cursor:pointer';
+      ghost.onclick = e => { e.stopPropagation(); if (entry) onEdge(entry); };
+      p.parentNode.insertBefore(ghost, p);
     });
   });
-  svg.querySelectorAll('.edgeLabel').forEach((lbl,idx)=>{
-    lbl.style.cursor='pointer';
-    lbl.onclick=e=>{e.stopPropagation();onEdge(idx);};
+  svg.querySelectorAll('.edgeLabel').forEach((lbl, idx) => {
+    const entry = edgeMap[idx];
+    lbl.style.cursor = 'pointer';
+    lbl.onclick = e => { e.stopPropagation(); if (entry) onEdge(entry); };
   });
 }
 
-function highlightEdge(el, idx){
-  if(!el||idx==null) return;
-  const svg=el.querySelector('svg'); if(!svg) return;
-  // Reset all edges
-  svg.querySelectorAll('.edgePath path,.transition-state-end path').forEach(p=>{
-    p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
+// highlightEdge: selTrans is now {fromId,toId} — find matching edge by edgeMap position
+function highlightEdge(el, selTrans, edgeMap) {
+  if (!el || !selTrans) return;
+  const svg = el.querySelector('svg'); if (!svg) return;
+  // Reset all
+  svg.querySelectorAll('.edgePath path,.transition-state-end path').forEach(p => {
+    p.style.stroke = ''; p.style.strokeWidth = ''; p.style.filter = '';
   });
-  // Highlight selected edge
-  const edges=svg.querySelectorAll('.edgePath,.transition-state-end');
-  if(edges[idx]){
-    edges[idx].querySelectorAll('path').forEach(p=>{
-      p.style.stroke='#4A9FFF';p.style.strokeWidth='2.5';
-      p.style.filter='drop-shadow(0 0 5px rgba(74,159,255,.7))';
+  // Find which SVG edge index matches selTrans.fromId + toId
+  const edges = svg.querySelectorAll('.edgePath,.transition-state-end');
+  const matchIdx = edgeMap.findIndex(e => e.fromId === selTrans.fromId && e.toId === selTrans.toId);
+  if (matchIdx >= 0 && edges[matchIdx]) {
+    edges[matchIdx].querySelectorAll('path').forEach(p => {
+      p.style.stroke = '#4A9FFF'; p.style.strokeWidth = '2.5';
+      p.style.filter = 'drop-shadow(0 0 5px rgba(74,159,255,.7))';
     });
   }
 }
@@ -172,8 +199,9 @@ export default function CommandCenter() {
   const [aiKey,setAiKey]=useState(''), [aiModel,setAiModel]=useState('claude-sonnet-4-5');
   const [cacooId,setCacooId]=useState(''), [cacooKey,setCacooKey]=useState('');
   const [log,setLog]=useState([]), [busy,setBusy]=useState(false);
-  const [sel,setSel]=useState(''), [selTrans,setSelTrans]=useState(null);
+  const [sel,setSel]=useState(''), [selTrans,setSelTrans]=useState(null); // selTrans: {fromId,toId} | null
   const [centerView,setCenterView]=useState('diagram'), [resetKey,setResetKey]=useState(0);
+  const edgeMapRef=useRef([]);
   const [saveFlash,setSaveFlash]=useState(false), [saved,setSaved]=useState(false);
   const [mfLog,setMfLog]=useState([]), [mfBusy,setMfBusy]=useState(false), [mfOk,setMfOk]=useState(null);
   const [mfAdv,setMfAdv]=useState(false), [mfServer,setMfServer]=useState('localhost');
@@ -200,21 +228,34 @@ export default function CommandCenter() {
       try{
         const{svg}=await m.render(id,mermaidStr);
         if(!dead&&diagRef.current){
+          // Build edge map BEFORE addClicks so it's ready for click handlers
+          const map=buildEdgeMap(mermaidStr);
+          edgeMapRef.current=map;
           diagRef.current.innerHTML=svg;
           highlightNode(diagRef.current,sel);
           addClicks(
             diagRef.current,
-            name=>{setSel(name);setSelTrans(null);},
-            idx=>{
-              setSelTrans(idx);
+            name=>{setSel(name);setSelTrans(null);},      // node click
+            entry=>{
+              // entry = {fromId, toId} — underscored mermaid IDs
+              setSelTrans(entry);
               setSel('');
-              // Ensure transitions section is open and scroll row into view
               setOpen(o=>({...o,trans:true}));
+              // Scroll the matching row into view after render
               setTimeout(()=>{
+                // Convert underscored IDs back to original names for matching
+                const fromName=entry.fromId.replace(/_/g,' ');
+                const toName=entry.toId.replace(/_/g,' ');
                 const rows=document.querySelectorAll('.trans-row');
-                if(rows[idx]) rows[idx].scrollIntoView({behavior:'smooth',block:'nearest'});
+                rows.forEach(row=>{
+                  const inputs=row.querySelectorAll('input');
+                  if(inputs[0]?.value===fromName&&inputs[1]?.value===toName){
+                    row.scrollIntoView({behavior:'smooth',block:'nearest'});
+                  }
+                });
               },50);
-            }
+            },
+            map
           );
         }
       }catch{if(!dead&&diagRef.current)diagRef.current.innerHTML=`<div style="color:var(--red);font-size:11px;padding:16px">Diagram error</div>`;}
@@ -226,13 +267,13 @@ export default function CommandCenter() {
   useEffect(()=>{
     if(!diagRef.current) return;
     if(selTrans==null){
-      // Reset all edge highlights
       const svg=diagRef.current.querySelector('svg');
       svg?.querySelectorAll('.edgePath path,.transition-state-end path').forEach(p=>{
         p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
       });
     } else {
-      highlightEdge(diagRef.current,selTrans);
+      // Pass edgeMap from ref so highlightEdge can find the correct SVG edge by name
+      highlightEdge(diagRef.current,selTrans,edgeMapRef.current);
     }
   },[selTrans]);
 
@@ -317,7 +358,10 @@ export default function CommandCenter() {
   const commitTabRename=()=>{if(editTabId&&tabDraft.trim())renameWorkflow(editTabId,tabDraft.trim());setEditTabId(null);setTabDraft('');};
 
   const hasSates=!!wf?.states.length, hasRules=!!rules.length;
-  const selTransObj=selTrans!=null?wf?.transitions?.[selTrans]:null;
+  // selTrans is now {fromId,toId} — convert underscored IDs back to display names for the header
+  const selTransObj=selTrans!=null
+    ?{from:selTrans.fromId.replace(/_/g,' '),to:selTrans.toId.replace(/_/g,' ')}
+    :null;
 
   return (
     <div className="cc-shell">
@@ -428,11 +472,17 @@ export default function CommandCenter() {
               )}>
               {wf?.transitions.length>0&&<table className="inline-mini"><thead><tr><th>From</th><th>To</th><th style={{width:22}}/></tr></thead>
                 <tbody>
-                  {filteredTrans.map((t,i)=>{
-                    const realIdx=(wf?.transitions||[]).findIndex(x=>x.id===t.id);
-                    return(<tr key={t.id} className={`trans-row ${selTrans===realIdx?'sel-row':''}`}
-                      onClick={()=>{setSel('');setSelTrans(realIdx);setOpen(o=>({...o,trans:true}));
-                        setTimeout(()=>{const rows=document.querySelectorAll('.trans-row');if(rows[realIdx])rows[realIdx].scrollIntoView({behavior:'smooth',block:'nearest'});},50);}}>
+                  {filteredTrans.map((t)=>{
+                    // Name-based match: immune to Mermaid SVG reordering
+                    const fromId=t.from.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+                    const toId=t.to.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+                    const isSelected=selTrans!=null&&selTrans.fromId===fromId&&selTrans.toId===toId;
+                    return(<tr key={t.id} className={`trans-row ${isSelected?'sel-row':''}`}
+                      onClick={()=>{
+                        setSel('');
+                        setSelTrans({fromId,toId});
+                        setOpen(o=>({...o,trans:true}));
+                      }}>
                       <td><input value={t.from} placeholder="From…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{from:e.target.value})}/></td>
                       <td><input value={t.to} placeholder="To…" onClick={e=>e.stopPropagation()} onChange={e=>updateTransition(activeId,t.id,{to:e.target.value})}/></td>
                       <td><button className="mini-del" onClick={e=>{e.stopPropagation();deleteTransition(activeId,t.id);}}>✕</button></td>
