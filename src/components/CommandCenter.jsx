@@ -153,21 +153,24 @@ function addClicks(el, onNode, onEdge, edgeMap) {
 }
 
 // highlightEdge: lights up the matching path.transition in blue
+// NOTE: do NOT change strokeWidth — Mermaid markers use markerUnits="strokeWidth"
+// so changing strokeWidth scales the arrowhead proportionally (makes it expand).
+// Color change + drop-shadow filter is sufficient visual feedback.
 function highlightEdge(el, selTrans, edgeMap) {
   if (!el || !selTrans) return;
   const svg = el.querySelector('svg'); if (!svg) return;
 
-  // Reset all transition paths
+  // Reset all transition paths (stroke color + filter only — not strokeWidth)
   const allTransPaths = [...svg.querySelectorAll('path.transition')];
   const transPaths = allTransPaths.filter(p => !p.getAttribute('marker-start'));
-  transPaths.forEach(p => { p.style.stroke = ''; p.style.strokeWidth = ''; p.style.filter = ''; });
+  transPaths.forEach(p => { p.style.stroke = ''; p.style.filter = ''; });
 
   // Highlight the matching path by edgeMap index
   const matchIdx = edgeMap.findIndex(e => e.fromId === selTrans.fromId && e.toId === selTrans.toId);
   if (matchIdx >= 0 && transPaths[matchIdx]) {
     const p = transPaths[matchIdx];
     p.style.stroke = '#4A9FFF';
-    p.style.strokeWidth = '2.5';
+    // strokeWidth intentionally NOT set — arrowhead marker scales with it
     p.style.filter = 'drop-shadow(0 0 6px rgba(74,159,255,.85))';
   }
 }
