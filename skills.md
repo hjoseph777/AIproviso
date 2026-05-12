@@ -398,3 +398,53 @@ RESUME: Phase-III-B-Auth-Unlock
 5. Confirm workflow appears in **M-Files Admin → Acme vault → Workflows**
 6. `npm run electron:build` → `.exe` → demo to manager
 ```
+
+---
+
+## Beta II — Bidirectional M-Files Round-Trip Sync
+
+### Goal
+Transition from a push-only utility to a full bidirectional orchestrator.
+
+### Technical Architecture
+| Feature | Component | Logic |
+| :--- | :--- | :--- |
+| **Import (Pull)** | `pull-from-vault.ps1` | Deep extraction of States (names, aliases, VBScripts) and Transitions. |
+| **Inventory** | `-ListOnly` mode | Fast fetch of workflow names/IDs without deep property extraction. |
+| **IPC Bridge** | `main.cjs` | Handles JSON normalization to fix PowerShell single-item "unrolling" bug. |
+| **Zustand Store** | `seedImportedWorkflow` | Generates unique IDs, prepends `📥`, and sets `source: 'mfiles'`. |
+
+### UI / UX Refactor — "Unified Sync Menu"
+- **Segmented Control:** Replaced stacked sections with a toggleable `[ Export to Vault ]` | `[ Import to Vault ]` interface.
+- **Queue Builder:** Staging logic using `SyncQueue` component (Green `[+]` to stage, Red `[x]` to unstage).
+- **Import Tab Styling:** Imported workflows feature a `2px` green top-border and subtle background tint to signal live data.
+
+### Robustness & Reliability Fixes
+| Issue | Resolution |
+| :--- | :--- |
+| **UI Freeze** | Wrapped `offProgress()` cleanup in `try/catch` and ensured `setMfBusy(false)` runs first in `finally` blocks. |
+| **JSON Parsing** | Added defensive `if (!Array.isArray(parsed)) parsed = [parsed]` in `main.cjs` to handle PowerShell object-vs-array unrolling. |
+| **Diagram Scaling** | Switched from `width: 100%` (which caused vertical explosion) to **Intrinsic Width Locking** via `viewBox.baseVal.width`. |
+| **Centering** | Added `margin: 0 auto` to SVG to ensure balanced whitespace when side panels are collapsed. |
+
+### Core M-Files Import Mapping
+```powershell
+# Mapping M-Files COM to Proviso JSON
+$stateJson = @{
+    name    = $s.Name
+    initial = $false # Resolved in JS post-processing (usually index 0)
+    alias   = $s.SemanticAliases.Value
+}
+$wfJson.scripts += @{
+    state = $s.Name
+    text  = $s.ActionRunVBScriptDefinition # Preserves server-side logic
+}
+```
+
+---
+
+## 🔑 Current Session Status
+```
+MILESTONE: Beta-II-Complete
+NEXT: Beta-III-AI-Vision (Auto-generate diagram states from LLM vision)
+```
