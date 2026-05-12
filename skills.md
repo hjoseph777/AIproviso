@@ -744,3 +744,52 @@ This ensures each imported workflow tab displays only its own graph, even when t
 - Transition lines with empty `from` or `to` are skipped in Mermaid rendering until values are completed.
 - Imported workflow tab names can be long; labels are intentionally ellipsized in compact mode for layout stability.
 - Expanded label mode increases visible width but still depends on horizontal tab-strip scrolling when many tabs are open.
+
+---
+
+## Beta II.2 — GUI Pro & Premium Experience (Implemented)
+
+### Goal
+Elevate the Proviso Command Center to a world-class, premium desktop interface with advanced interactivity and modern aesthetics.
+
+### 1. Bi-Directional Highlighting
+- **Interaction:** Hovering over a State or Transition row in the spreadsheet grid triggers a visual glow on the corresponding element in the Mermaid SVG.
+- **Technical Implementation:** Uses `useEffect` in `CommandCenter.jsx` to select Mermaid DOM nodes by ID/Class (e.g., `[class*="LS-${f}"][class*="LE-${t}"]`) and inject a `.highlight` CSS class.
+- **CSS:** `.highlight` adds a green stroke, increased stroke-width, and a subtle `drop-shadow` glow.
+
+### 2. Command Palette (Ctrl+K)
+- **Feature:** A fuzzy-searchable overlay for rapid navigation.
+- **Component:** `CommandPalette.jsx` listens for `Ctrl + K` (or `Cmd + K`) and `Escape`.
+- **Search Scope:** Workflows (switching), States (jump-to), and Global Actions (Export JSON).
+- **UX:** Automatic focus on open, keyboard navigation (ArrowUp/Down/Enter).
+
+### 3. Glassmorphism & Visual Depth
+- **Aesthetics:** Side panels use `backdrop-filter: blur(12px)` and `rgba(7, 17, 31, 0.85)` backgrounds.
+- **Hierarchy:** Creates a "layered" feel where the diagram sits "behind" the semi-translucent configuration panels.
+- **Micro-Animations:** Added `0.2s cubic-bezier` transitions to buttons, tabs, and section headers for a "buttery" feel.
+
+### 4. Contextual Pulse Indicators
+- **Visual Feedback:** A tiny glowing status dot in the "Deliver" header.
+- **States:**
+| Color | Meaning |
+| :--- | :--- |
+| **Green (Pulse)** | Connected to M-Files Vault |
+| **Amber (Fast Pulse)** | Busy / Syncing |
+| **Blue/Dim** | Disconnected / Idle |
+| **Benefit:** At-a-glance confirmation of system health without reading logs. |
+
+### 5. Unified Action Toolbar
+- **Design:** Consistently positioned floating glass bar at the bottom-center of the diagram pane.
+- **Function:** Groups high-level diagram controls (Recenter, Command Palette Trigger) in a predictable, high-visibility location.
+
+### 6. Empty State "Blueprint"
+- **Onboarding:** Replaced "No workflow loaded" text with a professional SVG-based graphical empty state.
+- **Contextual Help:** Provides specific instructions based on whether a workflow is active but empty, or if no workflow is selected at all.
+
+---
+
+## 🔑 Current Session Status
+```
+MILESTONE: Beta-II-Pro-Complete
+NEXT: Beta-III-AI-Vision (Image-to-JSON Workflow Generation)
+```
