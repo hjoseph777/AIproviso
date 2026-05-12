@@ -256,6 +256,7 @@ export default function CommandCenter() {
   const [open,setOpen]=useState({states:true,trans:true,users:false,props:false,rules:false});
   const [stateFilter,setStateFilter]=useState(''), [transFilter,setTransFilter]=useState('');
   const [editTabId,setEditTabId]=useState(null), [tabDraft,setTabDraft]=useState('');
+  const [leftOpen,setLeftOpen]=useState(true);
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
   const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
@@ -433,10 +434,10 @@ export default function CommandCenter() {
       </div>
 
       {/* ── 3-COLUMN BODY ── */}
-      <div className="cc-body">
+      <div className="cc-body" style={{gridTemplateColumns:leftOpen?'35% 45% 20%':'0px 80% 20%'}}>
 
         {/* ═══ LEFT — INPUT ═══ */}
-        <div className="cc-left">
+        <div className={`cc-left${leftOpen?'':' left-collapsed'}`}>
           {/* Workflow tabs */}
           <div className="cc-wf-tabs">
             {workflows.map(w=>(
@@ -591,6 +592,11 @@ export default function CommandCenter() {
         {/* ═══ CENTER — LIVE DIAGRAM ═══ */}
         <div className="cc-center">
           <div className="cc-col-head">
+            {/* Panel toggle — collapses/expands the left configuration panel */}
+            <button className="panel-toggle" onClick={()=>setLeftOpen(o=>!o)}
+              title={leftOpen?'Hide panel (more diagram space)':'Show panel'}>
+              {leftOpen?'‹':'›'}
+            </button>
             <span className="cc-col-lbl">
               {sel ? `State — ${sel}` : selTransObj ? `→ ${selTransObj.from} → ${selTransObj.to}` : 'Live Diagram'}
             </span>

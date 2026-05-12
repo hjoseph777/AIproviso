@@ -27,8 +27,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .cc-mode-tab.active-nlp{color:var(--accent);background:rgba(21,101,216,.1);border-color:rgba(21,101,216,.3)}
 .cc-mode-tab.active-ai{color:#A78BFA;background:rgba(124,92,252,.1);border-color:rgba(124,92,252,.3)}
 .cc-mode-tab.active-cacoo{color:var(--green);background:rgba(0,200,112,.1);border-color:rgba(0,200,112,.3)}
-.cc-body{flex:1;display:grid;grid-template-columns:35% 45% 20%;overflow:hidden}
-.cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--s1)}
+.cc-body{flex:1;display:grid;grid-template-columns:35% 45% 20%;overflow:hidden;transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
+.cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--s1);transition:opacity .22s ease,border-color .28s ease}
+.cc-left.left-collapsed{opacity:0;pointer-events:none;border-right-color:transparent}
 .cc-center{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--bg)}
 .cc-right{display:flex;flex-direction:column;overflow:hidden;background:var(--s1)}
 .cc-col-head{padding:7px 12px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:36px}
@@ -110,6 +111,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .cc-empty-icon{font-size:34px;opacity:.2;margin-bottom:4px}
 
 /* ── Shared utilities ── */
+.panel-toggle{width:22px;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--s2);color:var(--mid);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;padding:0;line-height:1;margin-right:4px}
+.panel-toggle:hover{border-color:var(--a2);color:var(--a3);background:var(--s3)}
 .xb{font-size:9.5px;font-family:var(--mono);padding:4px 10px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--mid);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
 .xb:hover{border-color:var(--a2);color:var(--a3)}
 .xb.blue{background:var(--accent);border-color:var(--accent);color:#fff}
