@@ -93,18 +93,16 @@ function highlightNode(el,name){
   });
 }
 
-// Build ordered edge map from mermaid stateDiagram-v2 string
-// Returns [{from,to},...] in the same order Mermaid processes transitions
+// buildEdgeMap: parses mermaid string -> [{fromId,toId}] for highlightEdge index lookup.
+// Note: [*] lines never match [A-Za-z0-9_]+ so the continue guard is redundant but kept for clarity.
 function buildEdgeMap(mermaidStr) {
   if (!mermaidStr) return [];
   const map = [];
-  // Match lines like: "  From_State --> To_State" (spaces, underscored names)
-  // Also skip [*] --> InitialState lines (those are initial arrows, not transitions)
   const re = /^\s+([A-Za-z0-9_]+)\s+-->\s+([A-Za-z0-9_]+)/gm;
   let m;
   while ((m = re.exec(mermaidStr)) !== null) {
     const from = m[1], to = m[2];
-    if (from === '[*]' || to === '[*]') continue; // skip initial state arrows
+    if (from === '[*]' || to === '[*]') continue;
     map.push({ fromId: from, toId: to });
   }
   return map;
@@ -311,10 +309,9 @@ export default function CommandCenter() {
     if(!diagRef.current) return;
     if(selTrans==null){
       const svg=diagRef.current.querySelector('svg');
-      // Use correct selector for stateDiagram-v2 (not .edgePath which is flowchart-only)
       svg?.querySelectorAll('path.transition').forEach(p=>{
         if(!p.getAttribute('marker-start')){
-          p.style.stroke='';p.style.strokeWidth='';p.style.filter='';
+          p.style.stroke=''; p.style.filter='';
         }
       });
     } else {
@@ -403,7 +400,7 @@ export default function CommandCenter() {
 
   const commitTabRename=()=>{if(editTabId&&tabDraft.trim())renameWorkflow(editTabId,tabDraft.trim());setEditTabId(null);setTabDraft('');};
 
-  const hasSates=!!wf?.states.length, hasRules=!!rules.length;
+  const hasStates=!!wf?.states.length, hasRules=!!rules.length;
   // selTrans is now {fromId,toId} — convert underscored IDs back to display names for the header
   const selTransObj=selTrans!=null
     ?{from:selTrans.fromId.replace(/_/g,' '),to:selTrans.toId.replace(/_/g,' ')}
@@ -631,7 +628,7 @@ export default function CommandCenter() {
                   <div className="deliver-title">SOW</div>
                   <div className="deliver-sub">Statement of Work · .md</div>
                 </div>
-                <button className={`xb ${hasSates?'blue':''}`} disabled={!hasSates} onClick={handleSOW}>↓</button>
+                <button className={`xb ${hasStates?'blue':''}`} disabled={!hasStates} onClick={handleSOW}>↓</button>
               </div>
               <div className="deliver-row">
                 <div className="deliver-icon">📋</div>
@@ -639,7 +636,7 @@ export default function CommandCenter() {
                   <div className="deliver-title">PRD</div>
                   <div className="deliver-sub">Product Requirements · .md</div>
                 </div>
-                <button className={`xb ${hasSates?'green':''}`} disabled={!hasSates} onClick={handlePRD}>↓</button>
+                <button className={`xb ${hasStates?'green':''}`} disabled={!hasStates} onClick={handlePRD}>↓</button>
               </div>
             </div>
 
