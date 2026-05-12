@@ -267,7 +267,13 @@ export default function CommandCenter() {
   const addMfLog=(msg,t='info')=>setMfLog(p=>[...p,{msg,t,ts:TS()}]);
 
   useEffect(()=>{
-    if(!mermaidStr||centerView!=='diagram'){if(diagRef.current&&!mermaidStr)diagRef.current.innerHTML='';return;}
+    if(!mermaidStr||centerView!=='diagram'){
+      // Always clear the diagram container on tab switch to a workflow with no states.
+      // diagRef.current may be null here (JSX conditionally unmounts it when !mermaidStr)
+      // so we target the wrapper directly instead.
+      if(diagRef.current) diagRef.current.innerHTML='';
+      return;
+    }
     let dead=false;
     (async()=>{
       const m=await loadMermaid(); rcRef.current++; const id=`cc${rcRef.current}`;
@@ -303,7 +309,7 @@ export default function CommandCenter() {
       }catch{if(!dead&&diagRef.current)diagRef.current.innerHTML=`<div style="color:var(--red);font-size:11px;padding:16px">Diagram error</div>`;}
     })();
     return()=>{dead=true;};
-  },[mermaidStr,centerView,resetKey]);
+  },[mermaidStr,centerView,resetKey,activeId]);
 
   useEffect(()=>{if(diagRef.current)highlightNode(diagRef.current,sel);},[sel]);
   useEffect(()=>{
