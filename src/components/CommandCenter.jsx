@@ -603,8 +603,8 @@ export default function CommandCenter() {
           {centerView==='diagram'&&(
             <div className="diagram-wrap" onClick={()=>{setSel('');setSelTrans(null);}}>
               {!mermaidStr
-                ?<div className="cc-empty"><div className="cc-empty-icon">⬡</div><div>Add states to see the diagram<br/><span style={{fontSize:9,color:'var(--dim)'}}>Mark one state as Initial</span></div></div>
-                :<div ref={diagRef} style={{width:'100%'}} onClick={e=>e.stopPropagation()}/>}
+                ?<div key="empty" className="cc-empty"><div className="cc-empty-icon">⬡</div><div>Add states to see the diagram<br/><span style={{fontSize:9,color:'var(--dim)'}}>Mark one state as Initial</span></div></div>
+                :<div key="diagram" ref={diagRef} style={{width:'100%'}} onClick={e=>e.stopPropagation()}/>}
             </div>
           )}
           {centerView==='json'&&(
