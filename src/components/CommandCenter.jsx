@@ -257,6 +257,7 @@ export default function CommandCenter() {
   const [stateFilter,setStateFilter]=useState(''), [transFilter,setTransFilter]=useState('');
   const [editTabId,setEditTabId]=useState(null), [tabDraft,setTabDraft]=useState('');
   const [leftOpen,setLeftOpen]=useState(true);
+  const [rightOpen,setRightOpen]=useState(false);
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
   const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
@@ -434,7 +435,7 @@ export default function CommandCenter() {
       </div>
 
       {/* ── 3-COLUMN BODY ── */}
-      <div className="cc-body" style={{gridTemplateColumns:leftOpen?'35% 45% 20%':'0px 80% 20%'}}>
+      <div className="cc-body" style={{gridTemplateColumns:`${leftOpen?'35%':'0px'} 1fr ${rightOpen?'20%':'0px'}`}}>
 
         {/* ═══ LEFT — INPUT ═══ */}
         <div className={`cc-left${leftOpen?'':' left-collapsed'}`}>
@@ -604,6 +605,12 @@ export default function CommandCenter() {
               {[['diagram','Diagram'],['json','JSON'],['stats','Stats']].map(([id,lbl])=>(
                 <button key={id} className={`tab ${centerView===id?'on':''}`} onClick={()=>setCenterView(id)}>{lbl}</button>
               ))}
+              {/* Right panel toggle — mirrors left panel button */}
+              <button className="panel-toggle" onClick={()=>setRightOpen(o=>!o)}
+                title={rightOpen?'Hide Deliver panel':'Show Deliver panel'}
+                style={{marginLeft:6}}>
+                {rightOpen?'›':'‹'}
+              </button>
             </div>
           </div>
           {centerView==='diagram'&&(
@@ -633,7 +640,7 @@ export default function CommandCenter() {
         </div>
 
         {/* ═══ RIGHT — DELIVER ═══ */}
-        <div className="cc-right">
+        <div className={`cc-right${rightOpen?'':' right-collapsed'}`}>
           <div className="cc-col-head"><span className="cc-col-lbl">Deliver</span></div>
           <div className="cc-col-body">
 
