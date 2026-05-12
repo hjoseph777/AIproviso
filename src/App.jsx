@@ -57,6 +57,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .cc-sec-count{font-size:8.5px;color:var(--dim);font-family:var(--mono)}
 .cc-sec-add{font-size:8.5px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--mid);cursor:pointer;transition:all .15s;font-family:var(--mono)}
 .cc-sec-add:hover{border-color:var(--green);color:var(--green)}
+/* Section header children brighten when parent row is hovered */
+.cc-sec-hd:hover .cc-sec-chev{color:var(--text)}
+.cc-sec-hd:hover .cc-sec-icon{color:var(--a3)}
+.cc-sec-hd:hover .cc-sec-count{color:var(--mid)}
 
 /* ── Inline mini-table (left column grids) ── */
 .inline-mini{width:100%;border-collapse:collapse}
@@ -91,7 +95,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 /* ── Deliver column ── */
 .deliver-section{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
 .deliver-section-lbl{font-size:8.5px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
-.deliver-row{display:flex;align-items:center;gap:8px}
+.deliver-row{display:flex;align-items:center;gap:8px;border-radius:4px;padding:2px 4px;margin:0 -4px;transition:background .15s}
+.deliver-row:hover{background:rgba(74,159,255,.05)}
+.deliver-row:hover .deliver-title{color:#fff}
+.deliver-row:hover .deliver-sub{color:var(--mid)}
 .deliver-icon{font-size:18px;flex-shrink:0}
 .deliver-info{flex:1}
 .deliver-title{font-size:10.5px;font-weight:600;color:var(--text)}
@@ -105,7 +112,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .diagram-wrap{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:18px}
 .diagram-wrap svg{max-width:100%;height:auto}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px}
-.stat-card{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:14px;text-align:center}
+.stat-card{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:14px;text-align:center;transition:all .15s;cursor:default}
+.stat-card:hover{border-color:var(--bdr2);background:var(--s3)}
+.stat-card:hover .stat-lbl{color:var(--text)}
 .stat-val{font-family:var(--display);font-size:24px;font-weight:700;color:var(--a3);line-height:1;margin-bottom:3px}
 .stat-lbl{font-size:8.5px;color:var(--mid);letter-spacing:.5px}
 .cc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:11px;gap:10px;text-align:center;line-height:1.7}
