@@ -47,8 +47,6 @@ const SERVICE_AGREEMENT = {
 const fresh = () => ({
   workflows: [
     JSON.parse(JSON.stringify(SERVICE_AGREEMENT)),
-    { id: 'wf-a', name: 'Workflow A | 25 States',  states: [], transitions: [] },
-    { id: 'wf-b', name: 'Workflow B | 100 States', states: [], transitions: [] },
   ],
   activeId:   'wf-sa',
   users:      [],
@@ -88,18 +86,12 @@ export const useWorkflowStore = create((set, get) => ({
     workflows: s.workflows.map(w => w.id !== wfId ? w : { ...w, states: [], transitions: [] })
   })),
 
-  // Stress-test loader — parameterized (N states, target transitions)
-  // Presets: Low=25/50 (quick demo) | Max=100/150 (full stress)
-  // Pattern layers (each addT is a no-op if key already seen):
-  //   1. Linear chain 01→02→…→N      →  N-1  transitions
-  //   2. Back to [*] every 10th state  → floor(N/10)
-  //   3. Skip-forward by 10            → floor((N-10)/10)
-  //   4. Skip-forward by 5             → floor((N-5)/5)
-  //   5. Branch +3 from even states    → fills to target
-  //   6. Reverse −2 from tail           → safety top-up
-  loadStressTest: (wfId, N = 100, target = 150) => {
+  // Stress-test seeder — creates a NEW temporary workflow tab pre-loaded with data.
+  // Call from topbar 🔥 / 🔥🔥 buttons. User deletes the tab with ✕ when done.
+  // N = number of states, target = approximate number of transitions.
+  seedStressTest: (N = 25, target = 50) => {
     const pad = n => String(n).padStart(2, '0');
-    const nm  = i => `State ${pad(i + 1)}`; // "State 01" … "State N"
+    const nm  = i => `State ${pad(i + 1)}`;
 
     const states = Array.from({ length: N }, (_, i) => ({
       id:      `st-${pad(i + 1)}`,
@@ -116,22 +108,21 @@ export const useWorkflowStore = create((set, get) => ({
       transitions.push({ id: makeId(), from, to, conditions: null, permissions: null });
     };
 
-    // 1. Linear chain: 99 transitions
     for (let i = 0; i < N - 1; i++)          addT(nm(i), nm(i + 1));
-    // 2. Back to initial every 10th state: 10 transitions
     for (let i = 9; i < N; i += 10)          addT(nm(i), nm(0));
-    // 3. Skip-forward by 10: 9 transitions
     for (let i = 0; i < N - 10; i += 10)     addT(nm(i), nm(i + 10));
-    // 4. Skip-forward by 5: 19 transitions
     for (let i = 0; i < N - 5; i += 5)       addT(nm(i), nm(i + 5));
-    // 5. Branch +3 from even states (fills to target)
     for (let i = 0; transitions.length < target && i < N - 3; i += 2) addT(nm(i), nm(i + 3));
-    // 6. Reverse -2 from tail (safety top-up if still under target)
     for (let i = N - 1; transitions.length < target && i > 1; i -= 3) addT(nm(i), nm(i - 2));
 
-    set(s => ({
-      workflows: s.workflows.map(w => w.id !== wfId ? w : { ...w, states, transitions })
-    }));
+    const label = N <= 25 ? '🔥' : '🔥🔥';
+    const wf = {
+      id:   makeId(),
+      name: `${label} Stress ${N}`,
+      states,
+      transitions,
+    };
+    set(s => ({ workflows: [...s.workflows, wf], activeId: wf.id }));
   },
 
   // ── State CRUD ─────────────────────────────────────────────

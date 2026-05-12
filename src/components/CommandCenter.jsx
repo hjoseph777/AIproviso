@@ -234,7 +234,7 @@ export default function CommandCenter() {
   const renameState=useWorkflowStore(s=>s.renameState), deleteState=useWorkflowStore(s=>s.deleteState);
   const addTransition=useWorkflowStore(s=>s.addTransition), updateTransition=useWorkflowStore(s=>s.updateTransition);
   const deleteTransition=useWorkflowStore(s=>s.deleteTransition);
-  const loadStressTest=useWorkflowStore(s=>s.loadStressTest);
+  const seedStressTest=useWorkflowStore(s=>s.seedStressTest);
   const users=useWorkflowStore(s=>s.users), properties=useWorkflowStore(s=>s.properties), rules=useWorkflowStore(s=>s.rules);
   const addUser=useWorkflowStore(s=>s.addUser), updateUser=useWorkflowStore(s=>s.updateUser), deleteUser=useWorkflowStore(s=>s.deleteUser);
   const addProperty=useWorkflowStore(s=>s.addProperty), updateProperty=useWorkflowStore(s=>s.updateProperty), deleteProperty=useWorkflowStore(s=>s.deleteProperty);
@@ -418,6 +418,11 @@ export default function CommandCenter() {
           ))}
         </div>
         <button className="xb" onClick={handleReset} title="Reset all workflows">↺ Reset</button>
+        {/* Stress test launchers — icon-only, topbar right. Creates a temporary tab, delete with ✕ when done. */}
+        <button onClick={()=>seedStressTest(25,50)}  title="Stress test: 25 states / ~50 transitions (click to create temp tab)"
+          style={{background:'none',border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',fontSize:14,padding:'2px 7px',lineHeight:1,color:'var(--text)',opacity:.75,transition:'opacity .15s'}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity='.75'}>🔥</button>
+        <button onClick={()=>seedStressTest(100,150)} title="Stress test: 100 states / ~150 transitions (click to create temp tab)"
+          style={{background:'none',border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',fontSize:14,padding:'2px 7px',lineHeight:1,color:'var(--text)',opacity:.75,transition:'opacity .15s'}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity='.75'}>🔥🔥</button>
         <button className={`xb ${saveFlash?'green':'blue'}`} onClick={handleSave}>{saveFlash?'✓ Saved':'Review & Save →'}</button>
       </div>
 
@@ -432,7 +437,7 @@ export default function CommandCenter() {
               <div key={w.id} className={`cc-wf-tab ${w.id===activeId?'active':''}`} onClick={()=>setActive(w.id)} onDoubleClick={()=>{setEditTabId(w.id);setTabDraft(w.name);}} title="Double-click to rename">
                 {editTabId===w.id
                   ?<input style={{background:'transparent',border:'none',outline:'none',fontFamily:'var(--mono)',fontSize:9,color:'var(--text)',width:80}} value={tabDraft} autoFocus onChange={e=>setTabDraft(e.target.value)} onBlur={commitTabRename} onKeyDown={e=>{if(e.key==='Enter')commitTabRename();if(e.key==='Escape')setEditTabId(null);}} onClick={e=>e.stopPropagation()}/>
-                  :<span style={{fontSize:9}}>{w.id==='wf-a'?'🔥 ':w.id==='wf-b'?'🔥🔥 ':''}{w.name}</span>}
+                  :<span style={{fontSize:9}}>{w.name}</span>}
                 {workflows.length>1&&<button className="cc-wf-tab-del" onClick={e=>{e.stopPropagation();deleteWorkflow(w.id);}}>✕</button>}
               </div>
             ))}
@@ -443,13 +448,6 @@ export default function CommandCenter() {
           {wf&&<div className="cc-wf-bar">
             <input className="cc-wf-name-input" value={wf.name} placeholder="Workflow name…"
               onChange={e=>renameWorkflow(activeId,e.target.value)}/>
-            {/* Stress test load button — shown only on wf-a/wf-b when empty */}
-            {(activeId==='wf-a'||activeId==='wf-b')&&!wf.states.length&&(
-              <button className="xb blue" style={{fontSize:9,padding:'3px 8px',flexShrink:0}}
-                onClick={()=>loadStressTest(activeId,activeId==='wf-a'?25:100,activeId==='wf-a'?50:150)}>
-                {activeId==='wf-a'?'🔥 Load 25':'🔥🔥 Load 100'}
-              </button>
-            )}
             <button className="xb" onClick={()=>{clearWorkflow(activeId);setResetKey(k=>k+1);setSel('');}}>↺</button>
           </div>}
 
