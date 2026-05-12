@@ -688,7 +688,7 @@ export default function CommandCenter() {
               <button className={`xb ${mfOk===true?'green':mfOk===false?'red':'blue'}`} style={{width:'100%',padding:'9px 0',fontSize:11,marginTop:4}} onClick={handleMFiles} disabled={mfBusy||!saved}>
                 {mfBusy?<><span className="spin"/> Pushing…</>:mfOk===true?'✓ Ingested':mfOk===false?'✗ Retry':'→ Push to M-Files'}
               </button>
-              {!saved&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--dim)',marginTop:4,lineHeight:1.6}}>Click “Review & Save” to enable M-Files push</div>}
+              {!saved&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--mid)',marginTop:4,lineHeight:1.6}}>Click “Review & Save” to enable M-Files push</div>}
               {saved&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--green)',marginTop:4,lineHeight:1.6}}>✓ Ready — click Push to ingest into vault</div>}
               {mfLog.length>0&&<div className="mf-log">{mfLog.map((l,i)=><div key={i} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
