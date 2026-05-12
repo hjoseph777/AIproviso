@@ -4,6 +4,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('mfiles', {
   // payload: { vaultGuid, server, authType, username, password }
   listVaults:   (payload)  => ipcRenderer.invoke('mfiles:list-vaults', payload),
+  // payload: { vaultGuid, server, authType, username, password }
+  listWorkflows: (payload) => ipcRenderer.invoke('mfiles:list-workflows', payload),
+  // payload: { workflowIds, vaultGuid, server, authType, username, password }
+  pullWorkflows: (payload) => ipcRenderer.invoke('mfiles:pull-workflows', payload),
   // payload: { json, vaultGuid, server, authType, username, password }
   pushWorkflow: (payload)  => ipcRenderer.invoke('mfiles:push', payload),
   // Subscribe to streaming progress — wrapper strips IPC event arg so cb receives message string directly

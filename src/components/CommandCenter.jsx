@@ -264,6 +264,10 @@ export default function CommandCenter() {
   const [leftOpen,setLeftOpen]=useState(true);
   const [rightOpen,setRightOpen]=useState(false);
   const [zoom,setZoom]=useState(1);
+  const [mfPushQueue,setMfPushQueue]=useState([]);
+  const [mfPullQueue,setMfPullQueue]=useState([]);
+  const [mfVaultWorkflows,setMfVaultWorkflows]=useState([]);
+  const [syncMode,setSyncMode]=useState('export');
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
   const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
@@ -299,9 +303,14 @@ export default function CommandCenter() {
             svgEl.removeAttribute('width');
             svgEl.removeAttribute('height');
             svgEl.style.maxWidth='none';
-            svgEl.style.width=`${zoomRef.current*100}%`;
+            // Use intrinsic width from viewBox so it scales naturally, default to 800 if missing
+            const vb = svgEl.viewBox.baseVal;
+            const baseW = (vb && vb.width > 0) ? vb.width : 800;
+            svgEl.dataset.baseWidth = baseW;
+            svgEl.style.width=`${baseW * zoomRef.current}px`;
             svgEl.style.height='auto';
             svgEl.style.display='block';
+            svgEl.style.margin='0 auto';
           }
           highlightNode(diagRef.current,sel);
           addClicks(
@@ -353,7 +362,10 @@ export default function CommandCenter() {
   useEffect(()=>{
     zoomRef.current=zoom;
     const svgEl=diagRef.current?.querySelector('svg');
-    if(svgEl) svgEl.style.width=`${zoom*100}%`;
+    if(svgEl) {
+      const baseW = parseFloat(svgEl.dataset.baseWidth) || 800;
+      svgEl.style.width=`${baseW * zoom}px`;
+    }
   },[zoom]);
 
   // Reset zoom to 100% when switching workflows
@@ -432,25 +444,67 @@ export default function CommandCenter() {
   const handleSave=()=>{exportJSON();setSaved(true);setSaveFlash(true);setTimeout(()=>setSaveFlash(false),2000);};
   const handleSOW=()=>{if(wf?.states.length)dl(buildSOW(wf,users,properties,rules),`${(wf.name||'sow').replace(/\s+/g,'_')}.md`);};
   const handlePRD=()=>{if(wf?.states.length)dl(buildPRD(wf,users,properties,rules),`${(wf.name||'prd').replace(/\s+/g,'_')}_PRD.md`);};
-  const handleMFiles=async()=>{
-    if(mfBusy)return; setMfBusy(true);setMfLog([]);setMfOk(null);
-    addMfLog('Connecting…');
-    if(!window.mfiles){addMfLog('window.mfiles not found — run in Electron','error');setMfBusy(false);return;}
-    window.mfiles.offProgress(); window.mfiles.onProgress(msg=>addMfLog(msg));
+  const handleMfFetch=async()=>{
+    if(!mfVault.trim()){addMfLog('Vault GUID is required','error');return;}
+    setMfBusy(true);setMfLog([]);addMfLog('Fetching available workflows...');
     try{
-      // Script expects: { name, states:[{name,initial}], transitions:[{from,to}] }
-      // or an array of that shape. Send active workflow only.
-      if(!wf?.states.length){addMfLog('No states to push — add states first','error');setMfBusy(false);return;}
-      const json={
-        name: wf.name||'Unnamed Workflow',
-        states: wf.states.map(s=>({name:s.name, initial:!!s.initial})),
-        transitions: wf.transitions.map(t=>({from:t.from, to:t.to, ...(t.conditions?{conditions:t.conditions}:{}), ...(t.permissions?{allowedUsers:t.permissions}:{})})),
-      };
-      addMfLog(`Pushing "${json.name}" — ${json.states.length} states, ${json.transitions.length} transitions`);
-      const res=await window.mfiles.pushWorkflow({json,vaultGuid:mfVault,server:mfServer,authType:mfAuth,username:mfUser,password:mfPass});
-      setMfOk(res.ok); addMfLog(res.ok?'✓ Ingested successfully':'✗ Ingest failed',res.ok?'ok':'error');
-    }catch(e){addMfLog(`Error: ${e.message}`,'error');setMfOk(false);}
-    setMfBusy(false); window.mfiles.offProgress();
+      const res=await window.mfiles.listWorkflows({
+        vaultGuid:mfVault,server:mfServer,authType:mfAuth,username:mfUser,password:mfPass
+      });
+      if(!res.ok) throw new Error(res.error||'Fetch failed');
+      setMfVaultWorkflows(res.workflows||[]);
+      addMfLog(`Found ${(res.workflows||[]).length} workflows`,'ok');
+    }catch(e){addMfLog(e.message,'error');}
+    finally{setMfBusy(false);}
+  };
+
+  const handleMfPull=async()=>{
+    if(!mfVault.trim()){addMfLog('Vault GUID is required','error');return;}
+    if(!mfPullQueue.length)return;
+    setMfBusy(true);setMfLog([]);addMfLog(`Pulling ${mfPullQueue.length} workflows...`);
+    const unsub=window.mfiles.onProgress(m=>addMfLog(m));
+    try{
+      const res=await window.mfiles.pullWorkflows({
+        workflowIds:mfPullQueue,vaultGuid:mfVault,server:mfServer,authType:mfAuth,username:mfUser,password:mfPass
+      });
+      if(!res.ok) throw new Error(res.error||'Pull failed');
+      (res.workflows||[]).forEach(w=>useWorkflowStore.getState().seedImportedWorkflow(w));
+      addMfLog(`Successfully pulled ${(res.workflows||[]).length} workflows into tabs`,'ok');
+      setMfPullQueue([]);
+    }catch(e){addMfLog(e.message,'error');}
+    finally{unsub();setMfBusy(false);}
+  };
+
+  const handleMfPush=async()=>{
+    if(!mfVault.trim()){addMfLog('Vault GUID is required','error');return;}
+    if(!mfPushQueue.length)return;
+    if(!window.mfiles){addMfLog('window.mfiles not found — run in Electron','error');return;}
+    setMfBusy(true);setMfLog([]);setMfOk(null);
+    addMfLog(`Staging ${mfPushQueue.length} workflows for push...`);
+    const unsub=window.mfiles.onProgress(msg=>addMfLog(msg));
+    try{
+      for(const id of mfPushQueue){
+        const targetWf=workflows.find(w=>w.id===id);
+        if(!targetWf)continue;
+        addMfLog(`Pushing "${targetWf.name}"...`);
+        const json={
+          name: targetWf.name||'Unnamed Workflow',
+          states: targetWf.states.map(s=>({name:s.name, initial:!!s.initial})),
+          transitions: targetWf.transitions.map(t=>({from:t.from, to:t.to, ...(t.conditions?{conditions:t.conditions}:{}), ...(t.permissions?{allowedUsers:t.permissions}:{})})),
+        };
+        const res=await window.mfiles.pushWorkflow({json,vaultGuid:mfVault,server:mfServer,authType:mfAuth,username:mfUser,password:mfPass});
+        if(!res.ok) throw new Error(`${targetWf.name}: ${res.error||'Unknown push error'}`);
+      }
+      setMfOk(true);
+      addMfLog('All staged workflows pushed successfully','ok');
+      setMfPushQueue([]);
+    }catch(e){
+      setMfOk(false);
+      addMfLog(e.message,'error');
+    }finally{
+      unsub();
+      setMfBusy(false);
+    }
   };
 
   const commitTabRename=()=>{if(editTabId&&tabDraft.trim())renameWorkflow(editTabId,tabDraft.trim());setEditTabId(null);setTabDraft('');};
@@ -719,7 +773,7 @@ export default function CommandCenter() {
 
             {/* M-Files */}
             <div className="deliver-section">
-              <div className="deliver-section-lbl">M-Files Vault</div>
+              <div className="deliver-section-lbl">M-Files Sync</div>
               <button onClick={()=>setMfAdv(a=>!a)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--mid)',fontSize:9,fontFamily:'var(--mono)',padding:'2px 0',marginBottom:4,textAlign:'left'}}>
                 {mfAdv?'▾':'▸'} Connection settings
               </button>
@@ -737,12 +791,52 @@ export default function CommandCenter() {
                   <input className="mf-input" type="password" value={mfPass} onChange={e=>setMfPass(e.target.value)} placeholder="Password"/>
                 </>}
               </div>}
-              <button className={`xb ${mfOk===true?'green':mfOk===false?'red':'blue'}`} style={{width:'100%',padding:'9px 0',fontSize:11,marginTop:4}} onClick={handleMFiles} disabled={mfBusy||!saved}>
-                {mfBusy?<><span className="spin"/> Pushing…</>:mfOk===true?'✓ Ingested':mfOk===false?'✗ Retry':'→ Push to M-Files'}
-              </button>
-              {!saved&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--mid)',marginTop:4,lineHeight:1.6}}>Click “Review & Save” to enable M-Files push</div>}
-              {saved&&mfOk===null&&<div style={{fontSize:8.5,color:'var(--green)',marginTop:4,lineHeight:1.6}}>✓ Ready — click Push to ingest into vault</div>}
-              {mfLog.length>0&&<div className="mf-log">{mfLog.map((l,i)=><div key={i} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
+
+              {!mfVault.trim()&&<div style={{fontSize:8.5,color:'var(--red)',marginTop:4,lineHeight:1.6}}>A Vault GUID is required to connect.</div>}
+
+              {/* Unified Sync Menu */}
+              <div style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:8}}>
+                <div style={{display:'flex',gap:4,marginBottom:8,background:'var(--s2)',padding:3,borderRadius:4,border:'1px solid var(--border)'}}>
+                  <button onClick={()=>{setSyncMode('export');setMfOk(null);setMfLog([]);}} style={{flex:1,padding:'4px 0',fontSize:9,fontFamily:'var(--mono)',background:syncMode==='export'?'var(--s3)':'transparent',color:syncMode==='export'?'var(--text)':'var(--mid)',border:syncMode==='export'?'1px solid var(--border)':'1px solid transparent',borderRadius:3,cursor:'pointer',transition:'all 0.15s'}}>
+                    Export to Vault
+                  </button>
+                  <button onClick={()=>{setSyncMode('import');setMfOk(null);setMfLog([]);}} style={{flex:1,padding:'4px 0',fontSize:9,fontFamily:'var(--mono)',background:syncMode==='import'?'var(--s3)':'transparent',color:syncMode==='import'?'var(--text)':'var(--mid)',border:syncMode==='import'?'1px solid var(--border)':'1px solid transparent',borderRadius:3,cursor:'pointer',transition:'all 0.15s'}}>
+                    Import from Vault
+                  </button>
+                </div>
+
+                {syncMode==='export' && (
+                  <div>
+                    <SyncQueue available={workflows} queue={mfPushQueue} setQueue={setMfPushQueue} stagedLabel="Staged for Push" />
+                    <button className={`xb ${mfOk===true?'green':mfOk===false?'red':'blue'}`} style={{width:'100%',padding:'6px 0',fontSize:10,marginTop:6}} onClick={handleMfPush} disabled={mfBusy||!saved||!mfVault.trim()||!mfPushQueue.length}>
+                      {mfBusy?'Pushing…':mfOk===true?'✓ Pushed':mfOk===false?'✗ Retry Push':'→ Push Staged'}
+                    </button>
+                    {!saved&&<div style={{fontSize:8.5,color:'var(--mid)',marginTop:4,textAlign:'center'}}>Click “Review & Save” to enable push</div>}
+                  </div>
+                )}
+
+                {syncMode==='import' && (
+                  <div>
+                    {mfVaultWorkflows.length===0 ? (
+                      <button className="xb" style={{width:'100%',padding:'6px 0',fontSize:10}} onClick={handleMfFetch} disabled={mfBusy||!mfVault.trim()}>
+                        {mfBusy?'Fetching…':'Fetch Vault Workflows'}
+                      </button>
+                    ) : (
+                      <>
+                        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:4}}>
+                          <button onClick={handleMfFetch} disabled={mfBusy||!mfVault.trim()} style={{background:'none',border:'none',color:'var(--a2)',cursor:'pointer',fontSize:9,fontFamily:'var(--mono)'}}>⟳ Refresh List</button>
+                        </div>
+                        <SyncQueue available={mfVaultWorkflows} queue={mfPullQueue} setQueue={setMfPullQueue} stagedLabel="Staged for Pull" />
+                        <button className="xb green" style={{width:'100%',padding:'6px 0',fontSize:10,marginTop:6}} onClick={handleMfPull} disabled={mfBusy||!mfVault.trim()||!mfPullQueue.length}>
+                          {mfBusy?'Pulling…':'← Pull Staged into Tabs'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {mfLog.length>0&&<div className="mf-log" style={{marginTop:12}}>{mfLog.map((l,i)=><div key={i} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
           </div>
         </div>
@@ -767,3 +861,26 @@ function Sec({icon,title,count,isOpen,onToggle,onAdd,filterSlot,children}){
   );
 }
 
+function SyncQueue({ available, queue, setQueue, stagedLabel }) {
+  return (
+    <div className="q-list">
+      {available.filter(w => !queue.includes(w.id)).slice(0, 6).map(w => (
+        <div key={w.id} className="q-row">
+          <span className="q-name">{w.name}</span>
+          <button className="q-btn add" onClick={() => setQueue(q => [...q, w.id])}>+</button>
+        </div>
+      ))}
+      {queue.length > 0 && <div className="q-staged-lbl">{stagedLabel}</div>}
+      {queue.map(id => {
+        const w = available.find(x => x.id === id);
+        if (!w) return null;
+        return (
+          <div key={w.id} className="q-row staged">
+            <span className="q-name">{w.name}</span>
+            <button className="q-btn del" onClick={() => setQueue(q => q.filter(x => x !== id))}>✕</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

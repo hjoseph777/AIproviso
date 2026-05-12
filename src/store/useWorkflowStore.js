@@ -219,7 +219,6 @@ export const useWorkflowStore = create((set, get) => ({
   })),
   deleteRule: (id) => set(s => ({ rules: s.rules.filter(r => r.id !== id) })),
 
-  // ── Import from SOW parser (NLP / AI / Cacoo) ──────────────────
   // Accepts a fully-parsed object and adds it as a new workflow tab,
   // merging users/properties/rules into the global store arrays.
   importWorkflow: ({ workflow, users = [], properties = [], rules = [] }) => {
@@ -236,6 +235,33 @@ export const useWorkflowStore = create((set, get) => ({
       properties: [...s.properties, ...properties.map(p => ({ id: makeId(), ...p }))],
       rules:      [...s.rules,      ...rules.map(r => ({ id: makeId(), ...r }))],
     }));
+    return wf.id;
+  },
+
+  // ── Import from M-Files Vault ──────────────────────────────
+  // Takes workflow JSON from M-Files (via pull-from-vault.ps1) and creates a new tab.
+  seedImportedWorkflow: (mfData) => {
+    const date = mfData.importedAt ? mfData.importedAt.split('T')[0] : new Date().toISOString().split('T')[0];
+    const wf = {
+      id:          makeId(),
+      name:        `📥 ${mfData.name} (imported ${date})`,
+      source:      mfData.source || 'mfiles',
+      importedAt:  mfData.importedAt,
+      states:      (mfData.states || []).map(s => ({ id: makeId(), ...s })),
+      transitions: (mfData.transitions || []).map(t => ({ id: makeId(), ...t })),
+    };
+    set(s => {
+      // Extract texts from rules and scripts to save to global rules
+      const newRules = [
+        ...(mfData.rules || []).map(r => ({ id: makeId(), text: r.text })),
+        ...(mfData.scripts || []).map(scr => ({ id: makeId(), text: `VBScript on state ${scr.state}: ${scr.text}` }))
+      ];
+      return {
+        workflows: [...s.workflows, wf],
+        activeId:  wf.id,
+        rules:     [...s.rules, ...newRules],
+      };
+    });
     return wf.id;
   },
 

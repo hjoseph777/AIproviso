@@ -129,6 +129,90 @@ ipcMain.handle('mfiles:push', async (event, payload) => {
   });
 });
 
+// ── IPC: M-Files List Workflows ───────────────────────────────────
+ipcMain.handle('mfiles:list-workflows', async (_event, { vaultGuid, server, authType, username, password }) => {
+  return new Promise((resolve) => {
+    let resultJson = '';
+    const ps = spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File',          scriptPath('pull-from-vault.ps1'),
+      '-VaultGuid',     vaultGuid,
+      '-ServerAddress', server,
+      '-AuthType',      authType === 'mfiles' ? 'MFiles' : 'Windows',
+      '-Username',      username,
+      '-Password',      password,
+      '-ListOnly'
+    ]);
+
+    ps.stdout.on('data', d => {
+      const text = d.toString();
+      if (text.includes('[RESULT]')) {
+        resultJson += text.substring(text.indexOf('[RESULT]') + 8);
+      }
+    });
+
+    ps.on('close', (code) => {
+      if (code === 0 && resultJson) {
+        try {
+          let parsed = JSON.parse(resultJson);
+          if (parsed && !Array.isArray(parsed)) parsed = [parsed];
+          resolve({ ok: true, workflows: parsed || [] });
+        } catch (e) {
+          resolve({ ok: false, error: 'Failed to parse JSON from PowerShell' });
+        }
+      } else {
+        resolve({ ok: false, error: 'Failed to list workflows from vault' });
+      }
+    });
+  });
+});
+
+// ── IPC: M-Files Pull Workflows ───────────────────────────────────
+ipcMain.handle('mfiles:pull-workflows', async (_event, { vaultGuid, server, authType, username, password, workflowIds }) => {
+  const send = (line) => {
+    const win = BrowserWindow.getAllWindows().find(w => !w.isDestroyed()) ;
+    win?.webContents.send('mfiles:progress', line.trim());
+  };
+
+  return new Promise((resolve) => {
+    let resultJson = '';
+    const ps = spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File',          scriptPath('pull-from-vault.ps1'),
+      '-VaultGuid',     vaultGuid,
+      '-ServerAddress', server,
+      '-AuthType',      authType === 'mfiles' ? 'MFiles' : 'Windows',
+      '-Username',      username,
+      '-Password',      password,
+      '-WorkflowIds',   workflowIds.join(',')
+    ]);
+
+    ps.stdout.on('data', d => {
+      const text = d.toString();
+      if (text.includes('[RESULT]')) {
+        resultJson += text.substring(text.indexOf('[RESULT]') + 8);
+      } else {
+        text.split('\n').filter(l => l.trim()).forEach(send);
+      }
+    });
+    ps.stderr.on('data', d => send(`[ERROR] ${d.toString().trim()}`));
+
+    ps.on('close', (code) => {
+      if (code === 0 && resultJson) {
+        try {
+          let parsed = JSON.parse(resultJson);
+          if (parsed && !Array.isArray(parsed)) parsed = [parsed];
+          resolve({ ok: true, workflows: parsed || [] });
+        } catch (e) {
+          resolve({ ok: false, error: 'Failed to parse JSON from PowerShell' });
+        }
+      } else {
+        resolve({ ok: false, error: 'Failed to pull workflows from vault' });
+      }
+    });
+  });
+});
+
 // ── IPC: Native Save-As dialog ────────────────────────────────────
 // Renderer sends { content, defaultName, filters }
 // Opens OS save-as dialog, writes file, returns { ok, filePath }

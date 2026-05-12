@@ -109,6 +109,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .mf-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:5px 8px;font-family:var(--mono);font-size:10px;color:var(--text);outline:none;box-sizing:border-box}
 .mf-input:focus{border-color:var(--a2)}
 
+/* ── Queue Builder (Deliver Panel) ── */
+.q-list{display:flex;flex-direction:column;gap:3px}
+.q-row{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:4px 6px 4px 8px;transition:all .15s}
+.q-row:hover{border-color:var(--a3)}
+.q-row.staged{background:rgba(21,101,216,.1);border-color:var(--a3)}
+.q-name{font-size:9.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.q-btn{background:transparent;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:3px;transition:all .1s}
+.q-btn.add{color:var(--green)}
+.q-btn.add:hover{background:rgba(0,200,112,.15)}
+.q-btn.del{color:var(--red)}
+.q-btn.del:hover{background:rgba(255,61,90,.15)}
+.q-staged-lbl{font-size:8.5px;color:var(--a3);letter-spacing:1px;text-transform:uppercase;margin:4px 0 2px;text-align:center}
+
 /* ── Center column ── */
 .diagram-wrap{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:18px;position:relative}
 .diagram-wrap svg{width:100%;height:auto;display:block}
