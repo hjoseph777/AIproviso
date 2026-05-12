@@ -30,7 +30,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .cc-body{flex:1;display:grid;grid-template-columns:35% 45% 20%;overflow:hidden;transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
 .cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--s1);transition:opacity .22s ease,border-color .28s ease}
 .cc-left.left-collapsed{opacity:0;pointer-events:none;border-right-color:transparent}
-.cc-center{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--bg)}
+.cc-center{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--bg);min-width:0}
 .cc-right{display:flex;flex-direction:column;overflow:hidden;background:var(--s1);transition:opacity .22s ease}
 .cc-right.right-collapsed{opacity:0;pointer-events:none}
 .cc-col-head{padding:7px 12px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:36px}
@@ -110,8 +110,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .mf-input:focus{border-color:var(--a2)}
 
 /* ── Center column ── */
-.diagram-wrap{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:18px}
-.diagram-wrap svg{max-width:100%;height:auto}
+.diagram-wrap{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:18px;position:relative}
+.diagram-wrap svg{width:100%;height:auto;display:block}
+.zoom-badge{position:absolute;bottom:14px;right:16px;background:rgba(5,14,26,.88);border:1px solid var(--border);border-radius:6px;padding:4px 10px 4px 12px;font-size:9px;font-family:var(--mono);color:var(--mid);display:flex;align-items:center;gap:7px;backdrop-filter:blur(6px);pointer-events:auto;z-index:20;user-select:none}
+.zoom-badge span{color:var(--a3);letter-spacing:.5px}
+.zoom-badge button{background:none;border:none;cursor:pointer;color:var(--mid);font-size:13px;padding:0;line-height:1;transition:color .15s}
+.zoom-badge button:hover{color:var(--text)}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px}
 .stat-card{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:14px;text-align:center;transition:all .15s;cursor:default}
 .stat-card:hover{border-color:var(--bdr2);background:var(--s3)}

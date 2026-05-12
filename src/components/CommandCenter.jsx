@@ -67,12 +67,17 @@ const loadMermaid=()=>new Promise(res=>{
   const s=document.createElement('script');
   s.src='https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js';
   s.onload=()=>{
-    window.mermaid.initialize({startOnLoad:false,theme:'base',themeVariables:{
-      primaryColor:'#0F2D5C',primaryTextColor:'#C8DEFF',primaryBorderColor:'#1E4A8C',
-      lineColor:'#3A7FD5',secondaryColor:'#071828',background:'#050E1A',
-      mainBkg:'#0F2D5C',nodeBorder:'#1E4A8C',edgeLabelBackground:'#071828',
-      fontFamily:'JetBrains Mono,monospace',fontSize:'12px',
-    }});
+    window.mermaid.initialize({startOnLoad:false,theme:'base',
+      // Prevent Mermaid from injecting style="max-width:Xpx" on the SVG element.
+      // Without this flag, the inline style overrides all CSS and locks the SVG to
+      // a fixed pixel width even when the column expands.
+      state:{useMaxWidth:false},
+      themeVariables:{
+        primaryColor:'#0F2D5C',primaryTextColor:'#C8DEFF',primaryBorderColor:'#1E4A8C',
+        lineColor:'#3A7FD5',secondaryColor:'#071828',background:'#050E1A',
+        mainBkg:'#0F2D5C',nodeBorder:'#1E4A8C',edgeLabelBackground:'#071828',
+        fontFamily:'JetBrains Mono,monospace',fontSize:'12px',
+      }});
     res(window.mermaid);
   };
   document.head.appendChild(s);
@@ -258,12 +263,13 @@ export default function CommandCenter() {
   const [editTabId,setEditTabId]=useState(null), [tabDraft,setTabDraft]=useState('');
   const [leftOpen,setLeftOpen]=useState(true);
   const [rightOpen,setRightOpen]=useState(false);
+  const [zoom,setZoom]=useState(1);
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
   const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
   const filteredTrans=(wf?.transitions||[]).filter(t=>!transFilter||t.from.toLowerCase().includes(transFilter.toLowerCase())||t.to.toLowerCase().includes(transFilter.toLowerCase()));
   const {exportJSON}=useExport();
-  const diagRef=useRef(null), rcRef=useRef(0);
+  const diagRef=useRef(null), rcRef=useRef(0), zoomRef=useRef(1), wrapRef=useRef(null);
   const tog=k=>setOpen(o=>({...o,[k]:!o[k]}));
   const addLog=(msg,t='info')=>setLog(p=>[...p,{msg,t,ts:TS()}]);
   const addMfLog=(msg,t='info')=>setMfLog(p=>[...p,{msg,t,ts:TS()}]);
@@ -286,6 +292,17 @@ export default function CommandCenter() {
           const map=buildEdgeMap(mermaidStr);
           edgeMapRef.current=map;
           diagRef.current.innerHTML=svg;
+          // Override Mermaid's inline style="max-width:Xpx" — JS .style wins over
+          // both stylesheet rules and Mermaid's own style attribute.
+          const svgEl=diagRef.current.querySelector('svg');
+          if(svgEl){
+            svgEl.removeAttribute('width');
+            svgEl.removeAttribute('height');
+            svgEl.style.maxWidth='none';
+            svgEl.style.width=`${zoomRef.current*100}%`;
+            svgEl.style.height='auto';
+            svgEl.style.display='block';
+          }
           highlightNode(diagRef.current,sel);
           addClicks(
             diagRef.current,
@@ -312,6 +329,35 @@ export default function CommandCenter() {
     })();
     return()=>{dead=true;};
   },[mermaidStr,centerView,resetKey,activeId]);
+
+  // ── Ctrl+Scroll zoom ──────────────────────────────────────────────
+  // Uses a non-passive listener so e.preventDefault() can suppress browser zoom.
+  // zoomRef keeps the value accessible inside the setZoom updater (closure-safe).
+  useEffect(()=>{
+    const el=wrapRef.current; if(!el) return;
+    const onWheel=(e)=>{
+      if(!e.ctrlKey) return;
+      e.preventDefault();
+      setZoom(z=>{
+        // scroll up (deltaY<0) = zoom in ×1.12, scroll down = zoom out ×0.90
+        const next=Math.min(4,Math.max(0.25,z*(e.deltaY<0?1.12:0.90)));
+        zoomRef.current=next;
+        return next;
+      });
+    };
+    el.addEventListener('wheel',onWheel,{passive:false});
+    return()=>el.removeEventListener('wheel',onWheel);
+  },[]);
+
+  // Apply zoom to the live SVG whenever zoom state changes
+  useEffect(()=>{
+    zoomRef.current=zoom;
+    const svgEl=diagRef.current?.querySelector('svg');
+    if(svgEl) svgEl.style.width=`${zoom*100}%`;
+  },[zoom]);
+
+  // Reset zoom to 100% when switching workflows
+  useEffect(()=>{ setZoom(1); zoomRef.current=1; },[activeId]);
 
   useEffect(()=>{if(diagRef.current)highlightNode(diagRef.current,sel);},[sel]);
   useEffect(()=>{
@@ -614,10 +660,16 @@ export default function CommandCenter() {
             </div>
           </div>
           {centerView==='diagram'&&(
-            <div className="diagram-wrap" onClick={()=>{setSel('');setSelTrans(null);}}>
+            <div className="diagram-wrap" ref={wrapRef} onClick={()=>{setSel('');setSelTrans(null);}}>
               {!mermaidStr
                 ?<div key="empty" className="cc-empty"><div className="cc-empty-icon">⬡</div><div>Add states to see the diagram<br/><span style={{fontSize:9,color:'var(--dim)'}}>Mark one state as Initial</span></div></div>
                 :<div key="diagram" ref={diagRef} style={{width:'100%'}} onClick={e=>e.stopPropagation()}/>}
+              {mermaidStr&&zoom!==1&&(
+                <div className="zoom-badge" onClick={e=>e.stopPropagation()}>
+                  <span>{Math.round(zoom*100)}%</span>
+                  <button title="Reset zoom (Ctrl+Scroll)" onClick={()=>{setZoom(1);zoomRef.current=1;}}>⟳</button>
+                </div>
+              )}
             </div>
           )}
           {centerView==='json'&&(
