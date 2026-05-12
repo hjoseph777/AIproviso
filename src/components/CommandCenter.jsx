@@ -542,7 +542,7 @@ export default function CommandCenter() {
           {/* Workflow tabs */}
           <div className="cc-wf-tabs">
             {workflows.map(w=>(
-              <div key={w.id} className={`cc-wf-tab ${w.id===activeId?'active':''}`} onClick={()=>setActive(w.id)} onDoubleClick={()=>{setEditTabId(w.id);setTabDraft(w.name);}} title="Double-click to rename">
+              <div key={w.id} className={`cc-wf-tab ${w.id===activeId?'active':''} ${w.source==='mfiles'?'imported':''}`} onClick={()=>setActive(w.id)} onDoubleClick={()=>{setEditTabId(w.id);setTabDraft(w.name);}} title="Double-click to rename">
                 {editTabId===w.id
                   ?<input style={{background:'transparent',border:'none',outline:'none',fontFamily:'var(--mono)',fontSize:9,color:'var(--text)',width:80}} value={tabDraft} autoFocus onChange={e=>setTabDraft(e.target.value)} onBlur={commitTabRename} onKeyDown={e=>{if(e.key==='Enter')commitTabRename();if(e.key==='Escape')setEditTabId(null);}} onClick={e=>e.stopPropagation()}/>
                   :<span style={{fontSize:9}}>{w.name}</span>}

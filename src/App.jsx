@@ -45,6 +45,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .cc-wf-tab.active{color:var(--text);background:var(--bg);border-color:var(--border)}
 .cc-wf-tab-del{font-size:9px;color:var(--dim);background:none;border:none;cursor:pointer;padding:0 0 0 2px;line-height:1}
 .cc-wf-tab-del:hover{color:var(--red)}
+.cc-wf-tab.imported{border-top-color:var(--mid);color:var(--text)}
+.cc-wf-tab.imported.active{border-top-color:var(--green);background:rgba(0,200,112,.05);color:var(--green)}
 
 /* ── Inline sections ── */
 .cc-sec{border-bottom:1px solid rgba(255,255,255,.04)}
