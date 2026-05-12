@@ -110,11 +110,14 @@ function buildEdgeMap(mermaidStr) {
   return map;
 }
 
-// addClicks: fires onEdge({fromId,toId}) — stateDiagram-v2 uses path.transition, not g.edgePath
-function addClicks(el, onNode, onEdge, edgeMap) {
+// addClicks: detects from/to by path geometry, not SVG order.
+// Mermaid's layout engine can reorder path.transition elements in the SVG
+// differently from the input string, making index-based edgeMap matching
+// unreliable for some transitions. Geometry is always correct.
+function addClicks(el, onNode, onEdge) {
   const svg = el?.querySelector('svg'); if (!svg) return;
 
-  // ── State node clicks (same in all Mermaid diagram types) ──
+  // ── State node clicks ──
   svg.querySelectorAll('.node').forEach(n => {
     n.style.cursor = 'pointer';
     n.onclick = e => {
@@ -124,32 +127,63 @@ function addClicks(el, onNode, onEdge, edgeMap) {
     };
   });
 
-  // ── Transition arrow clicks ──
-  // Ghost paths go into an overlay <g> appended at the END of the SVG so they
-  // render ABOVE all nodes and arrowheads. This prevents the race condition where
-  // clicking near an arrowhead fires both onEdge (ghost) and onNode simultaneously.
-  const allTransPaths = [...svg.querySelectorAll('path.transition')];
-  const transPaths = allTransPaths.filter(p => !p.getAttribute('marker-start'));
+  // ── Build a screen-coordinate map of all node centers ──
+  const nodeBoxes = [];
+  svg.querySelectorAll('.node').forEach(n => {
+    const lbl = n.querySelector('.nodeLabel,text,span')?.textContent?.trim() || '';
+    if (!lbl) return;
+    const r = n.getBoundingClientRect();
+    nodeBoxes.push({
+      id: lbl.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, ''),
+      cx: r.left + r.width / 2,
+      cy: r.top  + r.height / 2
+    });
+  });
 
-  // Remove any stale ghost overlays from previous renders before adding new ones
+  const nearest = (x, y) => {
+    let best = null, bestD = Infinity;
+    nodeBoxes.forEach(nb => {
+      const d = (nb.cx-x)**2 + (nb.cy-y)**2;
+      if (d < bestD) { bestD = d; best = nb.id; }
+    });
+    return best;
+  };
+
+  // ── Transition arrow clicks — geometry-based ──
+  const transPaths = [...svg.querySelectorAll('path.transition')]
+    .filter(p => !p.getAttribute('marker-start'));
+
   svg.querySelectorAll('.ghost-overlay').forEach(g => g.remove());
-  // Create a top-level ghost overlay group — appended last so it renders above all nodes
   const ghostLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   ghostLayer.setAttribute('class', 'ghost-overlay');
   svg.appendChild(ghostLayer);
 
-  transPaths.forEach((p, idx) => {
-    const entry = edgeMap[idx];
-    if (!entry) return;
+  transPaths.forEach(p => {
+    const len = p.getTotalLength();
+    if (len < 1) return;
+    // Sample near-start (5%) and near-end (95%) to avoid arrowhead/node overlap
+    const s = p.getPointAtLength(len * 0.05);
+    const e2 = p.getPointAtLength(len * 0.95);
+    // Convert SVG user-space points to screen coords
+    const ctm = p.getScreenCTM();
+    const toScreen = pt => {
+      const sp = svg.createSVGPoint(); sp.x = pt.x; sp.y = pt.y;
+      return ctm ? sp.matrixTransform(ctm) : sp;
+    };
+    const ss = toScreen(s), es = toScreen(e2);
+    const fromId = nearest(ss.x, ss.y);
+    const toId   = nearest(es.x, es.y);
+    if (!fromId || !toId || fromId === toId) return;
+
     const ghost = p.cloneNode(false);
     ghost.removeAttribute('id');
-    ghost.removeAttribute('class');      // CRITICAL: strip class so Mermaid CSS doesn't override our transparent styles
+    ghost.removeAttribute('class');
     ghost.removeAttribute('marker-end');
     ghost.removeAttribute('marker-start');
     ghost.removeAttribute('marker-mid');
     ghost.style.cssText = 'stroke-width:32px;stroke:transparent;fill:none;cursor:pointer;pointer-events:stroke';
-    ghost.onclick = e => { e.stopPropagation(); onEdge(entry); };
-    ghostLayer.appendChild(ghost); // top layer — wins over nodes
+    ghost.onclick = ev => { ev.stopPropagation(); onEdge({fromId, toId}); };
+    ghostLayer.appendChild(ghost);
   });
 }
 
@@ -248,15 +282,12 @@ export default function CommandCenter() {
           highlightNode(diagRef.current,sel);
           addClicks(
             diagRef.current,
-            name=>{setSel(name);setSelTrans(null);},      // node click
+            name=>{setSel(name);setSelTrans(null);},
             entry=>{
-              // entry = {fromId, toId} — underscored mermaid IDs
               setSelTrans(entry);
               setSel('');
               setOpen(o=>({...o,trans:true}));
-              // Scroll the matching row into view after render
               setTimeout(()=>{
-                // Convert underscored IDs back to original names for matching
                 const fromName=entry.fromId.replace(/_/g,' ');
                 const toName=entry.toId.replace(/_/g,' ');
                 const rows=document.querySelectorAll('.trans-row');
@@ -267,8 +298,7 @@ export default function CommandCenter() {
                   }
                 });
               },50);
-            },
-            map
+            }
           );
         }
       }catch{if(!dead&&diagRef.current)diagRef.current.innerHTML=`<div style="color:var(--red);font-size:11px;padding:16px">Diagram error</div>`;}
