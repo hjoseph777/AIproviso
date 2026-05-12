@@ -401,6 +401,242 @@ RESUME: Phase-III-B-Auth-Unlock
 
 ---
 
+## Phase III-B — Bidirectional Sync (Implemented)
+
+### Architecture: Push ↔ Pull
+
+```
+Renderer (React)
+  └─ window.mfiles.pushWorkflow(json)   ← contextBridge
+  └─ window.mfiles.listWorkflows(cfg)   ← contextBridge
+  └─ window.mfiles.pullWorkflows(cfg)   ← contextBridge
+       └─ IPC → main.cjs
+            ├─ mfiles:push          → push-to-vault.ps1
+            ├─ mfiles:list-workflows → pull-from-vault.ps1 -ListOnly
+            └─ mfiles:pull-workflows → pull-from-vault.ps1 -WorkflowIds
+```
+
+### Unified Sync Menu — UI Pattern
+
+```
+┌─────────────────────────────────┐
+│  [ Export to Vault | Import from Vault ]  ← syncMode toggle
+├─────────────────────────────────┤
+│  Export mode:                   │
+│    SyncQueue (local workflows)  │
+│    → Push Staged                │
+│                                 │
+│  Import mode:                   │
+│    [Fetch Vault Workflows]       │
+│    SyncQueue (vault workflows)  │
+│    ← Pull Staged into Tabs      │
+└─────────────────────────────────┘
+```
+
+**State variables:**
+```js
+const [syncMode,setSyncMode]         = useState('export');      // 'export' | 'import'
+const [mfPushQueue,setMfPushQueue]   = useState([]);            // wf IDs staged for push
+const [mfPullQueue,setMfPullQueue]   = useState([]);            // wf IDs staged for pull
+const [mfVaultWorkflows,setMfVaultWorkflows] = useState([]);    // fetched from vault
+```
+
+### SyncQueue Component
+
+Reusable — used for both push and pull directions. Scrollable when > 5 items.
+
+```jsx
+function SyncQueue({ available, queue, setQueue, stagedLabel }) {
+  const unqueued = available.filter(w => !queue.includes(w.id));
+  return (
+    <div className="q-list">
+      {unqueued.length > 0 && (
+        <div style={{maxHeight: 130, overflowY: unqueued.length > 5 ? 'auto' : 'visible'}}>
+          {unqueued.map(w => (
+            <div key={w.id} className="q-row">
+              <span className="q-name">{w.name}</span>
+              <button className="q-btn add" onClick={() => setQueue(q => [...q, w.id])}>+</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {queue.length > 0 && <div className="q-staged-lbl">{stagedLabel}</div>}
+      {queue.map(id => {
+        const w = available.find(x => x.id === id);
+        if (!w) return null;
+        return (
+          <div key={w.id} className="q-row staged">
+            <span className="q-name">{w.name}</span>
+            <button className="q-btn del" onClick={() => setQueue(q => q.filter(x => x !== id))}>✕</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+**Design rules:**
+- `available` = all options (local workflows OR vault workflows depending on direction)
+- Items in queue are removed from the available list (can't stage twice)
+- Staged section appears only when queue.length > 0
+- Queue is cleared on successful push/pull
+
+### PowerShell JSON Normalization — pull-from-vault.ps1
+
+Pull script emits structured JSON via `[RESULT]` sentinel prefix. Two modes:
+
+| Mode | Flag | Output |
+|:---|:---|:---|
+| List | `-ListOnly` | `[{id, name}]` — available workflows for SyncQueue picker |
+| Fetch | `-WorkflowIds "1,2,3"` | Full workflow objects with states, transitions, scripts, rules |
+
+**Normalization in `seedImportedWorkflow` (useWorkflowStore.js):**
+```js
+// Pulled workflow JSON → Proviso tab
+seedImportedWorkflow: (mfData) => {
+  const wf = {
+    id:         makeId(),
+    name:       `📥 ${mfData.name} (imported ${date})`,
+    source:     mfData.source || 'mfiles',   // marks tab as imported (blue tint)
+    importedAt: mfData.importedAt,
+    states:     (mfData.states || []).map(s => ({ id: makeId(), ...s })),
+    transitions:(mfData.transitions || []).map(t => ({ id: makeId(), ...t })),
+  };
+  // VBScript actions on states → global rules (data preservation)
+  const newRules = [
+    ...(mfData.rules   || []).map(r   => ({ id: makeId(), text: r.text })),
+    ...(mfData.scripts || []).map(scr => ({ id: makeId(), text: `VBScript on state ${scr.state}: ${scr.text}` })),
+  ];
+  set(s => ({ workflows: [...s.workflows, wf], activeId: wf.id, rules: [...s.rules, ...newRules] }));
+}
+```
+
+**Tab visual indicator:** imported tabs get `.imported` CSS class → blue-tinted tab strip.
+
+### Async Handler Freeze Fix
+
+**Symptom:** UI freezes while push/pull IPC call is in-flight.
+
+**Fix pattern:**
+```js
+// 1. mfBusy guard — disables all sync buttons during operation
+setMfBusy(true);
+// ... async work ...
+finally { setMfBusy(false); }
+
+// 2. Sequential for...of for multi-workflow push — never parallel
+for (const id of mfPushQueue) {
+  const res = await window.mfiles.pushWorkflow({ ... });
+  if (!res.ok) throw new Error(`${targetWf.name}: ${res.error || 'Unknown push error'}`);
+}
+
+// 3. Always clean up progress listener — even on error
+finally {
+  setMfBusy(false);
+  try { window.mfiles.offProgress(); } catch(e) {}
+}
+```
+
+**Why `for...of` not `Promise.all`:** M-Files vault COM is single-threaded — parallel pushes cause COM contention errors. Sequential is required.
+
+### Push IPC Error Capture (main.cjs)
+
+Push handler captures `[ERROR]` lines from PowerShell stdout and includes them in the resolve payload:
+
+```js
+let lastError = '';
+ps.stdout.on('data', d => {
+  d.toString().split('\n').filter(l => l.trim()).forEach(line => {
+    send(line);   // stream to renderer log
+    if (line.includes('[ERROR]')) lastError = line.replace(/\[ERROR\]\s*/, '').trim();
+  });
+});
+ps.stderr.on('data', d => { const msg = d.toString().trim(); send(`[ERROR] ${msg}`); lastError = msg; });
+ps.on('close', async (code) => {
+  await unlink(tmpFile).catch(() => {});
+  resolve({ ok: code === 0, exitCode: code, error: lastError || '' });
+});
+```
+
+**Before this fix:** `res.error` in the renderer was always `undefined` — error message was swallowed.
+
+### Mermaid Intrinsic Scaling
+
+**Problem:** Mermaid injects `style="max-width: Xpx"` inline on the SVG, overriding all CSS.
+
+**Fix:**
+```js
+const svgEl = diagRef.current.querySelector('svg');
+if (svgEl) {
+  svgEl.removeAttribute('width');
+  svgEl.removeAttribute('height');
+  svgEl.style.maxWidth = 'none';
+  // Read intrinsic width from viewBox so zoom scales proportionally
+  const vb = svgEl.viewBox.baseVal;
+  const baseW = (vb && vb.width > 0) ? vb.width : 800;
+  svgEl.dataset.baseWidth = baseW;        // stored for zoom calculations
+  svgEl.style.width  = `${baseW * zoomRef.current}px`;
+  svgEl.style.height = 'auto';
+}
+```
+
+**Zoom reapply:**
+```js
+useEffect(() => {
+  zoomRef.current = zoom;
+  const svgEl = diagRef.current?.querySelector('svg');
+  if (svgEl) {
+    const baseW = parseFloat(svgEl.dataset.baseWidth) || 800;
+    svgEl.style.width = `${baseW * zoom}px`;
+  }
+}, [zoom]);
+```
+
+**Rule:** `state: { useMaxWidth: false }` in `mermaid.initialize()` prevents the inline `max-width` injection entirely. The `viewBox` approach is belt-and-suspenders for when Mermaid ignores that config.
+
+### Updated IPC Handler Table
+
+| IPC Channel | Direction | Script | Notes |
+|:---|:---|:---|:---|
+| `mfiles:list-vaults` | → PS | `test-connection.ps1` | Connection test |
+| `mfiles:list-workflows` | → PS | `pull-from-vault.ps1 -ListOnly` | Returns `[{id,name}]` |
+| `mfiles:pull-workflows` | → PS | `pull-from-vault.ps1 -WorkflowIds` | Full workflow fetch |
+| `mfiles:push` | → PS | `push-to-vault.ps1` | Creates workflow in vault, streams progress |
+| `mfiles:progress` | ← renderer | — | Streaming log lines from PS |
+| `file:save` | → OS | — | Native Save-As dialog |
+| `sow:claude-extract` | → HTTPS | api.anthropic.com | Claude NLP extraction |
+| `sow:cacoo-fetch` | → HTTPS | Cacoo API | Diagram import |
+
+### Updated File Structure
+
+```
+src/
+├── App.jsx
+├── main.jsx
+├── store/
+│   └── useWorkflowStore.js      ← seedImportedWorkflow, seedStressTest, importWorkflow
+├── validation/
+│   └── schema.js
+├── hooks/
+│   ├── useMermaid.js            ← content-key memo, returns null for empty
+│   └── useExport.js
+└── components/
+    └── CommandCenter.jsx        ← all UI: SyncQueue, Unified Sync Menu, diagram, grids
+
+electron/
+├── main.cjs                     ← IPC: push, pull, list, file:save, claude, cacoo
+└── preload.cjs                  ← contextBridge: window.mfiles, window.sow, window.file
+
+scripts/
+├── push-to-vault.ps1            ← COM: creates workflow + states + transitions
+├── pull-from-vault.ps1          ← COM: lists or fetches workflows (-ListOnly / -WorkflowIds)
+├── test-connection.ps1          ← COM: vault connection test
+└── verify-vault.ps1             ← COM: vault verification utility
+```
+
+---
+
 ## Beta II — Bidirectional M-Files Round-Trip Sync
 
 ### Goal
@@ -448,3 +684,63 @@ $wfJson.scripts += @{
 MILESTONE: Beta-II-Complete
 NEXT: Beta-III-AI-Vision (Auto-generate diagram states from LLM vision)
 ```
+
+---
+
+## Beta II.1 — Workflow Navigation Polish (Validated)
+
+### Goal
+Improve navigation in dense workflow sessions and guarantee that each imported tab always renders its own state/transition diagram input.
+
+### Implemented (and user-validated)
+| Feature | File | Notes |
+| :--- | :--- | :--- |
+| Workflow tab strip arrows (left/right) | `src/components/CommandCenter.jsx` + `src/App.jsx` | Adds compact arrows to scroll the tab strip horizontally when many workflows are open. |
+| Workflow area arrows (up/down) | `src/components/CommandCenter.jsx` + `src/App.jsx` | Adds compact arrows to scroll the left workflow editor vertically. |
+| Per-tab diagram isolation | `src/components/CommandCenter.jsx` + `src/hooks/useMermaid.js` | Tab switch clears transient selection state and forces clean diagram remount to prevent stale SVG carry-over. |
+| Mermaid dependency hardening | `src/hooks/useMermaid.js` | Memo now keys by workflow identity + state content + transition content. |
+| Compact tab labels + expand toggle | `src/components/CommandCenter.jsx` + `src/App.jsx` | Tabs are ellipsized by default; hover shows full name; toggle expands label width for scanning. |
+
+### UI Blend Rules (look and feel)
+- Scroll arrows use existing theme tokens (`--s2`, `--s3`, `--border`, `--mid`, `--a2`, `--a3`)
+- Same border radius, hover timing, and contrast profile as existing `.xb`/panel controls
+- Disabled state uses dimmed opacity and preserves visual hierarchy
+- Tab expand toggle (`⇥`/`⇤`) matches the same visual language as scroll controls.
+- Compact tab mode tuned smaller for density: tighter tab padding and roughly half-width default label truncation.
+
+### Correctness Rule — Diagram Input Source of Truth
+Diagram rendering is bound strictly to the active workflow's states/transitions:
+
+```js
+const wf = getActive();
+const mermaidStr = useMermaid(wf);
+```
+
+And memo invalidation now includes workflow identity to avoid cross-tab reuse:
+
+```js
+const workflowKey = workflow?.id || workflow?.name || '';
+// dependencies: [workflowKey, stateKey, transKey]
+```
+
+This ensures each imported workflow tab displays only its own graph, even when tabs share similar structure.
+
+### Testing Evidence (May 12, 2026)
+- [x] Imported multiple vault workflows in one session.
+- [x] Clicked each imported tab and confirmed it displayed its own states.
+- [x] Clicked each imported tab and confirmed it displayed its own transitions.
+- [x] Confirmed Mermaid diagram matched the active tab's workflow only.
+- [x] Verified workflow-tab left/right arrows scroll correctly.
+- [x] Verified workflow-area up/down arrows scroll correctly.
+- [x] Verified arrow controls blend with existing Proviso GUI style.
+- [x] Verified long workflow names are ellipsized by default.
+- [x] Verified tab hover tooltip shows full workflow name.
+- [x] Verified expand/collapse labels toggle changes label width without affecting tab selection.
+- [x] Verified extra-compact tab mode keeps strip density high while bottom header still shows full active workflow name.
+
+### Known Limitations
+- Diagram intentionally stays blank when a workflow has no states.
+- Diagram intentionally stays blank when no state is marked as `initial: true`.
+- Transition lines with empty `from` or `to` are skipped in Mermaid rendering until values are completed.
+- Imported workflow tab names can be long; labels are intentionally ellipsized in compact mode for layout stability.
+- Expanded label mode increases visible width but still depends on horizontal tab-strip scrolling when many tabs are open.

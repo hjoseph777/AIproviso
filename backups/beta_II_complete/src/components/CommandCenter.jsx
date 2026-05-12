@@ -244,9 +244,6 @@ export default function CommandCenter() {
   const addUser=useWorkflowStore(s=>s.addUser), updateUser=useWorkflowStore(s=>s.updateUser), deleteUser=useWorkflowStore(s=>s.deleteUser);
   const addProperty=useWorkflowStore(s=>s.addProperty), updateProperty=useWorkflowStore(s=>s.updateProperty), deleteProperty=useWorkflowStore(s=>s.deleteProperty);
   const addRule=useWorkflowStore(s=>s.addRule), updateRule=useWorkflowStore(s=>s.updateRule), deleteRule=useWorkflowStore(s=>s.deleteRule);
-  const hoveredState=useWorkflowStore(s=>s.hoveredState), setHoveredState=useWorkflowStore(s=>s.setHoveredState);
-  const hoveredTransition=useWorkflowStore(s=>s.hoveredTransition), setHoveredTransition=useWorkflowStore(s=>s.setHoveredTransition);
-  const setCmdPaletteOpen=useWorkflowStore(s=>s.setCmdPaletteOpen);
 
   const [mode,setMode]=useState('manual');
   const [nlpText,setNlpText]=useState(''), [aiText,setAiText]=useState('');
@@ -382,27 +379,9 @@ export default function CommandCenter() {
       }catch{if(!dead&&diagRef.current)diagRef.current.innerHTML=`<div style="color:var(--red);font-size:11px;padding:16px">Diagram error</div>`;}
     })();
     return()=>{dead=true;};
-  }, [mermaidStr, centerView, leftOpen]);
+  },[mermaidStr,centerView,resetKey,activeId]);
 
-  // Handle Bi-Directional Diagram Highlighting
-  useEffect(() => {
-    if (!diagRef.current) return;
-    diagRef.current.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
-    if (hoveredState) {
-      const id = hoveredState.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-      const node = diagRef.current.querySelector(`#${id}`);
-      if (node) node.classList.add('highlight');
-    }
-    if (hoveredTransition) {
-      const f = hoveredTransition.from.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-      const t = hoveredTransition.to.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-      // Mermaid stateDiagram-v2 edges have classes like LS-from LE-to
-      const edge = diagRef.current.querySelector(`[class*="LS-${f}"][class*="LE-${t}"]`);
-      if (edge) edge.classList.add('highlight');
-    }
-  }, [hoveredState, hoveredTransition, mermaidStr, zoom]);
-
-  // ── Sync Logic (M-Files) ──────────────────────────────────────────────
+  // ── Ctrl+Scroll zoom ──────────────────────────────────────────────
   // Uses a non-passive listener so e.preventDefault() can suppress browser zoom.
   // zoomRef keeps the value accessible inside the setZoom updater (closure-safe).
   useEffect(()=>{
@@ -676,8 +655,7 @@ export default function CommandCenter() {
               )}>
               {wf?.states.length>0&&<table className="inline-mini"><thead><tr><th>Name</th><th style={{width:50}}>Initial</th><th style={{width:22}}/></tr></thead>
                 <tbody>
-                  {filteredStates.map(s=>(<tr key={s.id} className={sel===s.name?'sel-row':''} onClick={()=>setSel(s.name)}
-                    onMouseEnter={()=>setHoveredState(s.name)} onMouseLeave={()=>setHoveredState(null)}>
+                  {filteredStates.map(s=>(<tr key={s.id} className={sel===s.name?'sel-row':''} onClick={()=>setSel(s.name)}>
                     <td><input value={s.name} placeholder="State name…" onChange={e=>renameState(activeId,s.id,e.target.value)}/></td>
                     <td><div className="mini-check"><input type="checkbox" checked={!!s.initial} onChange={e=>updateState(activeId,s.id,{initial:e.target.checked})}/></div></td>
                     <td><button className="mini-del" onClick={e=>{e.stopPropagation();const r=deleteState(activeId,s.id);if(!r?.ok)alert(r?.error);}}>✕</button></td>
@@ -707,7 +685,6 @@ export default function CommandCenter() {
                     const toId=t.to.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
                     const isSelected=selTrans!=null&&selTrans.fromId===fromId&&selTrans.toId===toId;
                     return(<tr key={t.id} className={`trans-row ${isSelected?'sel-row':''}`}
-                      onMouseEnter={()=>setHoveredTransition(t.from, t.to)} onMouseLeave={()=>setHoveredTransition(null)}
                       onClick={()=>{
                         setSel('');
                         setSelTrans({fromId,toId});
@@ -794,11 +771,7 @@ export default function CommandCenter() {
           {centerView==='diagram'&&(
             <div className="diagram-wrap" ref={wrapRef} onClick={()=>{setSel('');setSelTrans(null);}}>
               {!mermaidStr
-                ?<div key="empty" className="blueprint-empty">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                  <div className="blueprint-title">No Diagram Available</div>
-                  <div className="blueprint-sub">{wf ? 'Add at least one state and mark it as "Initial" to begin building the diagram.' : 'Create a new workflow, parse a Markdown file, or import from M-Files to get started.'}</div>
-                </div>
+                ?<div key="empty" className="cc-empty"><div className="cc-empty-icon">⬡</div><div>Add states to see the diagram<br/><span style={{fontSize:9,color:'var(--dim)'}}>Mark one state as Initial</span></div></div>
                 :<div key="diagram" ref={diagRef} style={{width:'100%'}} onClick={e=>e.stopPropagation()}/>}
               {mermaidStr&&zoom!==1&&(
                 <div className="zoom-badge" onClick={e=>e.stopPropagation()}>
@@ -806,10 +779,6 @@ export default function CommandCenter() {
                   <button title="Reset zoom (Ctrl+Scroll)" onClick={()=>{setZoom(1);zoomRef.current=1;}}>⟳</button>
                 </div>
               )}
-              {mermaidStr&&<div className="cc-toolbar" onClick={e=>e.stopPropagation()}>
-                <button className="xb" onClick={()=>{setZoom(1);zoomRef.current=1;}} title="Reset Zoom">⟳ Recenter</button>
-                <button className="xb" onClick={e=>setCmdPaletteOpen(true)} title="Command Palette">⌘ Menu</button>
-              </div>}
             </div>
           )}
           {centerView==='json'&&(
@@ -833,10 +802,7 @@ export default function CommandCenter() {
 
         {/* ═══ RIGHT — DELIVER ═══ */}
         <div className={`cc-right${rightOpen?'':' right-collapsed'}`}>
-          <div className="cc-col-head" style={{gap:8}}>
-            <span className="cc-col-lbl">Deliver</span>
-            {syncMode !== 'export' && <span className={`status-pulse ${mfBusy ? 'amber' : (mfVault ? 'green' : 'dim')}`} title={mfBusy ? 'Syncing...' : (mfVault ? 'Connected' : 'Disconnected')} />}
-          </div>
+          <div className="cc-col-head"><span className="cc-col-lbl">Deliver</span></div>
           <div className="cc-col-body">
 
             {/* SOW */}

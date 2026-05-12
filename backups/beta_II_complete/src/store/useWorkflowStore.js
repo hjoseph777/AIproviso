@@ -52,18 +52,12 @@ const fresh = () => ({
   users:      [],
   properties: [],
   rules:      [],
-  hoveredState: null,
-  hoveredTransition: null,
-  cmdPaletteOpen: false,
 });
 
 
 // ── Store ─────────────────────────────────────────────────────
 export const useWorkflowStore = create((set, get) => ({
   ...fresh(),
-  setHoveredState: (name) => set({ hoveredState: name }),
-  setHoveredTransition: (from, to) => set({ hoveredTransition: {from, to} }),
-  setCmdPaletteOpen: (open) => set({ cmdPaletteOpen: open }),
 
   // ── Selectors ──────────────────────────────────────────────
   getActive: () => {

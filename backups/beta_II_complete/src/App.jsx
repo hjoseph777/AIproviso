@@ -1,5 +1,4 @@
 import CommandCenter from './components/CommandCenter';
-import CommandPalette from './components/CommandPalette';
 
 // ── CSS ───────────────────────────────────────────────────────────
 const CSS = `
@@ -29,10 +28,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .cc-mode-tab.active-ai{color:#A78BFA;background:rgba(124,92,252,.1);border-color:rgba(124,92,252,.3)}
 .cc-mode-tab.active-cacoo{color:var(--green);background:rgba(0,200,112,.1);border-color:rgba(0,200,112,.3)}
 .cc-body{flex:1;display:grid;grid-template-columns:35% 45% 20%;overflow:hidden;transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
-.cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:rgba(7,17,31,0.85);backdrop-filter:blur(12px);transition:opacity .22s ease,border-color .28s ease;position:relative;z-index:2}
+.cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--s1);transition:opacity .22s ease,border-color .28s ease;position:relative}
 .cc-left.left-collapsed{opacity:0;pointer-events:none;border-right-color:transparent}
 .cc-center{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:var(--bg);min-width:0}
-.cc-right{display:flex;flex-direction:column;overflow:hidden;background:rgba(7,17,31,0.85);backdrop-filter:blur(12px);transition:opacity .22s ease;z-index:2}
+.cc-right{display:flex;flex-direction:column;overflow:hidden;background:var(--s1);transition:opacity .22s ease}
 .cc-right.right-collapsed{opacity:0;pointer-events:none}
 .cc-col-head{padding:7px 12px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:36px}
 .cc-col-lbl{font-size:9px;font-weight:600;color:var(--mid);letter-spacing:.8px;text-transform:uppercase}
@@ -61,7 +60,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 
 /* ── Inline sections ── */
 .cc-sec{border-bottom:1px solid rgba(255,255,255,.04)}
-.cc-sec-hd{display:flex;align-items:center;gap:7px;padding:7px 12px;cursor:pointer;user-select:none;background:var(--s2);border-bottom:1px solid var(--border);flex-shrink:0;transition:all .2s cubic-bezier(0.4,0,0.2,1)}
+.cc-sec-hd{display:flex;align-items:center;gap:7px;padding:7px 12px;cursor:pointer;user-select:none;background:var(--s2);border-bottom:1px solid var(--border);flex-shrink:0;transition:background .15s}
 .cc-sec-hd:hover{background:var(--s3)}
 .cc-sec-chev{font-size:9px;color:var(--mid);transition:transform .2s;flex-shrink:0}
 .cc-sec-chev.open{transform:rotate(90deg)}
@@ -173,68 +172,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 @keyframes rot{to{transform:rotate(360deg)}}
 @keyframes tip-pulse{0%,100%{opacity:.2}50%{opacity:.8}}
 ::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-
-/* Pro UI Enhancements */
-@keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(240,165,0,0.4); } 70% { box-shadow: 0 0 0 6px rgba(240,165,0,0); } 100% { box-shadow: 0 0 0 0 rgba(240,165,0,0); } }
-@keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(0,200,112,0.4); } 70% { box-shadow: 0 0 0 6px rgba(0,200,112,0); } 100% { box-shadow: 0 0 0 0 rgba(0,200,112,0); } }
-@keyframes pulse-blue  { 0% { box-shadow: 0 0 0 0 rgba(74,159,255,0.4); } 70% { box-shadow: 0 0 0 6px rgba(74,159,255,0); } 100% { box-shadow: 0 0 0 0 rgba(74,159,255,0); } }
-.status-pulse { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.status-pulse.amber { background: var(--gold); animation: pulse-amber 1.5s infinite; }
-.status-pulse.green { background: var(--green); animation: pulse-green 2s infinite; }
-.status-pulse.blue  { background: var(--a3); animation: pulse-blue 2.5s infinite; }
-.status-pulse.dim   { background: var(--dim); }
-
-/* Mermaid Highlights */
-.node.highlight rect, .node.highlight polygon, .node.highlight circle {
-  stroke: var(--green) !important; stroke-width: 3px !important; filter: drop-shadow(0 0 6px rgba(0,200,112,0.6));
-}
-.edgePath.highlight path {
-  stroke: var(--green) !important; stroke-width: 3px !important; filter: drop-shadow(0 0 4px rgba(0,200,112,0.5));
-}
-
-/* Floating Toolbar */
-.cc-toolbar {
-  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 8px; padding: 6px 12px; border-radius: 8px;
-  background: rgba(10, 24, 40, 0.85); backdrop-filter: blur(10px);
-  border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 100;
-}
-
-/* Empty Blueprint */
-.blueprint-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; color: var(--dim); font-family: var(--display); text-align: center;
-}
-.blueprint-empty svg { opacity: 0.15; width: 120px; height: 120px; margin-bottom: 20px; }
-.blueprint-title { font-size: 24px; font-weight: 700; color: var(--mid); margin-bottom: 8px; }
-.blueprint-sub { font-size: 13px; font-family: var(--mono); color: var(--dim); max-width: 300px; line-height: 1.5; }
-
-/* Command Palette */
-.cmd-overlay {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 9999;
-  display: flex; justify-content: center; padding-top: 15vh;
-}
-.cmd-modal {
-  width: 600px; max-width: 90vw; background: var(--s1); border: 1px solid var(--border);
-  border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column;
-  overflow: hidden;
-}
-.cmd-input {
-  width: 100%; padding: 16px 20px; font-size: 18px; font-family: var(--mono); color: var(--text);
-  background: transparent; border: none; outline: none; border-bottom: 1px solid var(--border);
-}
-.cmd-results { max-height: 350px; overflow-y: auto; padding: 8px; }
-.cmd-item {
-  padding: 10px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer;
-  border-radius: 4px; color: var(--mid); transition: background 0.1s;
-}
-.cmd-item:hover, .cmd-item.selected { background: var(--s3); color: var(--text); }
-.cmd-item-icon { width: 24px; text-align: center; font-size: 14px; opacity: 0.7; }
-.cmd-item-text { flex: 1; font-size: 13px; }
-.cmd-item-type { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; }
 `;
 
 export default function App() {
@@ -242,7 +181,6 @@ export default function App() {
     <>
       <style>{CSS}</style>
       <CommandCenter />
-      <CommandPalette />
     </>
   );
 }
