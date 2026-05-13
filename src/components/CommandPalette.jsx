@@ -95,14 +95,17 @@ export default function CommandPalette() {
   return (
     <div className="cmd-overlay" onClick={() => setCmdPaletteOpen(false)}>
       <div className="cmd-modal" onClick={e => e.stopPropagation()}>
-        <input 
-          ref={inputRef}
-          className="cmd-input" 
-          placeholder="Search states, workflows, or actions..." 
-          value={query}
-          onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
-          onKeyDown={handleKeyDown}
-        />
+        <div className="cmd-head">
+          <input 
+            ref={inputRef}
+            className="cmd-input" 
+            placeholder="Search states, workflows, or actions..." 
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
+            onKeyDown={handleKeyDown}
+          />
+          <button className="cmd-close" title="Close search" onClick={() => setCmdPaletteOpen(false)}>✕</button>
+        </div>
         <div className="cmd-results">
           {filtered.length === 0 && <div style={{padding: '20px', color: 'var(--dim)', textAlign: 'center'}}>No results found</div>}
           {filtered.map((item, i) => (

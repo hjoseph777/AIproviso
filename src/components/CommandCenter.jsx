@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { useMermaid } from '../hooks/useMermaid';
 import { useExport } from '../hooks/useExport';
@@ -254,7 +254,7 @@ export default function CommandCenter() {
   const [cacooId,setCacooId]=useState(''), [cacooKey,setCacooKey]=useState('');
   const [log,setLog]=useState([]), [busy,setBusy]=useState(false);
   const [sel,setSel]=useState(''), [selTrans,setSelTrans]=useState(null); // selTrans: {fromId,toId} | null
-  const [centerView,setCenterView]=useState('diagram'), [resetKey,setResetKey]=useState(0);
+  const [centerView,setCenterView]=useState('diagram');
   const edgeMapRef=useRef([]);
   const [saveFlash,setSaveFlash]=useState(false), [saved,setSaved]=useState(false);
   const [mfLog,setMfLog]=useState([]), [mfBusy,setMfBusy]=useState(false), [mfOk,setMfOk]=useState(null);
@@ -276,6 +276,7 @@ export default function CommandCenter() {
   const [canScrollDown,setCanScrollDown]=useState(false);
   const [canTabsLeft,setCanTabsLeft]=useState(false);
   const [canTabsRight,setCanTabsRight]=useState(false);
+  const [showEdgeSearch,setShowEdgeSearch]=useState(false);
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
   const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
@@ -283,9 +284,18 @@ export default function CommandCenter() {
   const {exportJSON}=useExport();
   const diagRef=useRef(null), rcRef=useRef(0), zoomRef=useRef(1), wrapRef=useRef(null);
   const leftBodyRef=useRef(null), wfTabsRef=useRef(null);
+  const logRef=useRef(null), mfLogRef=useRef(null);
+  const logTailRef=useRef(null), mfLogTailRef=useRef(null);
+  const logFollowRef=useRef(true), mfLogFollowRef=useRef(true);
   const tog=k=>setOpen(o=>({...o,[k]:!o[k]}));
   const addLog=(msg,t='info')=>setLog(p=>[...p,{msg,t,ts:TS()}]);
   const addMfLog=(msg,t='info')=>setMfLog(p=>[...p,{msg,t,ts:TS()}]);
+
+  const keepLogAtBottom=(el, followRef)=>{
+    if(!el) return;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 16;
+    followRef.current = nearBottom;
+  };
 
   const updateLeftScrollState=()=>{
     const el=leftBodyRef.current;
@@ -316,12 +326,17 @@ export default function CommandCenter() {
   const switchWorkflow=(id)=>{
     setSel('');
     setSelTrans(null);
-    setResetKey(k=>k+1);
     setActive(id);
   };
 
   useEffect(()=>{updateLeftScrollState();},[open.states,open.trans,open.users,open.props,open.rules,workflows.length,activeId,mode]);
   useEffect(()=>{updateTabsScrollState();},[workflows.length,activeId,editTabId,expandTabLabels]);
+  useLayoutEffect(()=>{
+    if(logFollowRef.current) logTailRef.current?.scrollIntoView({block:'end'});
+  },[log.length,busy]);
+  useLayoutEffect(()=>{
+    if(mfLogFollowRef.current) mfLogTailRef.current?.scrollIntoView({block:'end'});
+  },[mfLog.length,mfBusy,mfOk]);
 
   useEffect(()=>{
     if(!mermaidStr||centerView!=='diagram'){
@@ -393,7 +408,7 @@ export default function CommandCenter() {
       const node = diagRef.current.querySelector(`#${id}`);
       if (node) node.classList.add('highlight');
     }
-    if (hoveredTransition) {
+    if (hoveredTransition?.from && hoveredTransition?.to) {
       const f = hoveredTransition.from.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
       const t = hoveredTransition.to.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
       // Mermaid stateDiagram-v2 edges have classes like LS-from LE-to
@@ -503,20 +518,29 @@ export default function CommandCenter() {
     }catch(e){addLog(`Error: ${e.message}`,'error');}
     setBusy(false);
   };
-  const handleReset=()=>{resetAll();setLog([]);setSel('');setSelTrans(null);setMfLog([]);setMfOk(null);setSaved(false);setResetKey(k=>k+1);setStateFilter('');setTransFilter('');};
+  const handleReset=()=>{resetAll();setLog([]);setSel('');setSelTrans(null);setMfLog([]);setMfOk(null);setSaved(false);setStateFilter('');setTransFilter('');};
   const handleSave=()=>{exportJSON();setSaved(true);setSaveFlash(true);setTimeout(()=>setSaveFlash(false),2000);};
   const handleSOW=()=>{if(wf?.states.length)dl(buildSOW(wf,users,properties,rules),`${(wf.name||'sow').replace(/\s+/g,'_')}.md`);};
   const handlePRD=()=>{if(wf?.states.length)dl(buildPRD(wf,users,properties,rules),`${(wf.name||'prd').replace(/\s+/g,'_')}_PRD.md`);};
   const handleMfFetch=async()=>{
     if(!mfVault.trim()){addMfLog('Vault GUID is required','error');return;}
-    setMfBusy(true);setMfLog([]);addMfLog('Fetching available workflows...');
+    setMfBusy(true);setMfLog([]);setMfPullQueue([]);addMfLog('Fetching available workflows...');
     try{
       const res=await window.mfiles.listWorkflows({
         vaultGuid:mfVault,server:mfServer,authType:mfAuth,username:mfUser,password:mfPass
       });
       if(!res.ok) throw new Error(res.error||'Fetch failed');
-      setMfVaultWorkflows(res.workflows||[]);
-      addMfLog(`Found ${(res.workflows||[]).length} workflows`,'ok');
+      const fetched=(res.workflows||[])
+        .map(w=>({id:Number(w?.id),name:String(w?.name||'').trim()}))
+        .filter(w=>Number.isFinite(w.id)&&w.name);
+      const seen=new Set();
+      const unique=fetched.filter(w=>{
+        if(seen.has(w.id)) return false;
+        seen.add(w.id);
+        return true;
+      });
+      setMfVaultWorkflows(unique);
+      addMfLog(`Found ${unique.length} workflows`,'ok');
     }catch(e){addMfLog(e.message,'error');}
     finally{setMfBusy(false);}
   };
@@ -575,7 +599,7 @@ export default function CommandCenter() {
 
   const commitTabRename=()=>{if(editTabId&&tabDraft.trim())renameWorkflow(editTabId,tabDraft.trim());setEditTabId(null);setTabDraft('');};
 
-  const hasStates=!!wf?.states.length, hasRules=!!rules.length;
+  const hasStates=!!wf?.states.length;
   // selTrans is now {fromId,toId} — convert underscored IDs back to display names for the header
   const selTransObj=selTrans!=null
     ?{from:selTrans.fromId.replace(/_/g,' '),to:selTrans.toId.replace(/_/g,' ')}
@@ -592,12 +616,6 @@ export default function CommandCenter() {
           ))}
         </div>
         <button className="xb" onClick={handleReset} title="Reset all workflows">↺ Reset</button>
-        {/* Stress test launchers — icon-only, topbar right. Creates a temporary tab, delete with ✕ when done. */}
-        <button onClick={()=>seedStressTest(25,50)}  title="Stress test: 25 states / ~50 transitions (click to create temp tab)"
-          style={{background:'none',border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',fontSize:14,padding:'2px 7px',lineHeight:1,color:'var(--text)',opacity:.75,transition:'opacity .15s'}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity='.75'}>🔥</button>
-        <button onClick={()=>seedStressTest(100,150)} title="Stress test: 100 states / ~150 transitions (click to create temp tab)"
-          style={{background:'none',border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',fontSize:14,padding:'2px 7px',lineHeight:1,color:'var(--text)',opacity:.75,transition:'opacity .15s'}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity='.75'}>🔥🔥</button>
-        <button className={`xb ${saveFlash?'green':'blue'}`} onClick={handleSave}>{saveFlash?'✓ Saved':'Review & Save →'}</button>
       </div>
 
       {/* ── 3-COLUMN BODY ── */}
@@ -627,7 +645,7 @@ export default function CommandCenter() {
           {wf&&<div className="cc-wf-bar">
             <input className="cc-wf-name-input" value={wf.name} placeholder="Workflow name…"
               onChange={e=>renameWorkflow(activeId,e.target.value)}/>
-            <button className="xb" onClick={()=>{clearWorkflow(activeId);setResetKey(k=>k+1);setSel('');}}>↺</button>
+            <button className="xb" onClick={()=>{clearWorkflow(activeId);setSel('');}}>↺</button>
           </div>}
 
           {/* Parse input panel (NLP / AI / Cacoo) */}
@@ -660,7 +678,7 @@ export default function CommandCenter() {
                 <button className="xb green" onClick={runCacoo} disabled={!cacooId.trim()||busy} style={{marginTop:4}}>{busy?<><span className="spin"/>  Fetching…</>:'⬡ Fetch from Cacoo'}</button>
                 <div style={{fontSize:8.5,color:'var(--dim)',marginTop:4}}>Requires <code style={{color:'var(--a3)'}}>python backend/app.py</code> on :5000</div>
               </>)}
-              {log.length>0&&<div className="log" style={{marginTop:4}}>{log.map((l,i)=><div key={i} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='warn'?'lwarn':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
+              {log.length>0&&<div className="log" ref={logRef} onScroll={()=>keepLogAtBottom(logRef.current, logFollowRef)} style={{marginTop:4}}>{log.map((l,i)=><div key={i} ref={i===log.length-1?logTailRef:null} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='warn'?'lwarn':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
           )}
 
@@ -806,9 +824,18 @@ export default function CommandCenter() {
                   <button title="Reset zoom (Ctrl+Scroll)" onClick={()=>{setZoom(1);zoomRef.current=1;}}>⟳</button>
                 </div>
               )}
-              {mermaidStr&&<div className="cc-toolbar" onClick={e=>e.stopPropagation()}>
-                <button className="xb" onClick={()=>{setZoom(1);zoomRef.current=1;}} title="Reset Zoom">⟳ Recenter</button>
-                <button className="xb" onClick={e=>setCmdPaletteOpen(true)} title="Command Palette">⌘ Menu</button>
+
+              <div className={`cc-edge-search ${showEdgeSearch?'open':'closed'}`} onClick={e=>e.stopPropagation()}>
+                {showEdgeSearch
+                  ?<>
+                    <button className="xb" onClick={()=>setCmdPaletteOpen(true)} title="Open search menu">⌕ Search</button>
+                    <button className="cc-edge-toggle" onClick={()=>setShowEdgeSearch(false)} title="Hide search control">›</button>
+                  </>
+                  :<button className="cc-edge-toggle" onClick={()=>setShowEdgeSearch(true)} title="Show search control">‹</button>}
+              </div>
+
+              {mermaidStr&&zoom!==1&&<div className="cc-toolbar" onClick={e=>e.stopPropagation()}>
+                <button className="xb" onClick={()=>{setZoom(1);zoomRef.current=1;if(wrapRef.current){wrapRef.current.scrollTop=0;wrapRef.current.scrollLeft=0;}}} title="Reset Zoom">⟳ Recenter</button>
               </div>}
             </div>
           )}
@@ -889,7 +916,7 @@ export default function CommandCenter() {
                   <button onClick={()=>{setSyncMode('export');setMfOk(null);setMfLog([]);}} style={{flex:1,padding:'4px 0',fontSize:9,fontFamily:'var(--mono)',background:syncMode==='export'?'var(--s3)':'transparent',color:syncMode==='export'?'var(--text)':'var(--mid)',border:syncMode==='export'?'1px solid var(--border)':'1px solid transparent',borderRadius:3,cursor:'pointer',transition:'all 0.15s'}}>
                     Export to Vault
                   </button>
-                  <button onClick={()=>{setSyncMode('import');setMfOk(null);setMfLog([]);}} style={{flex:1,padding:'4px 0',fontSize:9,fontFamily:'var(--mono)',background:syncMode==='import'?'var(--s3)':'transparent',color:syncMode==='import'?'var(--text)':'var(--mid)',border:syncMode==='import'?'1px solid var(--border)':'1px solid transparent',borderRadius:3,cursor:'pointer',transition:'all 0.15s'}}>
+                  <button onClick={()=>{setSyncMode('import');setMfOk(null);setMfLog([]);setMfPullQueue([]);setMfVaultWorkflows([]);}} style={{flex:1,padding:'4px 0',fontSize:9,fontFamily:'var(--mono)',background:syncMode==='import'?'var(--s3)':'transparent',color:syncMode==='import'?'var(--text)':'var(--mid)',border:syncMode==='import'?'1px solid var(--border)':'1px solid transparent',borderRadius:3,cursor:'pointer',transition:'all 0.15s'}}>
                     Import from Vault
                   </button>
                 </div>
@@ -897,10 +924,15 @@ export default function CommandCenter() {
                 {syncMode==='export' && (
                   <div>
                     <SyncQueue available={workflows} queue={mfPushQueue} setQueue={setMfPushQueue} stagedLabel="Staged for Push" />
+                    <button className={`xb ${saveFlash?'green':''}`} style={{width:'100%',padding:'6px 0',fontSize:10,marginTop:6}} onClick={handleSave} disabled={mfBusy||!mfVault.trim()||!mfPushQueue.length}>
+                      {saveFlash?'✓ Saved':'Review & Save →'}
+                    </button>
                     <button className={`xb ${mfOk===true?'green':mfOk===false?'red':'blue'}`} style={{width:'100%',padding:'6px 0',fontSize:10,marginTop:6}} onClick={handleMfPush} disabled={mfBusy||!saved||!mfVault.trim()||!mfPushQueue.length}>
                       {mfBusy?'Pushing…':mfOk===true?'✓ Pushed':mfOk===false?'✗ Retry Push':'→ Push Staged'}
                     </button>
-                    {!saved&&<div style={{fontSize:8.5,color:'var(--mid)',marginTop:4,textAlign:'center'}}>Click “Review & Save” to enable push</div>}
+                    {(!saved||!mfPushQueue.length||!mfVault.trim())&&<div style={{fontSize:8.5,color:'var(--mid)',marginTop:4,textAlign:'center'}}>
+                      {!mfPushQueue.length?'Select at least one workflow to export':!mfVault.trim()?'Connect to a vault to continue':'Click “Review & Save” to enable push'}
+                    </div>}
                   </div>
                 )}
 
@@ -925,7 +957,7 @@ export default function CommandCenter() {
                 )}
               </div>
 
-              {mfLog.length>0&&<div className="mf-log" style={{marginTop:12}}>{mfLog.map((l,i)=><div key={i} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
+              {mfLog.length>0&&<div className="mf-log" ref={mfLogRef} onScroll={()=>keepLogAtBottom(mfLogRef.current, mfLogFollowRef)} style={{marginTop:12}}>{mfLog.map((l,i)=><div key={i} ref={i===mfLog.length-1?mfLogTailRef:null} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
           </div>
         </div>

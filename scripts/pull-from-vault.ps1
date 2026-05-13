@@ -13,6 +13,23 @@ $ErrorActionPreference = 'Stop'
 
 function pLog  { param([string]$m) Write-Output "[PROGRESS] $m"; [Console]::Out.Flush() }
 
+function Is-VisibleWorkflow {
+    param([object]$wf)
+
+    if ($null -eq $wf) { return $false }
+
+    # Exclude deleted/hidden/system-like entries when those flags are available.
+    foreach ($flag in @('Deleted','IsDeleted','Hidden','IsHidden')) {
+        try {
+            if ($wf.PSObject.Properties.Name -contains $flag) {
+                if ([bool]$wf.$flag) { return $false }
+            }
+        } catch { }
+    }
+
+    return $true
+}
+
 try {
     pLog "Connecting to $ServerAddress via MFilesServerApplication..."
     $srvApp = New-Object -ComObject MFilesAPI.MFilesServerApplication
@@ -28,14 +45,38 @@ try {
     pLog "Connected to vault."
 
     if ($ListOnly) {
-        $workflows = $vault.WorkflowOperations.GetWorkflowsAdmin()
         $list = @()
-        foreach ($wf in $workflows) {
-            $list += @{
-                id   = $wf.Workflow.ID
-                name = $wf.Workflow.Name
+        $seen = @{}
+
+        # Prefer non-admin list to match what users expect in vault UI.
+        # Some environments return extra admin-scope entries via GetWorkflowsAdmin().
+        try {
+            $workflows = $vault.WorkflowOperations.GetWorkflows()
+            foreach ($wf in $workflows) {
+                if (-not (Is-VisibleWorkflow $wf)) { continue }
+                $id = [int]$wf.ID
+                $name = [string]$wf.Name
+                if ($id -le 0 -or [string]::IsNullOrWhiteSpace($name)) { continue }
+                if ($seen.ContainsKey($id)) { continue }
+                $seen[$id] = $true
+                $list += @{ id = $id; name = $name }
             }
         }
+        catch {
+            # Fallback for environments where GetWorkflows() is not available.
+            $workflows = $vault.WorkflowOperations.GetWorkflowsAdmin()
+            foreach ($wf in $workflows) {
+                $core = $wf.Workflow
+                if (-not (Is-VisibleWorkflow $core)) { continue }
+                $id = [int]$core.ID
+                $name = [string]$core.Name
+                if ($id -le 0 -or [string]::IsNullOrWhiteSpace($name)) { continue }
+                if ($seen.ContainsKey($id)) { continue }
+                $seen[$id] = $true
+                $list += @{ id = $id; name = $name }
+            }
+        }
+
         $json = $list | ConvertTo-Json -Depth 5 -Compress
         Write-Output "[RESULT]$json"
         exit 0
