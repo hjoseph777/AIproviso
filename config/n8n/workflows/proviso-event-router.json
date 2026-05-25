@@ -1,0 +1,291 @@
+{
+  "name": "Proviso Event Router — All 9 Topics",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/received",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-invoice-received",
+      "name": "Webhook: invoice.received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 100],
+      "webhookId": "proviso-invoice-received"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst event = body.event;\nconst invoiceId = body.invoice_id;\nconst tenantId = body.tenant_id;\nconst correlationId = body.correlation_id;\n\n// Log the event receipt\nconsole.log(`[MOD-07] audit.event received: ${event} | invoice=${invoiceId} | tenant=${tenantId}`);\n\n// Forward to audit trail\nreturn [{ json: { event, invoice_id: invoiceId, tenant_id: tenantId, correlation_id: correlationId, source_module: body.source_module, payload: body.payload, received_at: new Date().toISOString() } }];"
+      },
+      "id": "process-invoice-received",
+      "name": "Process: invoice.received",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.received\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-received",
+      "name": "Respond: invoice.received",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 100]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/extracted",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-extracted",
+      "name": "Webhook: invoice.extracted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 280],
+      "webhookId": "proviso-invoice-extracted"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.extracted\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-extracted",
+      "name": "Respond: invoice.extracted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 280]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/matched",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-matched",
+      "name": "Webhook: invoice.matched",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 460],
+      "webhookId": "proviso-invoice-matched"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.matched\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-matched",
+      "name": "Respond: invoice.matched",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 460]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/exception",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-exception",
+      "name": "Webhook: invoice.exception",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 640],
+      "webhookId": "proviso-invoice-exception"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.exception\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-exception",
+      "name": "Respond: invoice.exception",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 640]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/resolved",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-resolved",
+      "name": "Webhook: invoice.resolved",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 820],
+      "webhookId": "proviso-invoice-resolved"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.resolved\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-resolved",
+      "name": "Respond: invoice.resolved",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 820]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/approved",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-approved",
+      "name": "Webhook: invoice.approved",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 1000],
+      "webhookId": "proviso-invoice-approved"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.approved\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-approved",
+      "name": "Respond: invoice.approved",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 1000]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/rejected",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-rejected",
+      "name": "Webhook: invoice.rejected",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 1180],
+      "webhookId": "proviso-invoice-rejected"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.rejected\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-rejected",
+      "name": "Respond: invoice.rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 1180]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice/posted",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-invoice-posted",
+      "name": "Webhook: invoice.posted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 1360],
+      "webhookId": "proviso-invoice-posted"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"invoice.posted\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-invoice-posted",
+      "name": "Respond: invoice.posted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 1360]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "audit/event",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-audit-event",
+      "name": "Webhook: audit.event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 1540],
+      "webhookId": "proviso-audit-event"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ack\": true, \"event\": \"audit.event\", \"received_at\": \"{{ $now.toISOString() }}\" }"
+      },
+      "id": "respond-audit-event",
+      "name": "Respond: audit.event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 1540]
+    }
+  ],
+  "connections": {
+    "Webhook: invoice.received": {
+      "main": [[{ "node": "Process: invoice.received", "type": "main", "index": 0 }]]
+    },
+    "Process: invoice.received": {
+      "main": [[{ "node": "Respond: invoice.received", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.extracted": {
+      "main": [[{ "node": "Respond: invoice.extracted", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.matched": {
+      "main": [[{ "node": "Respond: invoice.matched", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.exception": {
+      "main": [[{ "node": "Respond: invoice.exception", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.resolved": {
+      "main": [[{ "node": "Respond: invoice.resolved", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.approved": {
+      "main": [[{ "node": "Respond: invoice.approved", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.rejected": {
+      "main": [[{ "node": "Respond: invoice.rejected", "type": "main", "index": 0 }]]
+    },
+    "Webhook: invoice.posted": {
+      "main": [[{ "node": "Respond: invoice.posted", "type": "main", "index": 0 }]]
+    },
+    "Webhook: audit.event": {
+      "main": [[{ "node": "Respond: audit.event", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "proviso" },
+    { "name": "mod-00" },
+    { "name": "event-router" }
+  ]
+}

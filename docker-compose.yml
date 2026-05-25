@@ -1,6 +1,9 @@
 name: aiproviso
 
 services:
+  # ─────────────────────────────────────────────────────────────
+  # POSTGRES 16 — Platform Master Database
+  # ─────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: proviso-postgres
@@ -22,6 +25,9 @@ services:
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # REDIS 7 — Session Cache + BullMQ Event Streams + DLQ
+  # ─────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: proviso-redis
@@ -29,6 +35,8 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -37,6 +45,10 @@ services:
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # BACKEND API — Flask sandbox (Phase I). Target: Fastify (Phase II).
+  # See PRD v8 Section 4.5 for transition strategy.
+  # ─────────────────────────────────────────────────────────────
   backend-api:
     build:
       context: ./backend
@@ -51,7 +63,9 @@ services:
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
       FLOWISE_BASE_URL: "http://flowise:3000"
       N8N_BASE_URL: "http://n8n:5678"
+      N8N_WEBHOOK_TOKEN: "${N8N_WEBHOOK_TOKEN:-proviso-dev-token}"
       PAPERLESS_BASE_URL: "http://paperless:8000"
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-env}"
     ports:
       - "${BACKEND_API_PORT:-5000}:5000"
     depends_on:
@@ -69,6 +83,37 @@ services:
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # OCR WORKER — Dedicated container for PaddleOCR + DocTR
+  # Polls Redis BullMQ queue: ocr:jobs
+  # PRD v8 Section 4.3: isolated compute; horizontally scalable
+  # Phase I: stub that logs receipt and ACKs. Real OCR in Week 3-4.
+  # ─────────────────────────────────────────────────────────────
+  ocr-worker:
+    build:
+      context: ./ocr-worker
+      dockerfile: Dockerfile
+    container_name: proviso-ocr-worker
+    restart: unless-stopped
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-proviso}:${POSTGRES_PASSWORD:-proviso_dev_password}@postgres:5432/proviso"
+      N8N_BASE_URL: "http://n8n:5678"
+      N8N_WEBHOOK_TOKEN: "${N8N_WEBHOOK_TOKEN:-proviso-dev-token}"
+      OCR_MODE: "${OCR_MODE:-stub}"  # stub | paddle | ensemble
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - proviso-net
+
+  # ─────────────────────────────────────────────────────────────
+  # N8N — Event Spine + Orchestration Hooks
+  # Auto-seeded from ./config/n8n/workflows/ on startup
+  # ─────────────────────────────────────────────────────────────
   n8n:
     image: n8nio/n8n:1.94.1
     container_name: proviso-n8n
@@ -86,10 +131,18 @@ services:
       WEBHOOK_URL: "${N8N_WEBHOOK_URL:-http://localhost:5678/}"
       GENERIC_TIMEZONE: "${TIMEZONE:-UTC}"
       TZ: "${TIMEZONE:-UTC}"
+      # Security: basic auth on n8n UI for dev
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: "${N8N_BASIC_AUTH_USER:-proviso}"
+      N8N_BASIC_AUTH_PASSWORD: "${N8N_BASIC_AUTH_PASSWORD:-proviso_dev_password}"
+      # Disable telemetry
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_HIRING_BANNER_ENABLED: "false"
     ports:
       - "${N8N_PORT:-5678}:5678"
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./config/n8n/workflows:/home/node/.n8n/workflows:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +154,9 @@ services:
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # GOTENBERG — Office-to-PDF conversion (invoked by MOD-01)
+  # ─────────────────────────────────────────────────────────────
   gotenberg:
     image: gotenberg/gotenberg:8
     container_name: proviso-gotenberg
@@ -109,16 +165,34 @@ services:
       - gotenberg
       - --chromium-disable-javascript=true
       - --chromium-allow-list=file:///tmp/.*
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # TIKA — Raw text pre-extraction before OCR (invoked by MOD-01)
+  # ─────────────────────────────────────────────────────────────
   tika:
     image: apache/tika:3.1.0.0
     container_name: proviso-tika
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9998/tika || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # PAPERLESS-NGX — Document archive + thumbnail storage ONLY
+  # PAPERLESS_OCR_MODE=skip is LOCKED per PRD v8 Decision 1.
+  # MOD-02 owns all OCR. Paperless never runs its own OCR.
+  # ─────────────────────────────────────────────────────────────
   paperless:
     image: ghcr.io/paperless-ngx/paperless-ngx:2.18.3
     container_name: proviso-paperless
@@ -142,7 +216,9 @@ services:
       PAPERLESS_URL: "${PAPERLESS_URL:-http://localhost:8000}"
       PAPERLESS_SECRET_KEY: "${PAPERLESS_SECRET_KEY:-change-me-in-env}"
       PAPERLESS_TIME_ZONE: "${TIMEZONE:-UTC}"
-      PAPERLESS_OCR_LANGUAGE: "${PAPERLESS_OCR_LANGUAGE:-eng}"
+      # ── LOCKED: OCR is disabled. MOD-02 owns all text extraction. ──
+      PAPERLESS_OCR_MODE: "skip"
+      # Tika is used for Office format conversion only, not OCR
       PAPERLESS_TIKA_ENABLED: "1"
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: "http://gotenberg:3000"
       PAPERLESS_TIKA_ENDPOINT: "http://tika:9998"
@@ -161,6 +237,11 @@ services:
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # FLOWISE — LangChain agents + RAG pipelines
+  # Flows auto-seeded from ./config/flowise/ via REST API on startup
+  # PRD v8 Decision 2: flows committed as Git-tracked JSON
+  # ─────────────────────────────────────────────────────────────
   flowise:
     image: flowiseai/flowise:2.2.7
     container_name: proviso-flowise
@@ -179,6 +260,7 @@ services:
       - "${FLOWISE_PORT:-3001}:3000"
     volumes:
       - flowise_data:/root/.flowise
+      - ./config/flowise:/root/.flowise/config:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -192,6 +274,11 @@ services:
     networks:
       - proviso-net
 
+  # ─────────────────────────────────────────────────────────────
+  # OLLAMA — Local LLM Runtime (optional profile)
+  # Enable with: docker compose --profile local-ai up
+  # Or point to Mac M2: set OLLAMA_BASE_URL=http://macbook-m2.local:11434
+  # ─────────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:0.11.4
     container_name: proviso-ollama
@@ -223,8 +310,7 @@ services:
       - sh
       - -c
       - |
-        echo "Waiting for Ollama model pull request: $$OLLAMA_MODEL";
-        curl -fsS http://ollama:11434/api/tags >/dev/null;
+        echo "Pulling Ollama model: $$OLLAMA_MODEL";
         curl -fsS http://ollama:11434/api/pull \
           -H 'Content-Type: application/json' \
           -d "{\"name\":\"$$OLLAMA_MODEL\"}";
