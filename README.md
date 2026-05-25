@@ -1,196 +1,138 @@
 # AI Proviso
 
-**AP-First Automation Platform · Electron Client + Docker Service Stack**
+AP-first automation platform for document-heavy business operations.
 
-> Current state: workflow-builder desktop foundation preserved while the platform evolves toward AP automation, exception routing, and service-based orchestration.
+AI Proviso is built to solve integration nightmares while hiding complexity from end users. The system gives non-engineering teams an intuitive drag-and-drop workspace, AI-assisted OCR and workflow generation, and reliable orchestration across enterprise systems.
 
-## Overview
+## Problem We Are Solving
 
-AI Proviso is evolving from a workflow-ingestion desktop tool into an AP-first automation platform.
+Most AP and workflow programs fail because teams are forced to stitch together fragile tools manually:
+- invoice OCR in one product
+- approvals and queues in another
+- ERP posting in scripts
+- audit and traceability in spreadsheets
 
-The current application already provides:
-- a native Electron desktop client,
-- a spreadsheet-style workflow editor,
-- live workflow diagrams,
-- validation via Zustand + Zod,
-- import/export flows,
-- M-Files connectivity through Windows COM.
+This creates slow onboarding, repeated configuration work, and operational risk.
 
-The current direction adds a Docker-first service layer around that client:
-- PostgreSQL for platform data,
-- n8n for orchestration,
-- Paperless-ngx for document and OCR workflows,
-- Flowise for AI workflow composition,
-- Ollama as an external or optional local AI service,
-- a backend API service for platform integration.
+## Solution
 
-## Architecture Direction
+AI Proviso delivers a no-code, modular platform where:
+- documents are ingested and extracted with AI
+- workflow routes are policy-enforced
+- exceptions are queued with SLA and escalation
+- ERP posting is orchestrated with idempotent patterns
+- audit events are captured from day one
 
-### What stays in the app
-- Electron desktop shell
-- React workflow designer
-- local editing experience
-- Windows-specific M-Files integration
+The desktop experience is simple and visual for business users, while platform complexity is isolated in service modules.
 
-### What moves to services
-- AP platform backend API
-- orchestration runtime
-- document ingestion and OCR
-- persistent data storage
-- AI workflow services
+## Why AI Proviso Is Unique
 
-### Separation Principles
-- PostgreSQL is infrastructure, not embedded app state.
-- Redis is infrastructure, not bundled into the backend service.
-- n8n is a separate orchestration service, not baked into the app.
-- Paperless-ngx is a separate document service.
-- Flowise is a separate AI workflow service.
-- Ollama is treated as an external AI service by default.
-- The Electron client remains outside Docker.
+- Integration-first architecture designed to eliminate cross-system brittleness.
+- No-code setup designed for average business users, not engineers.
+- Drag-and-drop workflow, form, and app builder experience.
+- AI used where it matters most: OCR extraction confidence and workflow acceleration.
+- Contract-first modular architecture so services can evolve independently.
 
-## Current Stack
+## Product Principles
 
-| Layer | Technology |
-|:---|:---|
-| Desktop client | Electron 42 |
-| Frontend | React 18 + Vite 6 |
-| State and validation | Zustand 5 + Zod 4 |
-| Diagram rendering | Mermaid.js |
-| Windows integration | PowerShell + MFilesAPI |
-| Backend API | Flask (current bridge service) |
-| Database | PostgreSQL 16 |
-| Cache and broker | Redis 7 |
-| Orchestration | n8n |
-| OCR and document service | Paperless-ngx |
-| AI flow tooling | Flowise |
-| LLM runtime | Ollama |
+- Fast onboarding and time to value.
+- Zero passive pending states.
+- Clear ownership for exceptions.
+- Host-native boundary for Windows COM integration.
+- Service-native boundary for data, orchestration, OCR, and AI runtime.
 
-## Run The Desktop Client
+## Architecture Summary
 
-```bash
-npm install
-npm run electron:dev
-```
+### Host-Native Boundary
+- Electron desktop client
+- Visual builders and workbench UI
+- Windows COM bridge utilities for M-Files integration
 
-## Build The Desktop Installer
+### Docker Service Boundary
+- backend API gateway
+- PostgreSQL 16 as master platform data
+- Redis 7 for queue and caching support
+- n8n orchestration hooks
+- Paperless-ngx document archive and previews
+- OCR worker runtime
+- Flowise orchestration
+- Ollama API endpoint (external by default, optional local profile)
 
-```bash
-npm run electron:build
-```
+## Stack Layers
 
-The installer output is written to `dist-electron/`.
+| Layer | Technology | Purpose |
+|:---|:---|:---|
+| Client Shell | Electron | Desktop experience and local host integration |
+| Frontend | React + Vite + react-flow | No-code UI builders and workbench |
+| API Layer | Flask (current), Fastify (target) | Gateway for module contracts |
+| Data Layer | PostgreSQL 16 + pgvector | Master transactional and retrieval storage |
+| Cache and Queue | Redis 7 + BullMQ | Retry queues, buffering, async processing |
+| Orchestration | n8n | Workflow hooks and integrations |
+| OCR and Doc Processing | OCR worker + PaddleOCR + DocTR + Tesseract fallback | Extraction and confidence scoring |
+| Document Archive | Paperless-ngx + Gotenberg + Tika | Storage, thumbnails, conversion |
+| AI Orchestration | Flowise | Prompt chains and agent orchestration |
+| LLM Runtime | Ollama | Model inference over HTTP |
+| Audit | Immutable audit events model | Traceability and compliance from day one |
 
-## Run The Docker Service Stack
+## No-Code User Experience
 
-1. Copy the Docker environment template.
+The system is designed so non-engineers can configure and run workflows:
+- drag-and-drop workflow designer
+- drag-and-drop form builder
+- drag-and-drop menu and app builder
+- spreadsheet-style AP workbench
+- first-run setup wizard for onboarding
 
-```bash
-cp .env.docker.example .env
-```
+Users should be able to get productive quickly because complexity is hidden behind guided setup and policy-driven automation.
 
-2. Set real secrets in `.env`.
+## Service Separation Rules
 
-Important values:
-- `POSTGRES_PASSWORD`
-- `PAPERLESS_SECRET_KEY`
-- `FLOWISE_SECRETKEY`
-- `OLLAMA_BASE_URL`
-- `OLLAMA_MODEL`
+- PostgreSQL is infrastructure, not embedded app data.
+- Redis is infrastructure, not application state.
+- n8n is orchestration runtime, not business logic storage.
+- Paperless-ngx is archive and preview service, not OCR source of truth.
+- OCR extraction ownership belongs to OCR worker pipeline.
+- Ollama is an external service by default, optional local profile for development.
+- Electron remains outside Docker.
+- Windows COM integration remains host-native.
 
-3. Start the core platform services.
+## PRD Source of Truth
 
-```bash
-docker compose up -d
-```
+Active product blueprint:
+- Proviso_PRD_v8.md
 
-This starts:
-- PostgreSQL
-- Redis
-- backend-api
-- n8n
-- Gotenberg
-- Tika
-- Paperless-ngx
-- Flowise
+The v8 PRD is the current build direction and should be treated as the canonical implementation reference.
 
-## Optional Local Ollama Profile
+## Quick Start
 
-By default, AI Proviso expects Ollama to run as an external service, for example on the host machine via Docker Desktop or a separate AI host.
+Desktop client:
+- npm install
+- npm run electron:dev
 
-Default configuration:
+Docker services:
+- copy .env.docker.example to .env
+- set required secrets and service endpoints
+- docker compose up -d
 
-```env
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-```
+Optional local Ollama profile:
+- docker compose --profile local-ai up -d
 
-If you want Docker Compose to run Ollama locally for development, use the `local-ai` profile:
+## Repository References
 
-```bash
-docker compose --profile local-ai up -d
-```
+- docker-compose.yml
+- .env.docker.example
+- backend/Dockerfile
+- backend/requirements.txt
+- backend/app.py
+- docker/postgres-init/01-create-databases.sh
+- Proviso_PRD_v8.md
+- Proviso_Change_Blueprint.md
 
-That starts:
-- `ollama`
-- `ollama-pull`
+## M-Files Integration Note
 
-`ollama-pull` is a one-shot helper that pulls the model named by `OLLAMA_MODEL` after Ollama becomes healthy.
-
-## Current Ports
-
-| Service | Port |
-|:---|:---|
-| backend-api | `5000` |
-| n8n | `5678` |
-| Paperless-ngx | `8000` |
-| Flowise | `3001` |
-| PostgreSQL | `5432` |
-| Ollama | `11434` when `local-ai` is enabled |
-
-## Repository Files Added For The Service Stack
-
-| File | Purpose |
-|:---|:---|
-| `docker-compose.yml` | Core local platform stack |
-| `.env.docker.example` | Environment template for the stack |
-| `DOCKER_STACK.md` | Docker usage and separation guidance |
-| `backend/Dockerfile` | Backend API image |
-| `backend/requirements.txt` | Backend container dependencies |
-| `docker/postgres-init/01-create-databases.sh` | Bootstraps local databases |
-
-## Planning Documents
-
-| File | Purpose |
-|:---|:---|
-| `Proviso_PRD_v4.md` | Current PRD direction |
-| `Proviso_Change_Blueprint.md` | Modification-first implementation plan |
-
-## Existing Windows and M-Files Scripts
-
-| Script | Purpose |
-|:---|:---|
-| `scripts/push-to-vault.ps1` | Push workflow JSON to M-Files via COM |
-| `scripts/pull-from-vault.ps1` | Pull workflow data from M-Files |
-| `scripts/test-connection.ps1` | Test M-Files vault connectivity |
-| `scripts/verify-vault.ps1` | Diagnostic listing for workflows |
-
-## M-Files Notes
-
-M-Files integration remains host-side and Windows-specific.
-It is not containerized.
-
-Requirements:
-- Windows machine with M-Files Server or Desktop installed
-- `MFilesAPI.MFilesServerApplication` COM class registered
-- compatible vault access and credentials
-
-## Near-Term Direction
-
-- Preserve and refactor the current workflow-builder foundation.
-- Add AP domain entities, queue routing, and workflow integrity rules.
-- Use Docker for platform services, not for the Electron UI.
-- Keep PostgreSQL and Ollama separated from the application image.
-- Treat Ollama as external by default and local-via-profile only when needed.
+M-Files COM integration is host-side and Windows-specific.
+It is intentionally not containerized.
 
 ---
 
-*AI Proviso · Xerox · 2026*
+AI Proviso · Xerox · 2026
