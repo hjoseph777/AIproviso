@@ -1,0 +1,248 @@
+name: aiproviso
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: proviso-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-proviso}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-proviso_dev_password}
+      POSTGRES_DB: postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-proviso} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - proviso-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: proviso-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - proviso-net
+
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: proviso-backend-api
+    restart: unless-stopped
+    environment:
+      PORT: "5000"
+      FLASK_DEBUG: "0"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-proviso}:${POSTGRES_PASSWORD:-proviso_dev_password}@postgres:5432/proviso"
+      REDIS_URL: "redis://redis:6379/0"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      FLOWISE_BASE_URL: "http://flowise:3000"
+      N8N_BASE_URL: "http://n8n:5678"
+      PAPERLESS_BASE_URL: "http://paperless:8000"
+    ports:
+      - "${BACKEND_API_PORT:-5000}:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - proviso-net
+
+  n8n:
+    image: n8nio/n8n:1.94.1
+    container_name: proviso-n8n
+    restart: unless-stopped
+    environment:
+      DB_TYPE: "postgresdb"
+      DB_POSTGRESDB_HOST: "postgres"
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: "n8n"
+      DB_POSTGRESDB_USER: "${POSTGRES_USER:-proviso}"
+      DB_POSTGRESDB_PASSWORD: "${POSTGRES_PASSWORD:-proviso_dev_password}"
+      N8N_HOST: "${N8N_HOST:-localhost}"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: "http"
+      WEBHOOK_URL: "${N8N_WEBHOOK_URL:-http://localhost:5678/}"
+      GENERIC_TIMEZONE: "${TIMEZONE:-UTC}"
+      TZ: "${TIMEZONE:-UTC}"
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:5678/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    networks:
+      - proviso-net
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: proviso-gotenberg
+    restart: unless-stopped
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --chromium-allow-list=file:///tmp/.*
+    networks:
+      - proviso-net
+
+  tika:
+    image: apache/tika:3.1.0.0
+    container_name: proviso-tika
+    restart: unless-stopped
+    networks:
+      - proviso-net
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:2.18.3
+    container_name: proviso-paperless
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
+      tika:
+        condition: service_started
+    environment:
+      PAPERLESS_REDIS: "redis://redis:6379"
+      PAPERLESS_DBHOST: "postgres"
+      PAPERLESS_DBPORT: "5432"
+      PAPERLESS_DBNAME: "paperless"
+      PAPERLESS_DBUSER: "${POSTGRES_USER:-proviso}"
+      PAPERLESS_DBPASS: "${POSTGRES_PASSWORD:-proviso_dev_password}"
+      PAPERLESS_URL: "${PAPERLESS_URL:-http://localhost:8000}"
+      PAPERLESS_SECRET_KEY: "${PAPERLESS_SECRET_KEY:-change-me-in-env}"
+      PAPERLESS_TIME_ZONE: "${TIMEZONE:-UTC}"
+      PAPERLESS_OCR_LANGUAGE: "${PAPERLESS_OCR_LANGUAGE:-eng}"
+      PAPERLESS_TIKA_ENABLED: "1"
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: "http://gotenberg:3000"
+      PAPERLESS_TIKA_ENDPOINT: "http://tika:9998"
+    ports:
+      - "${PAPERLESS_PORT:-8000}:8000"
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - paperless_export:/usr/src/paperless/export
+      - paperless_consume:/usr/src/paperless/consume
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:8000 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 15
+    networks:
+      - proviso-net
+
+  flowise:
+    image: flowiseai/flowise:2.2.7
+    container_name: proviso-flowise
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATABASE_TYPE: "postgres"
+      DATABASE_HOST: "postgres"
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: "proviso"
+      DATABASE_USER: "${POSTGRES_USER:-proviso}"
+      DATABASE_PASSWORD: "${POSTGRES_PASSWORD:-proviso_dev_password}"
+      FLOWISE_SECRETKEY_OVERWRITE: "${FLOWISE_SECRETKEY:-change-me-in-env}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+    ports:
+      - "${FLOWISE_PORT:-3001}:3000"
+    volumes:
+      - flowise_data:/root/.flowise
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:3000 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 15
+    networks:
+      - proviso-net
+
+  ollama:
+    image: ollama/ollama:0.11.4
+    container_name: proviso-ollama
+    profiles: ["local-ai"]
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+    networks:
+      - proviso-net
+
+  ollama-pull:
+    image: curlimages/curl:8.12.1
+    container_name: proviso-ollama-pull
+    profiles: ["local-ai"]
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2:3b}"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo "Waiting for Ollama model pull request: $$OLLAMA_MODEL";
+        curl -fsS http://ollama:11434/api/tags >/dev/null;
+        curl -fsS http://ollama:11434/api/pull \
+          -H 'Content-Type: application/json' \
+          -d "{\"name\":\"$$OLLAMA_MODEL\"}";
+        echo "Model pull complete";
+    networks:
+      - proviso-net
+
+networks:
+  proviso-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  paperless_data:
+  paperless_media:
+  paperless_export:
+  paperless_consume:
+  ollama_data:
+  flowise_data:

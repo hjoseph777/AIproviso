@@ -22,6 +22,11 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"}), 200
+
 # Fallback mock data in case of parsing errors or testing
 CACOO_MOCK = {
     "diagramName": "Imported from Cacoo",
@@ -108,4 +113,6 @@ def cacoo_fetch():
 
 if __name__ == '__main__':
     # Run on port 5000
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', '5000'))
+    debug = os.environ.get('FLASK_DEBUG', '').lower() in {'1', 'true', 'yes'}
+    app.run(host='0.0.0.0', port=port, debug=debug)
