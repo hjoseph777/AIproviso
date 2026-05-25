@@ -139,6 +139,11 @@ Optional identifiers for fallback matching:
 - Confidence metrics
 - Exception status and reason
 
+### Storage Tier Model
+- Local Client Cache: lightweight SQLite cache in the desktop client for session continuity, workspace drafts, and offline scratch state.
+- Platform Database: PostgreSQL 16 as the master system for workflows, queue state, audit logs, user access, OCR metadata, and integration state.
+- Design rule: local cache is never the system of record for AP transactions.
+
 ---
 
 ## 5. Workflow Model
@@ -304,19 +309,55 @@ Canonical states:
 - Secure secrets handling
 - PII-safe logs
 
+### AI Runtime Boundary
+- LLM execution uses Ollama over API and is not embedded inside the desktop executable.
+- AI workflow orchestration runs in Flowise and calls Ollama through configured endpoint URLs.
+- Agent memory and retrieval metadata are persisted in platform data stores, not in transient process memory.
+
 ---
 
 ## 9. Architecture and Stack Layers
 
 ### Technology Stack
 - Frontend: React + Vite
-- Backend: Node.js + Fastify
+- Backend API Gateway: service API layer (current bridge implementation may be Flask; target platform implementation Fastify)
 - Data Layer: PostgreSQL
 - Workflow Orchestration: n8n
 - OCR and DMS: Paperless-ngx
 - AI Orchestration: Flowise
-- Local LLM Runtime: Ollama
+- LLM Runtime Service: Ollama API endpoint (external by default, optional local profile)
 - Runtime and deployment: Docker and Docker Compose
+
+### Runtime Separation Rules
+- Electron desktop client remains host-native.
+- Windows COM bridge remains host-native and is never containerized.
+- Docker stack hosts platform services only.
+- M-Files COM operations are executed by host process utilities and invoked by the desktop client.
+
+### Integration Topology
+- Windows Host Boundary:
+- Electron desktop client UI and local workspace.
+- COM bridge utility for win32/PowerShell M-Files calls.
+- M-Files Desktop/Server COM access.
+- Docker Service Boundary:
+- Backend API gateway.
+- PostgreSQL and Redis.
+- n8n orchestration runtime.
+- Paperless-ngx OCR and document services.
+- Flowise AI orchestration.
+- Optional local Ollama profile.
+
+### Port and Environment Governance
+- All service endpoints must be environment-driven through .env configuration.
+- Recommended default service ports:
+- PostgreSQL 5432
+- Redis 6379
+- n8n 5678
+- Paperless-ngx 8000
+- Flowise 3001
+- Ollama 11434 (when local profile is enabled)
+- Backend API 5000
+- Use a single gateway endpoint from the desktop client for downstream service access when feasible.
 
 ### Layered Architecture
 1. Infrastructure Layer -> Docker
@@ -398,6 +439,11 @@ The system may provide an Excel-like interface for speed, but workflow integrity
 ### Reliability
 - Retry policies and graceful degradation
 - Backup and restore procedures
+
+### Offline and Air-Gapped Consistency
+- Docker compose configuration must mount persistent local volumes for PostgreSQL, OCR artifacts, and optional local model storage.
+- Platform must support consultant operation when internet is unavailable, assuming required local services are already provisioned.
+- Service startup profiles should support both core stack mode and optional local AI mode.
 
 ### Security and Compliance
 - RBAC and SoD
