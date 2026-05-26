@@ -793,3 +793,91 @@ Elevate the Proviso Command Center to a world-class, premium desktop interface w
 MILESTONE: Beta-II-Pro-Complete
 NEXT: Beta-III-AI-Vision (Image-to-JSON Workflow Generation)
 ```
+
+---
+
+## 🔧 n8n 2.x Integration — Lessons Learned (Week 1, May 2026)
+
+### Stack
+- n8n `2.22.3` in Docker, PostgreSQL backend, port `5678`
+- Auth: session cookie for `/rest/` endpoints · API key (`X-N8N-API-KEY`) for `/api/v1/` endpoints
+- Bootstrap script: `scripts/create-n8n-workflows.ps1`
+
+### Bugs Fixed & Root Causes
+
+| # | Symptom | Root Cause | Fix |
+|---|---------|-----------|-----|
+| 1 | Login 404 on first run | REST API not ready despite `/healthz` returning 200 | Added `Start-Sleep 3` after healthz passes before first REST call |
+| 2 | Archive step → 401 (session cookie rejected) | `Secure` cookie flag set by n8n; plain HTTP strips it silently | `N8N_SECURE_COOKIE: "false"` in `docker-compose.yml` |
+| 3 | `POST /api/v1/workflows` → 400 | `active` field is **read-only** on create in n8n 2.x | Removed `active = $false` from create body; activate separately via `POST /api/v1/workflows/{id}/activate` |
+| 4 | Workflow list → 400 | `limit=500` exceeds n8n 2.x maximum | Changed to `limit=250` |
+| 5 | Webhook responds with broken JSON | String-concatenated `responseBody` had unescaped quotes | Used `[ordered]@{ ack=$true; event=$evt.event } \| ConvertTo-Json -Compress` |
+| 6 | `POST /api/v1/workflows` → 400 (connections) | PowerShell silently flattens `@( @( item ) )` → `@( item )` → JSON `[{}]` instead of `[[{}]]` | Comma operator: `@( ,@( @{ node="Respond"; type="main"; index=0 } ) )` preserves nesting |
+
+### Delete Sequence (required order)
+```
+1. POST /api/v1/workflows/{id}/deactivate   (API key)
+2. POST /rest/workflows/{id}/archive         (session cookie — needs N8N_SECURE_COOKIE=false)
+3. DELETE /api/v1/workflows/{id}             (API key)
+```
+
+### Login Body Field (n8n 2.x)
+```json
+{ "emailOrLdapLoginId": "admin@proviso.local", "password": "Changeme_n8n1" }
+```
+> ⚠️ Field is `emailOrLdapLoginId`, NOT `email` — common mistake.
+
+### connections.main Must Be Nested Array
+```powershell
+# WRONG — PowerShell flattens this to [{...}]
+main = @( @( @{ node = "Respond"; type = "main"; index = 0 } ) )
+
+# CORRECT — comma operator preserves [[{...}]]
+main = @( ,@( @{ node = "Respond"; type = "main"; index = 0 } ) )
+```
+
+### 9 Proviso Webhook Events (Week 1)
+```
+invoice-received · invoice-extracted · invoice-matched · invoice-exception
+invoice-resolved · invoice-approved · invoice-posted · invoice-rejected · audit-event
+```
+Each workflow: `Webhook → Respond to Webhook` (responseMode: `responseNode`), returns `{"ack":true,"event":"<event>"}`.
+
+### Week 1 Gate — PASSED ✅ (2026-05-25)
+All 9 paths returned `{"ack":true}` — `PASS 9 / FAIL 0`.
+
+---
+
+## 🔀 Tool Boundary — Provisio vs AI Proviso (Locked Decision, May 2026)
+
+### The Rule
+> AI Proviso does **not** talk to the M-Files COM API. It never will.
+
+### Who Does What
+
+| Responsibility | Tool |
+| :--- | :--- |
+| Connect to M-Files vault via COM | **Provisio** (separate tool) |
+| Export workflows as JSON from M-Files | **Provisio** |
+| `VaultNamedValueStorageOperations`, vault aliases, auth | **Provisio** |
+| Ingest a workflow JSON file | **AI Proviso** (`POST /api/workflows/import`) |
+| Sanitize, add to dataset, run RAG | **AI Proviso** |
+| AP automation pipeline | **AI Proviso** |
+
+### One Connection Point
+```
+Provisio tool  ──[workflow.json]──►  POST /api/workflows/import  ──►  AI Proviso
+```
+
+### What This Removes from AI Proviso
+- `win32com` / `pywin32` dependency
+- `host-native` Docker profile
+- Windows-only deployment requirement
+- M-Files vault GUIDs, server addresses, auth credentials in `.env`
+- `electron/main.cjs` IPC handlers for `mfiles:*`
+- `electron/preload.cjs` `window.mfiles` bridge
+- `scripts/pull-from-vault.ps1`, `push-to-vault.ps1`, `verify-vault.ps1`, `test-connection.ps1`
+
+### Why It Matters
+AI Proviso now runs on any OS (Linux container, Mac, Windows) without a local M-Files Desktop installation. The single JSON import endpoint is DMS-agnostic — Provisio could export from any system.
+

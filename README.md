@@ -38,7 +38,7 @@ The desktop experience is simple and visual for business users, while platform c
 - Fast onboarding and time to value.
 - Zero passive pending states.
 - Clear ownership for exceptions.
-- Host-native boundary for Windows COM integration.
+- Platform-agnostic import via `POST /api/workflows/import`.
 - Service-native boundary for data, orchestration, OCR, and AI runtime.
 
 ## Architecture Summary
@@ -46,7 +46,6 @@ The desktop experience is simple and visual for business users, while platform c
 ### Host-Native Boundary
 - Electron desktop client
 - Visual builders and workbench UI
-- Windows COM bridge utilities for M-Files integration
 
 ### Docker Service Boundary
 - backend API gateway
@@ -94,14 +93,14 @@ Users should be able to get productive quickly because complexity is hidden behi
 - OCR extraction ownership belongs to OCR worker pipeline.
 - Ollama is an external service by default, optional local profile for development.
 - Electron remains outside Docker.
-- Windows COM integration remains host-native.
+- M-Files COM interaction belongs to the **Provisio** tool (separate). AI Proviso ingests via `POST /api/workflows/import` only.
 
 ## PRD Source of Truth
 
 Active product blueprint:
-- Proviso_PRD_v8.md
+- Proviso_PRD_v9.md
 
-The v8 PRD is the current build direction and should be treated as the canonical implementation reference.
+The v9 PRD is the current build direction and should be treated as the canonical implementation reference.
 
 ## Quick Start
 
@@ -125,13 +124,13 @@ Optional local Ollama profile:
 - backend/requirements.txt
 - backend/app.py
 - docker/postgres-init/01-create-databases.sh
-- Proviso_PRD_v8.md
+- Proviso_PRD_v9.md
 - Proviso_Change_Blueprint.md
 
 ## M-Files Integration Note
 
-M-Files COM integration is host-side and Windows-specific.
-It is intentionally not containerized.
+M-Files COM interaction is the responsibility of the **Provisio** tool (separate from AI Proviso).
+AI Proviso receives pre-normalized workflow JSON via `POST /api/workflows/import` — it has no COM dependency, no M-Files vault credentials, and no Windows-only deployment requirement.
 
 ---
 

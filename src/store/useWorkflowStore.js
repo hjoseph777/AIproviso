@@ -250,14 +250,14 @@ export const useWorkflowStore = create((set, get) => ({
     return wf.id;
   },
 
-  // ── Import from M-Files Vault ──────────────────────────────
-  // Takes workflow JSON from M-Files (via pull-from-vault.ps1) and creates a new tab.
+  // ── Import workflow from JSON file (POST /api/workflows/import) ──────────
+  // Accepts a Provisio-exported workflow JSON and creates a new tab.
   seedImportedWorkflow: (mfData) => {
     const date = mfData.importedAt ? mfData.importedAt.split('T')[0] : new Date().toISOString().split('T')[0];
     const wf = {
       id:          makeId(),
       name:        `📥 ${mfData.name} (imported ${date})`,
-      source:      mfData.source || 'mfiles',
+      source:      mfData.source || 'provisio',
       importedAt:  mfData.importedAt,
       states:      (mfData.states || []).map(s => ({ id: makeId(), ...s })),
       transitions: (mfData.transitions || []).map(t => ({ id: makeId(), ...t })),

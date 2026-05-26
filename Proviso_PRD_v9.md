@@ -1,5 +1,5 @@
 # AI Proviso Product Requirements Document (PRD)
-## Version 8.0 — Consolidated Production Architecture (Hardened Architecture + Schema Integrity + First-Run Wizard)
+## Version 9.0 — Platform Boundary Clarification (COM Bridge Removed · Clean Tool Separation)
 
 ---
 
@@ -8,10 +8,10 @@
 | Field | Detail |
 | :--- | :--- |
 | **Product** | AI Proviso — AP-First Automation Platform |
-| **Version** | 8.0 — Consolidated Production Architecture |
+| **Version** | 9.0 — Platform Boundary Clarification |
 | **Classification** | Internal — Confidential |
 | **Author** | Harry Joseph / scriptdotnet — Xerox Canada |
-| **Previous Versions** | PRD v7.0 (Hardened Schema) + PRD v6.0 (Technical Improvements) |
+| **Previous Versions** | PRD v8.0 (Consolidated Production Architecture) + PRD v7.0 (Hardened Schema) |
 | **Primary Stakeholder** | Michel LeBrun — Director, Software Pre-sales & Solution Design |
 | **Demo Target** | 12-Week Michel LeBrun Pilot (Phase I Working Vertical Slice) |
 | **Phase I Timeline** | 8 Weeks to Working Demo · 16 Weeks Production Hardening |
@@ -29,6 +29,8 @@
 > **Decision 2 — Flowise Configuration-as-Code:** Flowise flows are not mutable infrastructure. Visual prompt chains are exported as JSON, committed to the Git repository, and auto-seeded via the Flowise REST API on container deployment. The Fastify API calls Flowise over HTTP, making it fully swappable for a native LangChain/LlamaIndex Python microservice without frontend changes.
 >
 > **Decision 3 — Phase I Demo Scope:** The pilot targets a working vertical slice: **MOD-01 (Intake)** + **MOD-02 (Extraction)** + **MOD-04 (Workflow/Diff Approval)**. **MOD-03 (Matching)** and **MOD-05 (ERP Posting)** are simulated via mock database tables and mock webhook callbacks. MOD-07 (Audit) is wired from day one — it is never retrofitted.
+>
+> **Decision 4 — Clean Tool Boundary (COM Bridge Removed):** AI Proviso does **not** talk to the M-Files COM API. The separate **Provisio** tool owns COM export and produces a workflow JSON file. AI Proviso ingests that file via a single platform-agnostic endpoint: `POST /api/workflows/import`. This removes the Windows-only deployment requirement, the `win32com` dependency, and the `host-native` profile from AI Proviso entirely.
 
 ---
 
@@ -228,12 +230,11 @@ Every event crossing module boundaries must conform to the canonical envelope de
 | **flowise** | 3001 | default | Prompt flows auto-seeded from `/config/flowise/` on startup |
 | **ollama** | 11434 | local-ai | Optional profile. Or point to Mac M2 via `OLLAMA_BASE_URL` |
 | **ollama-pull** | — | local-ai | Helper container — pulls default model weights, then exits |
-| **com-bridge** | 5001 | host-native | Windows host utility — never containerized |
 
 ### 4.3 AI Runtime Boundary
 
 - **API-First Isolation:** LLM execution uses Ollama over HTTP API. No weights or model runtimes are compiled into the client executable.
-- **Dedicated Hardware Profile (Mac M2 32GB):** Ollama runs on a dedicated local machine to prevent GPU/CPU resource contention on the Windows host running OCR and COM tasks.
+- **Dedicated Hardware Profile (Mac M2 32GB):** Ollama runs on a dedicated local machine to prevent GPU/CPU resource contention on the Windows host running OCR tasks.
 - **Dual-Mode AI Model Strategy:**
   - **Design-Time AI (Cockpit):** RAG search, NL workflow generation, SOW/PRD writing. Use `qwen2.5:14b` or `deepseek-r1:14b`.
   - **Run-Time AI (AP Pipeline):** Fast invoice field extraction from raw OCR text. Use `llama3.2:3b` or `phi4-mini`.
@@ -245,19 +246,21 @@ Every event crossing module boundaries must conform to the canonical envelope de
 
 - All service endpoints are environment-driven via `.env` configuration.
 - Remote Mac M2 Ollama access: set `OLLAMA_HOST=0.0.0.0` and `OLLAMA_ORIGINS="*"` on Mac. Set `OLLAMA_BASE_URL=http://MacBook-M2.local:11434` in the Windows host `.env`.
-- M-Files ports 2266 / 443 are handled by the host-native M-Files client. The COM Bridge uses local IPC — our application never binds these ports directly.
+- M-Files COM integration is handled entirely by the **Provisio** tool (separate). AI Proviso has no M-Files ports, COM bridge, or `win32com` dependency.
 
 ### 4.5 Backend Transition Strategy: Flask (Current) vs Fastify (Target)
 
 * **Current State (Phase I):** The development sandbox uses a Python/Flask application (`backend/app.py`) to handle API routing, prompt prototyping, and mocked database controllers. This speeds up validation and testing for the Michel LeBrun 12-week demo.
 * **Target State (Phase II):** The architecture mandates transitioning to a Fastify (Node.js) API gateway (`backend-api:5000`) for deployment. Fastify is chosen for superior async message handling, low latency, JWT route authentication, and schema-driven request/response validation.
 
-### 4.6 COM Bridge Operational Contract & Retries
+### 4.6 Workflow Import Contract
 
-The host-native `com-bridge` establishes a local loopback communication pipe (Local TCP Port 5001) between the Electron shell and the local M-Files Desktop Client (`MFStatus.exe` / `MFClient.exe`).
-* **COM Port Reconnection:** If the local port is busy or drops connectivity during a sync, the Electron UI retries connection up to 3 times with a 5-second backoff window.
-* **Client Service Offline:** If the local M-Files client application is closed or fails to bind, the COM Bridge catches the `win32com` error and sends a standardized JSON payload back to the Electron host (`{ "error": "MFILES_SERVICE_UNAVAILABLE" }`).
-* **Consultant Fallback:** If the connection cannot be restored after 3 attempts, the AP Cockpit UI falls back to presenting a manual download option, generating the configuration XML package directly for manual upload into M-Files Admin.
+AI Proviso accepts workflow data through a single platform-agnostic HTTP endpoint:
+
+- **Endpoint:** `POST /api/workflows/import`
+- **Accepted format:** Provisio-exported JSON (produced by the separate **Provisio** tool)
+- **Pipeline:** JSON received → XML/PII sanitization → schema validation → dataset ingestion → new workflow tab opened in designer
+- **No COM dependency:** AI Proviso has no knowledge of M-Files vaults, GUIDs, or authentication. The Provisio tool owns that boundary.
 
 ---
 
@@ -371,7 +374,7 @@ Pure state machine. Owns the AP invoice lifecycle, approval matrix, workflow des
 | Manual Build | react-flow canvas drag-and-drop | None — consultant has full visual control | Yes, with scenario metadata |
 | AI Generation | Natural language scenario description | Full — LLM generates complete workflow JSON | Yes, `source = ai_generated` |
 | AI Customization | RAG candidate selection | High — LLM adapts base template to requirements | Yes, `source = ai_customized`, `parent_id` set |
-| Import | M-Files XML / n8n JSON upload | Sanitization pipeline — scrubs PII, normalizes | Yes, `source = imported` |
+| Import | Provisio JSON file (`POST /api/workflows/import`) | Sanitization pipeline — scrubs PII, normalizes | Yes, `source = imported` |
 
 **Future Project — Workflow Reuse Flow:**
 
@@ -457,29 +460,19 @@ Step 3 — Manual Map
 - Previous version archived, not deleted. Rollback available
 - Consultant can fork a template (`forked_from` field set): client-specific variant maintained independently
 
-**M-Files Lineage Fingerprinting & Named Value Storage:**
-During workflow exports to M-Files (via the Windows COM Bridge in Module 5), the system must write an immutable JSON metadata signature to M-Files Named Value Storage. This ensures complete audit traceability and drift detection back to Proviso's workflows database:
-- **Namespace:** `Proviso.Workflow.Metadata`
-- **Key:** `WorkflowSignature`
-- **Value (JSON Envelope):**
-  ```json
-  {
-    "proviso_workflow_id": "uuid-v4",
-    "parent_template_id": "uuid-v4-or-null",
-    "tenant_id": "uuid-v4",
-    "exported_at": "timestamp-iso8601",
-    "exported_by": "user-uuid",
-    "checksum": "sha256-hash-of-workflow-logic-json"
-  }
-  ```
-- *COM Bridge Execution:* The Python COM Bridge calls `VaultNamedValueStorageOperations.SetNamedValues` on the target vault using the `MFPersonalInformationNamespace` or a dedicated custom namespace to attach this structure to the workflow object/vault structure. M-Files scripts/VAF components read this to trace lineage and verify validity.
-
-**Multi-Tenant Vault Alias Isolation Prefixing:**
-To support safe multi-tenant operation on shared M-Files servers and prevent namespace/alias collisions across different clients:
-- *Alias Prefix Pattern:* All exported M-Files structural aliases (including Workflow, State, Transition, and Property aliases) must be dynamically prefixed using the rule:
-  `WPS.{{TENANT_PREFIX}}.AliasName`
-- *Configuration:* The `TENANT_PREFIX` is a unique, sanitized alphanumeric identifier configured in the `tenant_configurations` table per tenant (e.g. `tenant_configurations.rules_metadata->>'alias_prefix'`).
-- *Translation:* The COM Bridge must intercept the export payload and dynamically substitute the template placeholder aliases. For example, a default template workflow state alias `WPS.State.InvoiceApproval` will be translated to `WPS.TENANTA.State.InvoiceApproval` for Tenant A, and `WPS.TENANTB.State.InvoiceApproval` for Tenant B, completely isolating their configurations inside a shared M-Files vault.
+**Workflow Lineage Fingerprinting:**
+Every workflow saved to the dataset carries an immutable JSON signature stored in the `workflows` table. This provides complete audit traceability and drift detection:
+```json
+{
+  "proviso_workflow_id": "uuid-v4",
+  "parent_template_id": "uuid-v4-or-null",
+  "tenant_id": "uuid-v4",
+  "imported_at": "timestamp-iso8601",
+  "imported_by": "user-uuid",
+  "checksum": "sha256-hash-of-workflow-logic-json"
+}
+```
+> **Note:** M-Files Named Value Storage (vault alias isolation, `VaultNamedValueStorageOperations`) is the responsibility of the **Provisio** tool. AI Proviso stores lineage in its own PostgreSQL dataset only.
 
 ---
 
@@ -1231,22 +1224,26 @@ graph TD
     J --> K["Consultant Approves → Saved to workflows_dataset with parent_id"]
 ```
 
-### Module 6: Windows Host & COM Sync Layer
+### Tool Boundary: Provisio → AI Proviso
 
 ```mermaid
-graph TD
-    subgraph WindowsHost ["Windows Host (Client PC)"]
-        Electron["Electron App UI"]
-        COM_Bridge["Python COM Bridge (host-native)"]
-        MFiles_Client["M-Files Client (local service)"]
-        Electron <-->|"Local IPC (localhost:5001)"| COM_Bridge
-        COM_Bridge <-->|"win32com"| MFiles_Client
+graph LR
+    subgraph Provisio ["Provisio Tool (separate)"]
+        MFiles_Client["M-Files Client"]
+        COM_Bridge["COM Bridge (win32com)"]
+        Export["Workflow JSON Export"]
+        MFiles_Client <-->|"RPC / HTTPS"| COM_Bridge
+        COM_Bridge --> Export
     end
-    subgraph ServerNetwork ["M-Files Server Network"]
-        MFiles_Server["M-Files Vault Server"]
+    Export -->|"workflow.json"| Import
+    subgraph AIProviso ["AI Proviso"]
+        Import["POST /api/workflows/import"]
+        Dataset["PostgreSQL workflows_dataset"]
+        Import --> Dataset
     end
-    MFiles_Client <-->|"RPC Port 2266 / HTTPS 443"| MFiles_Server
 ```
+
+> M-Files COM interaction is fully isolated in the Provisio tool. AI Proviso only receives normalized JSON.
 
 ---
 
@@ -1258,7 +1255,7 @@ To assist developers in mapping this PRD against the active sandbox code and set
 | :--- | :--- | :--- | :--- |
 | **API Gateway Backend** | Section 4.5 / MOD-08 | Fastify (Node.js) gateway (`backend-api:5000`) | `backend/app.py` (current Flask Python sandbox backend) |
 | **Services Stack orchestration** | Section 4.2 | 10-container Docker Compose schema | `docker-compose.yml` |
-| **Windows COM Bridge** | Section 4.6 / MOD-05 | IPC over localhost Port 5001; win32com wrapper | `win32com` COM controllers in M-Files folders |
+| **Workflow Import Endpoint** | Section 4.6 / MOD-04 | `POST /api/workflows/import` (Provisio JSON) | `backend/app.py` — `/api/workflows/import` route |
 | **Docker Configuration Specs** | Section 4.2 | Container deployment configurations | Removed from active repository (refer to Git history if needed) |
 | **Historical Blueprint Shifts** | Section 2.1 | Design trajectory and past planning references | `Proviso_Change_Blueprint.md` |
 
