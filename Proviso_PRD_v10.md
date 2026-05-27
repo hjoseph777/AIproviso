@@ -1,5 +1,5 @@
 # AI Proviso Product Requirements Document (PRD)
-## Version 9.0 — Platform Boundary Clarification (COM Bridge Removed · Clean Tool Separation)
+## Version 10.0 — Workflow Engine Boundary and Business-Language Designer
 
 ---
 
@@ -8,20 +8,20 @@
 | Field | Detail |
 | :--- | :--- |
 | **Product** | AI Proviso — AP-First Automation Platform |
-| **Version** | 9.0 — Platform Boundary Clarification |
+| **Version** | 10.0 — Workflow Engine Boundary and Business-Language Designer |
 | **Classification** | Internal — Confidential |
 | **Author** | Harry Joseph / scriptdotnet — Xerox Canada |
-| **Previous Versions** | PRD v8.0 (Consolidated Production Architecture) + PRD v7.0 (Hardened Schema) |
+| **Previous Versions** | PRD v9.0 (Platform Boundary Clarification) + PRD v8.0 (Consolidated Production Architecture) |
 | **Primary Stakeholder** | Michel LeBrun — Director, Software Pre-sales & Solution Design |
 | **Demo Target** | 12-Week Michel LeBrun Pilot (Phase I Working Vertical Slice) |
 | **Phase I Timeline** | 8 Weeks to Working Demo · 16 Weeks Production Hardening |
-| **Architecture** | 9-Module Contract-First Isolation · Docker Compose · n8n Event Spine |
+| **Architecture** | 9-Module Contract-First Isolation · Docker Compose · XState Workflow Engine · n8n Event Spine |
 | **AI Stack** | Ollama · Flowise (Config-as-Code) · PaddleOCR · PP-Structure · react-flow |
 | **Data Layer** | PostgreSQL 16 (Platform Master) + SQLite (Local Workspace Client Cache) |
 
 ---
 
-## Three Locked Architectural Decisions
+## Six Locked Architectural Decisions
 
 > [!IMPORTANT]
 > **Decision 1 — Paperless-ngx Boundary:** Paperless-ngx is strictly a document archive, search, and thumbnail storage service. **`PAPERLESS_OCR_MODE=skip`** is enforced in the Docker Compose environment. **MOD-02** owns all OCR text and layout extraction.
@@ -33,6 +33,8 @@
 > **Decision 4 — Clean Tool Boundary (COM Bridge Removed):** AI Proviso does **not** talk to the M-Files COM API. The separate **Provisio** tool owns COM export and produces a workflow JSON file. AI Proviso ingests that file via a single platform-agnostic endpoint: `POST /api/workflows/import`. This removes the Windows-only deployment requirement, the `win32com` dependency, and the `host-native` profile from AI Proviso entirely.
 >
 > **Decision 5 — Development Truth Path:** Docker Compose plus PostgreSQL is the primary development and validation path for extraction persistence, workflow state transitions, audit traceability, and model-development outputs. The canonical development bootstrap path is the ordered migration set `001_initial_schema.sql` → `002_rls_policies.sql` → `003_triggers.sql` → `004_seed_data.sql`. Model-development work must validate against persisted PostgreSQL records, not transient in-memory fixtures.
+>
+> **Decision 6 — Workflow Runtime Boundary:** XState is a pure transition evaluator. PostgreSQL is the only source of truth for workflow state, transition history, timers, and audit records. n8n dispatches notifications and external calls only after the authoritative transaction commits.
 
 ---
 
@@ -50,6 +52,32 @@ AI Proviso is a next-generation Accounts Payable automation platform designed to
 | **Workflow Integrity** | Every state transition is programmatically policy-enforced. Zero bypass paths. Zero passive pending states |
 | **Learning System** | Every approved invoice makes the next one faster. Vendor profiles, ERP mappings, and workflow templates accumulate confidence automatically |
 | **Modular by Design** | 9 contract-isolated modules. Swap, upgrade, or extend any service layer without impact on the others |
+
+### 1.1.1 Locked Designer Principle
+
+AI Proviso's workflow designer is business-language first. Integrators configure states, transitions, approvals, SLAs, notifications, and escalations in operational terms. The platform compiles that intent into the underlying workflow engine, event routing, and timer infrastructure automatically. The implementation layer is hidden by default and exposed only in controlled diagnostic views.
+
+### 1.1.2 Semantic View Modes
+
+The workflow canvas is a polymorphic product surface with three sanctioned view modes:
+
+| View Mode | Default User | Purpose | Authoring Model |
+| :--- | :--- | :--- | :--- |
+| **Business** | Analysts / consultants / operators | Clean Proviso-native workflow authoring in business language | Canonical source of truth |
+| **Runtime** | Integrators / support / debugging | Shows route history, rule IDs, guard names, failed steps, and live execution facts | Read-only overlay on canonical model |
+| **Target** | Systems integrators / advanced implementers | Shows compiled XState and n8n identities, webhook paths, and target metadata | Read-only overlay on canonical model |
+
+The default experience must remain Business view. Runtime and Target views exist to reveal underlying execution structure on demand without forcing users to author directly in engine-specific primitives.
+
+### 1.1.3 The Shiny Stars Pattern
+
+AI Proviso uses a contextual overlay pattern internally referred to as **Shiny Stars**.
+
+- The clean canvas remains a business map first.
+- When a semantic lens is enabled, critical runtime and integration boundaries illuminate in place rather than replacing the business model.
+- These illuminated markers represent runtime interceptors such as XState guards, transition metadata, n8n webhook boundaries, worker handoff points, and connector crossings.
+
+This pattern preserves the product rule of **default clean, detail on selection, depth on demand**.
 
 ### 1.2 Competitive Positioning
 
@@ -89,7 +117,7 @@ AI Proviso is a next-generation Accounts Payable automation platform designed to
 
 > - No module imports another module's source code.
 > - Every module reads and writes only from the canonical PostgreSQL schema defined in **MOD-00**.
-> - Every module communicates asynchronously by firing event topics via **n8n webhooks**.
+> - Module boundary events are transported asynchronously, but workflow decisions remain inside the owning module service.
 > - This rule ensures every module is independently replaceable, testable, and deployable.
 > - To safeguard operations, any transactional or external-facing event is backed by a persistent queue buffer.
 
@@ -133,8 +161,34 @@ To guarantee message delivery and prevent data loss during container restarts, n
 ### 3.1.2 Event Transport Authoritative Flow Paths
 
 To avoid dual-routing complexity and maintain deterministic state flows, event paths are partitioned by class:
-* **Transactional/State-Change Events:** Fired upon database state mutations (`invoice.matched`, `invoice.approved`, `invoice.exception`, `invoice.resolved`, `invoice.posted`). These use **Redis BullMQ streams** as the authoritative transport, guaranteeing at-least-once delivery, sequencing, and transactional safety.
-* **Internal Workflow Orchestration Hooks:** Synchronous/asynchronous rules executed inside a specific module workflow (e.g. email notifications, system-to-system webhook updates). These are routed via **n8n Webhook triggers**, acting as the logic connector.
+* **Transactional/State-Change Events:** Fired upon authoritative database state mutations (`invoice.matched`, `invoice.approved`, `invoice.exception`, `invoice.resolved`, `invoice.posted`). These use **Redis BullMQ streams** as the authoritative transport, guaranteeing at-least-once delivery, sequencing, and transactional safety.
+* **Notification and Integration Hooks:** Approval emails, vendor notifications, ERP callbacks, and escalation dispatches are routed through **n8n** only after the underlying transaction commits.
+
+### 3.1.3 Workflow Runtime Authority
+
+The workflow runtime is split intentionally:
+
+- **XState:** pure transition evaluator. Receives a stored snapshot, evaluates one event, returns a new snapshot, and retains no authoritative state.
+- **PostgreSQL:** the only source of truth. `workflow_state`, `workflow_state_history`, `workflow_timers`, and `audit_events` hold the persisted lifecycle.
+- **n8n:** post-commit notification and external-call layer. It never decides workflow state and never writes authoritative workflow state directly.
+
+Every workflow transition must pass through `WorkflowEngine.advance()` inside **MOD-04**. No other module writes directly to workflow state tables.
+
+### 3.1.4 Canonical Model, Compilation, and Overlays
+
+AI Proviso follows a dual-engine cockpit architecture built on one canonical workflow model:
+
+- **Canonical model:** the Proviso-native workflow definition managed in the application shell is the only authoring source of truth.
+- **Compilation targets:**
+  - **XState** receives compiled state, transition, guard, and timer semantics.
+  - **n8n** receives compiled webhook, notification, connector, and side-effect orchestration specs.
+- **Round-trip runtime facts:** runtime-owned fields such as `rule_id`, `guard_name`, route history, execution ticker events, and timer lifecycle data must flow back into the Integrator cockpit from authoritative persisted history.
+
+This model intentionally separates product authoring from engine primitives:
+
+- users author in business language
+- engines execute on compiled artifacts
+- overlays reveal runtime and target-specific detail without creating a second authoring system
 
 ### 3.2 Module Directory
 
@@ -192,6 +246,19 @@ Every event crossing module boundaries must conform to the canonical envelope de
 | `invoice.rejected` | MOD-04 | MOD-06 / MOD-07 | Ends invoice lifecycle and writes audit log |
 | `audit.event` | ALL modules | MOD-07 | Logs payload for append-only audit trace |
 
+### 3.5 Workflow Metadata Round-Trip Contract
+
+To support deterministic debugging and semantic overlays, the workflow runtime must preserve the following metadata whenever available:
+
+| Field | Source | Consumer | Purpose |
+| :--- | :--- | :--- | :--- |
+| `rule_id` | workflow-engine / history persistence | Integrator Runtime View + Rule Card | Stable link to the business rule catalog |
+| `guard_name` | workflow-engine / XState execution layer | Integrator Runtime View + Target View | Identifies the structural runtime guard |
+| `routeHistory` | backend runtime payload | Runtime overlay + execution ticker | Shows authoritative path traversal |
+| `executionTicker` | backend runtime payload | Footer live execution bar | Reinforces invoice context with recent events |
+| `xstate.stateId` / `xstate.eventType` | compiler target projection | Target View | Shows state-machine identity without changing authoring mode |
+| `n8n.nodeId` / `n8n.webhookPath` | compiler target projection | Target View | Shows orchestration target identity |
+
 ---
 
 ## 4. Technology Stack & Service Map
@@ -206,7 +273,8 @@ Every event crossing module boundaries must conform to the canonical envelope de
 | **Data — Local Cache** | SQLite | 3 | Electron client workspace only — never AP transactions |
 | **DMS / Archive** | Paperless-ngx | Latest | Document storage, thumbnails, search. **OCR DISABLED** |
 | **Doc Conversion** | Gotenberg + Tika | Latest | Office-to-PDF conversion, text pre-extraction before OCR |
-| **Workflow Orch.** | n8n | Latest | Orchestration hook runtime — coordinates workflow hooks and integration automations |
+| **Workflow Engine** | XState | 5 | Pure transition evaluator hosted inside the dedicated workflow-engine service |
+| **Workflow Notifications** | n8n | Latest | Event spine, notification dispatch, and external integration automation |
 | **AI Orchestration** | Flowise | Latest | LangChain agents, RAG pipelines — flows saved as Git-tracked JSON |
 | **LLM Runtime** | Ollama | Latest | External HTTP service — decoupled from client binary |
 | **OCR — Primary** | PaddleOCR | 2.7+ | Deep learning character recognition using PP-OCRv4 for invoice text extraction |
@@ -217,6 +285,23 @@ Every event crossing module boundaries must conform to the canonical envelope de
 | **Workflow Canvas** | react-flow | 11 | Drag-and-drop workflow designer |
 | **Vector Search** | pgvector | 0.7+ | RAG embeddings stored in PostgreSQL master database |
 
+### 4.3 Semantic Lens & Canvas View Modes (The Shiny Stars Pattern)
+
+The custom React designer in `CommandCenter.jsx` operates as a polymorphic visual surface. It retains one underlying workflow definition from `useWorkflowStore.js` while projecting different operational depths according to the active lens.
+
+| Mode | Purpose | Rendering Behavior |
+| :--- | :--- | :--- |
+| **Proviso Native Mode** | Human AP triage and business-authoring clarity | Renders abstract states and transitions such as Draft, Review, Extracted, Approved |
+| **Engine / Runtime Overlay** | Runtime debugging and systems visibility | Superimposes backend-owned metadata onto the same canvas coordinates without mutating the business model |
+
+The Engine / Runtime Overlay must support the following runtime projections:
+
+- **XState primitives:** entry/exit action identity, guard name, transient-state context, and compiled event identity anchored to the active node or edge.
+- **n8n boundaries:** webhook triggers, external API crossings, queue handoffs, worker dispatch points, and connector execution boundaries rendered as contextual badges.
+- **Runtime-owned authority fields:** `rule_id`, `guard_name`, route history, failed-step markers, and execution ticker events sourced from persisted backend state rather than UI inference.
+
+These overlays are non-destructive. They do not create a second workflow authoring system. The business-language model remains canonical, while the runtime and target layers are revealed as contextual stars pinned over the same Proviso-native geometry.
+
 ### 4.2 Docker Compose Service Topology
 
 | Service | Port | Profile | Notes |
@@ -224,6 +309,7 @@ Every event crossing module boundaries must conform to the canonical envelope de
 | **postgres** | 5432 | default | Persistent volume. Never wiped between restarts |
 | **redis** | 6379 | default | Ephemeral cache for queues and pub/sub |
 | **backend-api** | 5000 | default | Fastify gateway — single entry point for React client |
+| **workflow-engine** | 5100 | default | Dedicated XState runtime. Persists no state locally |
 | **ocr-worker** | — | default | Python container executing PaddleOCR + PP-Structure jobs |
 | **n8n** | 5678 | default | Event spine — flows auto-seeded from `/config/n8n/` on startup |
 | **paperless-ngx** | 8000 | default | `PAPERLESS_OCR_MODE=skip` enforced in compose env |
@@ -250,10 +336,28 @@ Every event crossing module boundaries must conform to the canonical envelope de
 - Remote Mac M2 Ollama access: set `OLLAMA_HOST=0.0.0.0` and `OLLAMA_ORIGINS="*"` on Mac. Set `OLLAMA_BASE_URL=http://MacBook-M2.local:11434` in the Windows host `.env`.
 - M-Files COM integration is handled entirely by the **Provisio** tool (separate). AI Proviso has no M-Files ports, COM bridge, or `win32com` dependency.
 
-### 4.5 Backend Transition Strategy: Flask (Current) vs Fastify (Target)
+### 4.5 Backend Transition Strategy: Flask (Current) vs Fastify + Workflow Engine (Target)
 
 * **Current State (Phase I):** The active vertical slice runs against Docker-backed PostgreSQL and Redis, while the Python/Flask application (`backend/app.py`) remains a temporary route sandbox for the Michel LeBrun demo and contract validation.
-* **Target State (Phase II):** The architecture mandates transitioning to a Fastify (Node.js) API gateway (`backend-api:5000`) for deployment. Fastify is chosen for superior async message handling, low latency, JWT route authentication, and schema-driven request/response validation.
+* **Target State (Phase II):** The architecture mandates transitioning to a Fastify (Node.js) API gateway (`backend-api:5000`) plus a dedicated Node-based `workflow-engine` service hosting XState. Fastify owns API contracts and authentication. The workflow-engine owns transition evaluation only. PostgreSQL remains authoritative for persisted workflow state.
+
+### 4.5.2 Workflow Persistence Invariants
+
+- PostgreSQL is the only source of truth for current workflow state.
+- XState actors are created per request, evaluate one event, and are discarded immediately after snapshot extraction.
+- Every workflow transition writes state, history, audit, and timer changes in one transaction.
+- n8n is called after commit only.
+- Every workflow state update must use optimistic locking on `version`.
+- Terminal invoices do not transition again.
+- Workflow state is only mutated through `WorkflowEngine.advance()`.
+- Workflow tables are not deleted during active processing or retention windows.
+
+### 4.5.3 Workflow Persistence Tables
+
+- `workflow_state`: one active snapshot row per invoice
+- `workflow_state_history`: append-only transition history
+- `workflow_timers`: delayed transition and SLA timer registry
+- `audit_events`: immutable audit log linked to every committed transition
 
 ### 4.5.1 Development Database Policy
 
@@ -573,9 +677,11 @@ One React application delivered in two host modes: Electron for consultants and 
 
 **Screen Group B — Integrator Cockpit:**
 - Workflow Designer (react-flow) with typed sidebar palette and state/transition canvas
+- Double-click inspector for states and transitions must stay business-language first: assignees, SLAs, escalations, notifications, approval rules, exception handling, and edit permissions. Raw XState or queue configuration is not the primary editing surface
 - ERP Mapping views for field crosswalks and posting targets
 - AI Cockpit panel for natural-language workflow generation, diff review, and simulation prep
 - Simulation mode: step a test invoice through the workflow before activating. Shows each routing decision with the rule that fired
+- Controlled Runtime View: consultant/support-only diagnostic screen that shows how canvas intent compiled into XState evaluation, PostgreSQL persistence, timers, audit entries, and post-commit n8n dispatch without exposing raw runtime internals to normal integrators
 - Save → serializes to `workflow_json` (MOD-00 schema) → committed to `workflows_dataset`
 
 **Screen Group C — Shared Operational Views:**

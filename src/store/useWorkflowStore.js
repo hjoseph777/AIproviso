@@ -44,6 +44,14 @@ const SERVICE_AGREEMENT = {
   ],
 };
 
+const DEFAULT_RUNTIME_RULES = [
+  { id: 'rule.invoice.confidence.manual_review', text: 'Extraction confidence below threshold requires manual review before approval.' },
+  { id: 'rule.invoice.po.required', text: 'A PO reference must be present before the invoice can continue.' },
+  { id: 'rule.invoice.approval.pending', text: 'Invoices in Pending Approval wait at the approver decision gate.' },
+  { id: 'rule.invoice.signature.pending', text: 'Approved invoices require signature completion before activation.' },
+  { id: 'rule.workflow.transition.recorded', text: 'A persisted workflow transition confirms the latest runtime step.' },
+];
+
 const fresh = () => ({
   workflows: [
     JSON.parse(JSON.stringify(SERVICE_AGREEMENT)),
@@ -51,7 +59,7 @@ const fresh = () => ({
   activeId:   'wf-sa',
   users:      [],
   properties: [],
-  rules:      [],
+  rules:      JSON.parse(JSON.stringify(DEFAULT_RUNTIME_RULES)),
   hoveredState: null,
   hoveredTransition: null,
   cmdPaletteOpen: false,
@@ -245,7 +253,7 @@ export const useWorkflowStore = create((set, get) => ({
       activeId:   wf.id,
       users:      [...s.users,      ...users.map(u => ({ id: makeId(), ...u }))],
       properties: [...s.properties, ...properties.map(p => ({ id: makeId(), ...p }))],
-      rules:      [...s.rules,      ...rules.map(r => ({ id: makeId(), ...r }))],
+      rules:      [...s.rules,      ...rules.map(r => ({ ...r, id: r.id || makeId() }))],
     }));
     return wf.id;
   },
@@ -265,8 +273,8 @@ export const useWorkflowStore = create((set, get) => ({
     set(s => {
       // Extract texts from rules and scripts to save to global rules
       const newRules = [
-        ...(mfData.rules || []).map(r => ({ id: makeId(), text: r.text })),
-        ...(mfData.scripts || []).map(scr => ({ id: makeId(), text: `VBScript on state ${scr.state}: ${scr.text}` }))
+        ...(mfData.rules || []).map(r => ({ id: r.id || makeId(), text: r.text })),
+        ...(mfData.scripts || []).map(scr => ({ id: scr.id || makeId(), text: `VBScript on state ${scr.state}: ${scr.text}` }))
       ];
       return {
         workflows: [...s.workflows, wf],

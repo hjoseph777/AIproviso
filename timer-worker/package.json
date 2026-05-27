@@ -1,0 +1,13 @@
+{
+  "name": "proviso-timer-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node worker.mjs"
+  },
+  "dependencies": {
+    "bullmq": "^5.56.1",
+    "ioredis": "^5.4.1"
+  }
+}

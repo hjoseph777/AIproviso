@@ -1,0 +1,14 @@
+{
+  "name": "aiproviso-workflow-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dedicated workflow engine service for AI Proviso using XState.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "xstate": "^5.20.2"
+  }
+}

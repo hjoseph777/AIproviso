@@ -12,6 +12,7 @@ The default `docker compose up` stack starts:
 - PostgreSQL
 - Redis
 - backend-api
+- workflow-engine
 - n8n
 - Paperless-ngx
 - Gotenberg
@@ -55,6 +56,22 @@ docker compose up -d
 docker compose --profile local-ai up -d
 ```
 
+## Canonical Dev Bootstrap
+
+For a clean developer rebuild, use this sequence from the repository root:
+
+```powershell
+docker compose down -v
+docker compose up -d
+pwsh -File ./scripts/run-migrations.ps1
+pwsh -File ./scripts/smoke-test.ps1
+```
+
+Notes:
+- `docker/postgres-init/` creates databases, roles, and extensions only.
+- The canonical schema and seed path lives in `core/migrations/001_initial_schema.sql` through `004_seed_data.sql`.
+- `run-migrations.ps1` is intended for clean bootstrap; if the base schema already exists, rebuild the volumes before rerunning it.
+
 ## Environment Setup
 
 Copy the template and set real secrets:
@@ -73,6 +90,7 @@ Important values:
 ## Current Service Ports
 
 - backend-api: `5000`
+- workflow-engine: `5100`
 - n8n: `5678`
 - Paperless-ngx: `8000`
 - Ollama: `11434` when `local-ai` is enabled
@@ -83,4 +101,5 @@ Important values:
 
 - The Electron client remains outside Docker.
 - Docker is used for the backend platform services.
+- `workflow-engine` hosts the XState runtime and persists no authoritative state locally.
 - M-Files Windows COM integration remains host-side and is not containerized.

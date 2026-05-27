@@ -3,7 +3,6 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn }     = require('child_process');
 const { writeFile } = require('fs/promises');
-const https = require('https');
 const http  = require('http');
 
 const isDev  = !app.isPackaged;
@@ -22,7 +21,8 @@ function createWindow () {
       nodeIntegration:  false,
     },
     title:           'Proviso — Workflow Ingestion',
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
+    menuBarVisible:  true,
   });
 
   if (isDev) {
@@ -31,6 +31,21 @@ function createWindow () {
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+}
+
+function openOriginalMockupWindow () {
+  const win = new BrowserWindow({
+    width: 1560,
+    height: 960,
+    minWidth: 1200,
+    minHeight: 760,
+    autoHideMenuBar: false,
+    menuBarVisible: true,
+    title: 'Proviso Mockup 3 — Original Reference',
+  });
+
+  const mockupPath = path.join(app.getAppPath(), 'Proviso_AP_Mockup3.html');
+  return win.loadFile(mockupPath);
 }
 
 app.whenReady().then(createWindow);
@@ -59,6 +74,15 @@ ipcMain.handle('file:save', async (_event, { content, defaultName, filters }) =>
   if (canceled || !filePath) return { ok: false, cancelled: true };
   await writeFile(filePath, content, 'utf8');
   return { ok: true, filePath };
+});
+
+ipcMain.handle('proviso:open-original-mockup', async () => {
+  try {
+    await openOriginalMockupWindow();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
 });
 
 // ── Helper: HTTPS POST from Node (no CORS) ────────────────────────
@@ -133,45 +157,5 @@ ipcMain.handle('sow:claude-extract', async (_event, { apiKey, model, systemPromp
     return { ok: true, json: clean };
   } catch (e) {
     return { ok: false, error: e.message };
-  }
-});
-
-// ── IPC: Cacoo diagram fetch ──────────────────────────────────────
-// With apiKey  → calls Cacoo REST API directly from Node (no CORS).
-// Without key  → falls back to localhost:5000 Python proxy.
-ipcMain.handle('sow:cacoo-fetch', async (_event, { diagramId, apiKey }) => {
-  try {
-    if (apiKey && apiKey.trim()) {
-      const data = await httpsGet(
-        'cacoo.com',
-        `/api/v1/diagrams/${encodeURIComponent(diagramId)}.json`,
-        { 'X-Auth-Token': apiKey.trim() }
-      );
-      return { ok: true, raw: data };
-    }
-    // Fallback: local Python backend
-    const result = await new Promise((resolve, reject) => {
-      http.get(
-        `http://localhost:5000/api/cacoo-fetch?diagramId=${encodeURIComponent(diagramId)}`,
-        { timeout: 10000 },
-        (res) => {
-          let raw = '';
-          res.on('data', c => { raw += c; });
-          res.on('end', () => {
-            try { resolve(JSON.parse(raw)); }
-            catch { reject(new Error('Invalid JSON from backend')); }
-          });
-        }
-      ).on('error', reject);
-    });
-    return { ok: true, raw: result };
-  } catch (e) {
-    const isDown = e.code === 'ECONNREFUSED' || e.code === 'ENOTFOUND';
-    return {
-      ok: false,
-      error: isDown
-        ? 'Backend not running — start with: python backend/app.py'
-        : e.message,
-    };
   }
 });

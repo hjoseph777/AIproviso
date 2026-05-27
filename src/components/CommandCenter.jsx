@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useWorkflowStore } from '../store/useWorkflowStore';
 import { useMermaid } from '../hooks/useMermaid';
 import { useExport } from '../hooks/useExport';
@@ -6,7 +6,8 @@ import { useExport } from '../hooks/useExport';
 const mkId = () => Math.random().toString(36).slice(2,9);
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const TS = () => new Date().toLocaleTimeString('en-CA',{hour12:false});
-const MODES = [['manual','⊞ Manual'],['nlp','◈ NLP'],['ai','✦ AI'],['cacoo','⬡ Cacoo']];
+const MODES = [['manual','⊞ Manual'],['nlp','◈ NLP'],['ai','✦ AI']];
+const VIEW_MODES = [['business','Business'],['runtime','Runtime'],['target','Target']];
 
 const AI_SYSTEM = `Extract a workflow and return ONLY this JSON (no markdown):
 {"workflow":{"name":"string","states":[{"name":"string","initial":true}],"transitions":[{"from":"string","to":"string","conditions":null,"permissions":null}]},"users":[{"name":"string","role":"string","email":"string","isCM":false}],"properties":[{"name":"string","type":"Text","required":false}],"rules":[{"text":"string"}]}
@@ -117,7 +118,7 @@ function buildEdgeMap(mermaidStr) {
 // Mermaid's layout engine can reorder path.transition elements in the SVG
 // differently from the input string, making index-based edgeMap matching
 // unreliable for some transitions. Geometry is always correct.
-function addClicks(el, onNode, onEdge) {
+function addClicks(el, onNode, onEdge, onInspectNode, onInspectEdge) {
   const svg = el?.querySelector('svg'); if (!svg) return;
 
   // ── State node clicks ──
@@ -127,6 +128,11 @@ function addClicks(el, onNode, onEdge) {
       e.stopPropagation();
       const lbl = n.querySelector('.nodeLabel,text,span')?.textContent?.trim() || '';
       if (lbl) onNode(lbl);
+    };
+    n.ondblclick = e => {
+      e.stopPropagation();
+      const lbl = n.querySelector('.nodeLabel,text,span')?.textContent?.trim() || '';
+      if (lbl && onInspectNode) onInspectNode(lbl);
     };
   });
 
@@ -186,6 +192,10 @@ function addClicks(el, onNode, onEdge) {
     ghost.removeAttribute('marker-mid');
     ghost.style.cssText = 'stroke-width:32px;stroke:transparent;fill:none;cursor:pointer;pointer-events:stroke';
     ghost.onclick = ev => { ev.stopPropagation(); onEdge({fromId, toId}); };
+    ghost.ondblclick = ev => {
+      ev.stopPropagation();
+      if (onInspectEdge) onInspectEdge({fromId, toId});
+    };
     ghostLayer.appendChild(ghost);
   });
 }
@@ -213,6 +223,365 @@ function highlightEdge(el, selTrans, edgeMap) {
   }
 }
 
+const normalizeNodeId = (value = '') => value.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+const titleCase = (value = '') => String(value)
+  .replace(/[_-]+/g, ' ')
+  .replace(/\b\w/g, (char) => char.toUpperCase());
+
+function deriveRuleIdForState(stateName = '') {
+  const normalized = stateName.toLowerCase();
+  if (normalized.includes('review')) return 'rule.invoice.confidence.manual_review';
+  if (normalized.includes('approval')) return 'rule.invoice.approval.pending';
+  if (normalized.includes('signature')) return 'rule.invoice.signature.pending';
+  if (normalized.includes('draft')) return 'rule.workflow.transition.recorded';
+  return null;
+}
+
+function buildCanonicalWorkflowIR(wf, rules = []) {
+  if (!wf) return null;
+  const ruleCatalog = Object.fromEntries(rules.map((rule) => [rule.id, rule]));
+  const states = (wf.states || []).map((state) => {
+    const stateId = normalizeNodeId(state.name).toLowerCase();
+    const ruleId = deriveRuleIdForState(state.name);
+    return {
+      id: state.id,
+      name: state.name,
+      initial: !!state.initial,
+      meta: {
+        business: {
+          label: state.name,
+          lane: state.initial ? 'entry' : 'flow',
+        },
+        runtime: {
+          stateId,
+          ruleId,
+          routeEligible: true,
+        },
+        xstate: {
+          stateId: `states.${stateId}`,
+          entryAction: `action.enter.${stateId}`,
+          exitAction: `action.exit.${stateId}`,
+        },
+        n8n: {
+          nodeId: `n8n.state.${stateId}`,
+          webhookPath: `/webhook/invoice.${stateId}`,
+          connector: state.initial ? 'intake' : 'workflow-router',
+        },
+        rule: ruleId ? ruleCatalog[ruleId] || { id: ruleId, text: titleCase(ruleId) } : null,
+      },
+    };
+  });
+
+  const transitions = (wf.transitions || []).map((transition) => {
+    const fromId = normalizeNodeId(transition.from).toLowerCase();
+    const toId = normalizeNodeId(transition.to).toLowerCase();
+    const eventType = eventTypeForTransition(transition);
+    const ruleId = deriveRuleIdForState(transition.to) || deriveRuleIdForState(transition.from);
+    return {
+      id: transition.id,
+      from: transition.from,
+      to: transition.to,
+      meta: {
+        runtime: {
+          eventType,
+          ruleId,
+          guardName: ruleId ? titleCase(ruleId).replace(/\s+/g, '_').toLowerCase() : null,
+        },
+        xstate: {
+          eventType,
+          target: `states.${toId}`,
+          guardName: ruleId ? `guard.${fromId}_to_${toId}` : null,
+        },
+        n8n: {
+          nodeId: `n8n.edge.${fromId}_${toId}`,
+          webhookPath: `/webhook/${eventType.replace(/\./g, '-')}`,
+          connector: 'http-request',
+        },
+      },
+    };
+  });
+
+  return {
+    workflow: {
+      id: wf.id,
+      name: wf.name,
+    },
+    states,
+    transitions,
+    rules: rules.map((rule) => ({ id: rule.id, text: rule.text })),
+  };
+}
+
+function compileToXState(ir) {
+  if (!ir) return null;
+  return {
+    id: normalizeNodeId(ir.workflow.name || 'workflow').toLowerCase(),
+    initial: ir.states.find((state) => state.initial)?.meta.runtime.stateId || ir.states[0]?.meta.runtime.stateId || 'draft',
+    states: Object.fromEntries(ir.states.map((state) => {
+      const outgoing = ir.transitions.filter((transition) => transition.from === state.name);
+      return [state.meta.runtime.stateId, {
+        entry: state.meta.xstate.entryAction,
+        exit: state.meta.xstate.exitAction,
+        on: Object.fromEntries(outgoing.map((transition) => [transition.meta.xstate.eventType, {
+          target: transition.meta.xstate.target,
+          guard: transition.meta.xstate.guardName,
+        }])),
+      }];
+    })),
+  };
+}
+
+function compileToN8n(ir) {
+  if (!ir) return null;
+  return {
+    name: `${ir.workflow.name || 'Workflow'} Orchestration`,
+    nodes: [
+      ...ir.states.map((state) => ({
+        id: state.meta.n8n.nodeId,
+        name: `${state.name} Node`,
+        type: state.initial ? 'webhook' : 'trigger',
+        webhookPath: state.meta.n8n.webhookPath,
+        connector: state.meta.n8n.connector,
+      })),
+      ...ir.transitions.map((transition) => ({
+        id: transition.meta.n8n.nodeId,
+        name: `${transition.from} -> ${transition.to}`,
+        type: 'httpRequest',
+        webhookPath: transition.meta.n8n.webhookPath,
+        connector: transition.meta.n8n.connector,
+      })),
+    ],
+  };
+}
+
+function eventTypeForTransition(transition) {
+  if (!transition?.to) return 'workflow.transition';
+  return `invoice.${String(transition.to).trim().toLowerCase().replace(/\s+/g, '_')}`;
+}
+
+function getSelectedTransition(wf, selTrans) {
+  if (!wf?.transitions?.length || !selTrans) return null;
+  return wf.transitions.find((transition) => (
+    normalizeNodeId(transition.from) === selTrans.fromId && normalizeNodeId(transition.to) === selTrans.toId
+  )) || null;
+}
+
+function buildViewOverlay({ wf, sel, selTrans, externalSelection, rules, viewMode }) {
+  const activeState = sel || externalSelection?.stateName || wf?.states?.find((state) => state.initial)?.name || 'Draft';
+  const activeTransition = getSelectedTransition(wf, selTrans)
+    || (externalSelection?.transition?.from && externalSelection?.transition?.to ? externalSelection.transition : null);
+  const activeRule = rules.find((rule) => rule.id === externalSelection?.ruleId) || null;
+  const route = externalSelection?.activeRoutePath || [];
+  const ruleDecision = externalSelection?.ruleDecision || null;
+
+  if (viewMode === 'runtime') {
+    return {
+      title: 'Runtime Overlay',
+      subtitle: 'Execution facts and persisted identifiers for the selected workflow slice.',
+      items: [
+        ['State', activeState],
+        ['Route', route.length ? route.join(' -> ') : activeState],
+        ['Rule ID', ruleDecision?.id || externalSelection?.ruleId || 'Awaiting runtime rule'],
+        ['Guard', ruleDecision?.guard_name || 'Not recorded'],
+        ['Failed Step', externalSelection?.failedStepId || 'None'],
+      ],
+    };
+  }
+
+  if (viewMode === 'target') {
+    const stateId = normalizeNodeId(activeState).toLowerCase();
+    const eventType = eventTypeForTransition(activeTransition);
+    const n8nNodeId = activeTransition
+      ? `n8n.edge.${normalizeNodeId(activeTransition.from).toLowerCase()}_${normalizeNodeId(activeTransition.to).toLowerCase()}`
+      : `n8n.state.${stateId}`;
+    return {
+      title: 'Target Overlay',
+      subtitle: 'Compiled runtime identities for XState execution and n8n orchestration.',
+      items: [
+        ['XState State', `states.${stateId}`],
+        ['XState Event', eventType],
+        ['Guard Name', ruleDecision?.guard_name || titleCase(activeRule?.id || 'derived guard')],
+        ['n8n Node', n8nNodeId],
+        ['Webhook Path', `/webhook/${eventType.replace(/\./g, '-')}`],
+      ],
+    };
+  }
+
+  return {
+    title: 'Business Overlay',
+    subtitle: 'Default Proviso-native authoring view with detail on demand.',
+    items: [
+      ['Workflow', wf?.name || 'Unnamed Workflow'],
+      ['Selected State', activeState],
+      ['Transition', activeTransition ? `${activeTransition.from} -> ${activeTransition.to}` : 'Select an edge to inspect'],
+      ['Business Rule', activeRule?.text || ruleDecision?.title || 'No explicit rule selected'],
+      ['SLA Lens', route.length > 2 ? 'Multi-step path in progress' : 'Local state focus'],
+    ],
+  };
+}
+
+function buildViewJson({ wf, sel, selTrans, externalSelection, rules, viewMode, workflowIR, xstateSpec, n8nSpec }) {
+  const activeTransition = getSelectedTransition(wf, selTrans)
+    || (externalSelection?.transition?.from && externalSelection?.transition?.to ? externalSelection.transition : null);
+  const stateName = sel || externalSelection?.stateName || wf?.states?.find((state) => state.initial)?.name || 'Draft';
+  const eventType = eventTypeForTransition(activeTransition);
+  const stateId = normalizeNodeId(stateName).toLowerCase();
+  const xstateStates = Object.fromEntries((wf?.states || []).map((state) => {
+    const outgoing = (wf?.transitions || []).filter((transition) => transition.from === state.name);
+    return [
+      normalizeNodeId(state.name).toLowerCase(),
+      {
+        entry: `action.enter.${normalizeNodeId(state.name).toLowerCase()}`,
+        on: Object.fromEntries(outgoing.map((transition) => [
+          eventTypeForTransition(transition),
+          {
+            target: normalizeNodeId(transition.to).toLowerCase(),
+            guard: externalSelection?.ruleDecision?.guard_name || null,
+          },
+        ])),
+      },
+    ];
+  }));
+
+  const n8nNodes = (wf?.states || []).map((state, index) => ({
+    id: `n8n.state.${normalizeNodeId(state.name).toLowerCase()}`,
+    name: `${state.name} Handler`,
+    type: index === 0 ? 'webhook' : 'httpRequest',
+    meta: {
+      state: state.name,
+      routeTo: (wf?.transitions || []).filter((transition) => transition.from === state.name).map((transition) => transition.to),
+    },
+  }));
+
+  if (viewMode === 'runtime') {
+    return {
+      viewMode,
+      runtime: {
+        stateName,
+        routeHistory: externalSelection?.activeRoutePath || [],
+        ruleDecision: externalSelection?.ruleDecision || null,
+        transition: activeTransition,
+      },
+    };
+  }
+
+  if (viewMode === 'target') {
+    const selectedTransition = activeTransition
+      ? {
+          eventType,
+          target: `states.${normalizeNodeId(activeTransition.to).toLowerCase()}`,
+          guard: externalSelection?.ruleDecision?.guard_name || null,
+          nodeId: `n8n.edge.${normalizeNodeId(activeTransition.from).toLowerCase()}_${normalizeNodeId(activeTransition.to).toLowerCase()}`,
+        }
+      : null;
+
+    return {
+      viewMode,
+      canonicalIR: workflowIR,
+      selectedTarget: {
+        stateName,
+        xstateState: xstateSpec?.states?.[stateId] || null,
+        n8nStateNode: n8nSpec?.nodes?.find((node) => node.id === `n8n.state.${stateId}`) || null,
+        transition: selectedTransition,
+      },
+      compile: {
+        xstate: xstateSpec,
+        n8n: n8nSpec,
+      },
+    };
+  }
+
+  return {
+    viewMode,
+    canonicalIR: workflowIR,
+    workflow: wf || null,
+    semanticSelection: {
+      stateName,
+      transition: activeTransition,
+      rule: rules.find((rule) => rule.id === externalSelection?.ruleId) || null,
+    },
+  };
+}
+
+function buildTargetInspector({ wf, sel, selTrans, externalSelection, xstateSpec, n8nSpec }) {
+  const activeTransition = getSelectedTransition(wf, selTrans)
+    || (externalSelection?.transition?.from && externalSelection?.transition?.to ? externalSelection.transition : null);
+  const stateName = sel || externalSelection?.stateName || wf?.states?.find((state) => state.initial)?.name || 'Draft';
+  const stateId = normalizeNodeId(stateName).toLowerCase();
+
+  return {
+    stateName,
+    stateId,
+    xstateMachineId: xstateSpec?.id || null,
+    xstateState: xstateSpec?.states?.[stateId] || null,
+    n8nStateNode: n8nSpec?.nodes?.find((node) => node.id === `n8n.state.${stateId}`) || null,
+    transition: activeTransition
+      ? {
+          from: activeTransition.from,
+          to: activeTransition.to,
+          eventType: eventTypeForTransition(activeTransition),
+          target: `states.${normalizeNodeId(activeTransition.to).toLowerCase()}`,
+          guard: externalSelection?.ruleDecision?.guard_name || null,
+          nodeId: `n8n.edge.${normalizeNodeId(activeTransition.from).toLowerCase()}_${normalizeNodeId(activeTransition.to).toLowerCase()}`,
+        }
+      : null,
+  };
+}
+
+function applyRouteFocus(el, selection) {
+  if (!el) return;
+  const svg = el.querySelector('svg');
+  if (!svg) return;
+
+  svg.querySelectorAll('.route-dim,.route-active,.route-failed').forEach((node) => {
+    node.classList.remove('route-dim', 'route-active', 'route-failed');
+  });
+
+  const route = selection?.activeRoutePath || [];
+  if (!route.length) return;
+
+  const routeIds = route.map(normalizeNodeId);
+  const failedId = normalizeNodeId(selection?.failedStepId || '');
+
+  svg.querySelectorAll('.node').forEach((node) => {
+    const label = node.querySelector('.nodeLabel,text,span')?.textContent?.trim() || '';
+    const nodeId = normalizeNodeId(label);
+    if (!routeIds.includes(nodeId)) {
+      node.classList.add('route-dim');
+      return;
+    }
+    node.classList.add('route-active');
+    if (failedId && nodeId === failedId) {
+      node.classList.add('route-failed');
+    }
+  });
+
+  svg.querySelectorAll('.edgePath').forEach((edge) => edge.classList.add('route-dim'));
+  for (let index = 0; index < routeIds.length - 1; index += 1) {
+    const fromId = routeIds[index];
+    const toId = routeIds[index + 1];
+    const edge = svg.querySelector(`[class*="LS-${fromId}"][class*="LE-${toId}"]`);
+    if (edge) {
+      edge.classList.remove('route-dim');
+      edge.classList.add('route-active');
+    }
+  }
+}
+
+function focusRuleRow(ruleId) {
+  if (!ruleId) return;
+  const rows = [...document.querySelectorAll('.rule-row')];
+  if (!rows.length) return;
+
+  const target = rows.find((row) => row.dataset.ruleId === ruleId);
+
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.classList.add('rule-focus');
+  window.setTimeout(() => target.classList.remove('rule-focus'), 1800);
+}
+
 async function dl(content, filename) {
   if (window.file?.save) {
     // Electron: native OS Save-As dialog
@@ -229,7 +598,7 @@ async function dl(content, filename) {
   }
 }
 
-export default function CommandCenter() {
+export default function CommandCenter({ externalSelection = null } = {}) {
   const workflows=useWorkflowStore(s=>s.workflows), activeId=useWorkflowStore(s=>s.activeId);
   const getActive=useWorkflowStore(s=>s.getActive), setActive=useWorkflowStore(s=>s.setActive);
   const addWorkflow=useWorkflowStore(s=>s.addWorkflow), deleteWorkflow=useWorkflowStore(s=>s.deleteWorkflow);
@@ -249,9 +618,9 @@ export default function CommandCenter() {
   const setCmdPaletteOpen=useWorkflowStore(s=>s.setCmdPaletteOpen);
 
   const [mode,setMode]=useState('manual');
+  const [viewMode,setViewMode]=useState('business');
   const [nlpText,setNlpText]=useState(''), [aiText,setAiText]=useState('');
   const [aiKey,setAiKey]=useState(''), [aiModel,setAiModel]=useState('claude-sonnet-4-5');
-  const [cacooId,setCacooId]=useState(''), [cacooKey,setCacooKey]=useState('');
   const [log,setLog]=useState([]), [busy,setBusy]=useState(false);
   const [sel,setSel]=useState(''), [selTrans,setSelTrans]=useState(null); // selTrans: {fromId,toId} | null
   const [centerView,setCenterView]=useState('diagram');
@@ -266,6 +635,7 @@ export default function CommandCenter() {
   const [editTabId,setEditTabId]=useState(null), [tabDraft,setTabDraft]=useState('');
   const [leftOpen,setLeftOpen]=useState(true);
   const [rightOpen,setRightOpen]=useState(false);
+  const [rightPanelMode,setRightPanelMode]=useState('deliver');
   const [zoom,setZoom]=useState(1);
   const [mfPushQueue,setMfPushQueue]=useState([]);
   const [mfPullQueue,setMfPullQueue]=useState([]);
@@ -279,6 +649,12 @@ export default function CommandCenter() {
   const [showEdgeSearch,setShowEdgeSearch]=useState(false);
 
   const wf=getActive(), mermaidStr=useMermaid(wf);
+  const workflowIR = useMemo(() => buildCanonicalWorkflowIR(wf, rules), [wf, rules]);
+  const xstateSpec = useMemo(() => compileToXState(workflowIR), [workflowIR]);
+  const n8nSpec = useMemo(() => compileToN8n(workflowIR), [workflowIR]);
+  const overlay = useMemo(() => buildViewOverlay({ wf, sel, selTrans, externalSelection, rules, viewMode }), [wf, sel, selTrans, externalSelection, rules, viewMode]);
+  const jsonView = useMemo(() => buildViewJson({ wf, sel, selTrans, externalSelection, rules, viewMode, workflowIR, xstateSpec, n8nSpec }), [wf, sel, selTrans, externalSelection, rules, viewMode, workflowIR, xstateSpec, n8nSpec]);
+  const targetInspector = useMemo(() => buildTargetInspector({ wf, sel, selTrans, externalSelection, xstateSpec, n8nSpec }), [wf, sel, selTrans, externalSelection, xstateSpec, n8nSpec]);
   const filteredStates=(wf?.states||[]).filter(s=>!stateFilter||s.name.toLowerCase().includes(stateFilter.toLowerCase()));
   const filteredTrans=(wf?.transitions||[]).filter(t=>!transFilter||t.from.toLowerCase().includes(transFilter.toLowerCase())||t.to.toLowerCase().includes(transFilter.toLowerCase()));
   const {exportJSON}=useExport();
@@ -391,7 +767,9 @@ export default function CommandCenter() {
                   }
                 });
               },50);
-            }
+            },
+            name=>{openTargetInspectorForState(name);},
+            entry=>{openTargetInspectorForEdge(entry);}
           );
         }
       }catch{if(!dead&&diagRef.current)diagRef.current.innerHTML=`<div style="color:var(--red);font-size:11px;padding:16px">Diagram error</div>`;}
@@ -465,7 +843,62 @@ export default function CommandCenter() {
     }
   },[selTrans]);
 
+  useEffect(() => {
+    applyRouteFocus(diagRef.current, externalSelection);
+  }, [externalSelection?.activeRoutePath?.join('|'), externalSelection?.failedStepId, mermaidStr, centerView, zoom]);
+
+  useEffect(() => {
+    if (!externalSelection) return;
+
+    setCenterView('diagram');
+    if (externalSelection.transition?.from && externalSelection.transition?.to) {
+      const fromId = externalSelection.transition.from.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+      const toId = externalSelection.transition.to.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+      setSel('');
+      setSelTrans({ fromId, toId });
+      setOpen((current) => ({ ...current, trans: true, rules: true }));
+      window.setTimeout(() => {
+        const rows = [...document.querySelectorAll('.trans-row')];
+        const target = rows.find((row) => {
+          const inputs = row.querySelectorAll('input');
+          return inputs[0]?.value === externalSelection.transition.from && inputs[1]?.value === externalSelection.transition.to;
+        });
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        focusRuleRow(externalSelection.ruleId);
+      }, 80);
+      return;
+    }
+
+    if (externalSelection.stateName) {
+      setSel(externalSelection.stateName);
+      setSelTrans(null);
+      setOpen((current) => ({ ...current, states: true, rules: true }));
+      window.setTimeout(() => {
+        const rows = [...document.querySelectorAll('.inline-mini tbody tr')];
+        const target = rows.find((row) => row.querySelector('input')?.value === externalSelection.stateName);
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        focusRuleRow(externalSelection.ruleId);
+      }, 80);
+    }
+  }, [externalSelection?.stateName, externalSelection?.transition?.from, externalSelection?.transition?.to, externalSelection?.ruleId]);
+
   const changeMode=m=>{setMode(m);setLog([]);setSel('');};
+  const openTargetInspectorForState=name=>{
+    setSel(name);
+    setSelTrans(null);
+    setViewMode('target');
+    setCenterView('diagram');
+    setRightPanelMode('target');
+    setRightOpen(true);
+  };
+  const openTargetInspectorForEdge=entry=>{
+    setSelTrans(entry);
+    setSel('');
+    setViewMode('target');
+    setCenterView('diagram');
+    setRightPanelMode('target');
+    setRightOpen(true);
+  };
   const applyExtracted=r=>{
     importWorkflow(r);
     setOpen({states:true,trans:true,users:!!r.users.length,props:!!r.properties.length,rules:!!r.rules.length});
@@ -501,19 +934,6 @@ export default function CommandCenter() {
       if(!obj.workflow?.states?.length)throw new Error('No states in response');
       const r={name:obj.workflow.name||'AI Extracted',workflow:{name:obj.workflow.name||'AI Extracted',states:(obj.workflow.states||[]).map(s=>({id:mkId(),...s})),transitions:(obj.workflow.transitions||[]).map(t=>({id:mkId(),...t}))},users:(obj.users||[]).map(u=>({id:mkId(),...u})),properties:(obj.properties||[]).map(p=>({id:mkId(),...p})),rules:(obj.rules||[]).map(r=>({id:mkId(),...r}))};
       addLog(`States: ${r.workflow.states.length} · Transitions: ${r.workflow.transitions.length}`,'ok');
-      applyExtracted(r); addLog('Loaded ✓','ok');
-    }catch(e){addLog(`Error: ${e.message}`,'error');}
-    setBusy(false);
-  };
-  const runCacoo=async()=>{
-    if(!cacooId.trim()){addLog('Enter Diagram ID','error');return;}
-    setBusy(true);setLog([]);addLog(`Fetching ${cacooId}…`);
-    try{
-      let obj;
-      if(window.sow?.cacooFetch){const res=await window.sow.cacooFetch({diagramId:cacooId,apiKey:cacooKey});if(!res.ok)throw new Error(res.error);obj=res.raw;}
-      else{const res=await fetch(`http://localhost:5000/api/cacoo-fetch?diagramId=${encodeURIComponent(cacooId)}&apiKey=${encodeURIComponent(cacooKey)}`,{signal:AbortSignal.timeout(15000)});if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error||`HTTP ${res.status}`);}obj=await res.json();}
-      if(!obj.workflow?.states?.length)throw new Error('No states returned');
-      const r={name:obj.workflow.name||`Cacoo: ${cacooId}`,workflow:{name:obj.workflow.name||`Cacoo: ${cacooId}`,states:(obj.workflow.states||[]).map(s=>({id:mkId(),...s})),transitions:(obj.workflow.transitions||[]).map(t=>({id:mkId(),...t}))},users:(obj.users||[]).map(u=>({id:mkId(),...u})),properties:(obj.properties||[]).map(p=>({id:mkId(),...p})),rules:(obj.rules||[]).map(r=>({id:mkId(),...r}))};
       applyExtracted(r); addLog('Loaded ✓','ok');
     }catch(e){addLog(`Error: ${e.message}`,'error');}
     setBusy(false);
@@ -648,7 +1068,7 @@ export default function CommandCenter() {
             <button className="xb" onClick={()=>{clearWorkflow(activeId);setSel('');}}>↺</button>
           </div>}
 
-          {/* Parse input panel (NLP / AI / Cacoo) */}
+          {/* Parse input panel (NLP / AI) */}
           {mode!=='manual'&&(
             <div className="parse-panel">
               {mode==='nlp'&&(<>
@@ -669,14 +1089,6 @@ export default function CommandCenter() {
                 <div className="parse-lbl" style={{marginTop:4}}>Paste SOW Text</div>
                 <textarea className="parse-ta" rows={5} value={aiText} onChange={e=>setAiText(e.target.value)} placeholder="Paste any SOW, requirements doc, or workflow description…"/>
                 <button className="xb purple" onClick={runAI} disabled={!aiText.trim()||!aiKey.trim()||busy}>{busy?<><span className="spin"/>  Extracting…</>:'✦ Extract with Claude'}</button>
-              </>)}
-              {mode==='cacoo'&&(<>
-                <div className="parse-lbl">Cacoo Diagram ID</div>
-                <input className="parse-input" value={cacooId} onChange={e=>setCacooId(e.target.value)} placeholder="e.g. AbCdEf12"/>
-                <div className="parse-lbl" style={{marginTop:4}}>API Key (optional)</div>
-                <input className="parse-input" type="password" value={cacooKey} onChange={e=>setCacooKey(e.target.value)} placeholder="Cacoo API token…"/>
-                <button className="xb green" onClick={runCacoo} disabled={!cacooId.trim()||busy} style={{marginTop:4}}>{busy?<><span className="spin"/>  Fetching…</>:'⬡ Fetch from Cacoo'}</button>
-                <div style={{fontSize:8.5,color:'var(--dim)',marginTop:4}}>Requires <code style={{color:'var(--a3)'}}>python backend/app.py</code> on :5000</div>
               </>)}
               {log.length>0&&<div className="log" ref={logRef} onScroll={()=>keepLogAtBottom(logRef.current, logFollowRef)} style={{marginTop:4}}>{log.map((l,i)=><div key={i} ref={i===log.length-1?logTailRef:null} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='warn'?'lwarn':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
@@ -772,7 +1184,7 @@ export default function CommandCenter() {
             {/* Rules */}
             <Sec icon="§" title="Business Rules" count={rules.length} isOpen={open.rules} onToggle={()=>tog('rules')} onAdd={addRule}>
               {rules.length>0&&<table className="inline-mini"><thead><tr><th>Rule</th><th style={{width:22}}/></tr></thead>
-                <tbody>{rules.map(r=>(<tr key={r.id}>
+                <tbody>{rules.map(r=>(<tr key={r.id} className="rule-row" data-rule-id={r.id} title={r.id}>
                   <td><input value={r.text} placeholder="Business rule…" onChange={e=>updateRule(r.id,e.target.value)}/></td>
                   <td><button className="mini-del" onClick={()=>deleteRule(r.id)}>✕</button></td>
                 </tr>))}</tbody>
@@ -798,6 +1210,17 @@ export default function CommandCenter() {
               {sel ? `State — ${sel}` : selTransObj ? `→ ${selTransObj.from} → ${selTransObj.to}` : 'Live Diagram'}
             </span>
             <div className="tab-row">
+              <div style={{display:'flex',gap:2,marginRight:6,padding:'2px',border:'1px solid var(--border)',borderRadius:6,background:'var(--s2)'}}>
+                {VIEW_MODES.map(([id,lbl])=> (
+                  <button
+                    key={id}
+                    className={`tab ${viewMode===id?'on':''}`}
+                    onClick={()=>setViewMode(id)}
+                    title={`${lbl} overlay`}
+                    style={{padding:'3px 7px'}}
+                  >{lbl}</button>
+                ))}
+              </div>
               {[['diagram','Diagram'],['json','JSON'],['stats','Stats']].map(([id,lbl])=>(
                 <button key={id} className={`tab ${centerView===id?'on':''}`} onClick={()=>setCenterView(id)}>{lbl}</button>
               ))}
@@ -811,6 +1234,35 @@ export default function CommandCenter() {
           </div>
           {centerView==='diagram'&&(
             <div className="diagram-wrap" ref={wrapRef} onClick={()=>{setSel('');setSelTrans(null);}}>
+              <div
+                onClick={e=>e.stopPropagation()}
+                style={{
+                  position:'absolute',
+                  top:14,
+                  left:16,
+                  zIndex:30,
+                  width:'min(320px, calc(100% - 32px))',
+                  padding:'10px 12px',
+                  border:'1px solid var(--border)',
+                  borderRadius:10,
+                  background:'rgba(5,14,26,.88)',
+                  backdropFilter:'blur(8px)',
+                  boxShadow:'0 6px 18px rgba(0,0,0,.28)',
+                }}
+              >
+                <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:8}}>
+                  <strong style={{fontSize:10,letterSpacing:'.7px',textTransform:'uppercase',color:'var(--a3)'}}>{overlay.title}</strong>
+                  <span style={{fontSize:10,lineHeight:1.45,color:'var(--mid)'}}>{overlay.subtitle}</span>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'minmax(88px, auto) 1fr',gap:'6px 10px',alignItems:'start'}}>
+                  {overlay.items.map(([label, value]) => (
+                    <>
+                      <span key={`${label}-label`} style={{fontSize:9,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--mid)'}}>{label}</span>
+                      <span key={`${label}-value`} style={{fontSize:10.5,lineHeight:1.45,color:'var(--text)',wordBreak:'break-word'}}>{value}</span>
+                    </>
+                  ))}
+                </div>
+              </div>
               {!mermaidStr
                 ?<div key="empty" className="blueprint-empty">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
@@ -842,7 +1294,7 @@ export default function CommandCenter() {
           {centerView==='json'&&(
             <div className="cc-col-body" style={{padding:'14px 16px'}}>
               <pre style={{fontFamily:'var(--mono)',fontSize:10,lineHeight:1.7,color:'var(--text)',whiteSpace:'pre-wrap'}}>
-                {wf?JSON.stringify(wf,null,2):'No workflow loaded'}
+                {JSON.stringify(jsonView, null, 2)}
               </pre>
             </div>
           )}
@@ -861,10 +1313,18 @@ export default function CommandCenter() {
         {/* ═══ RIGHT — DELIVER ═══ */}
         <div className={`cc-right${rightOpen?'':' right-collapsed'}`}>
           <div className="cc-col-head" style={{gap:8}}>
-            <span className="cc-col-lbl">Deliver</span>
-            {syncMode !== 'export' && <span className={`status-pulse ${mfBusy ? 'amber' : (mfVault ? 'green' : 'dim')}`} title={mfBusy ? 'Syncing...' : (mfVault ? 'Connected' : 'Disconnected')} />}
+            <span className="cc-col-lbl">{rightPanelMode==='target' ? 'Inspector' : 'Deliver'}</span>
+            <div style={{display:'flex',gap:4,marginLeft:'auto',marginRight:8,background:'var(--s2)',padding:3,borderRadius:4,border:'1px solid var(--border)'}}>
+              <button className="tab" onClick={()=>setRightPanelMode('target')} style={{padding:'3px 7px',background:rightPanelMode==='target'?'var(--s3)':'transparent',borderColor:rightPanelMode==='target'?'var(--border)':'transparent',color:rightPanelMode==='target'?'var(--text)':'var(--mid)'}}>Inspector</button>
+              <button className="tab" onClick={()=>setRightPanelMode('deliver')} style={{padding:'3px 7px',background:rightPanelMode==='deliver'?'var(--s3)':'transparent',borderColor:rightPanelMode==='deliver'?'var(--border)':'transparent',color:rightPanelMode==='deliver'?'var(--text)':'var(--mid)'}}>Deliver</button>
+            </div>
+            {rightPanelMode==='deliver' && syncMode !== 'export' && <span className={`status-pulse ${mfBusy ? 'amber' : (mfVault ? 'green' : 'dim')}`} title={mfBusy ? 'Syncing...' : (mfVault ? 'Connected' : 'Disconnected')} />}
           </div>
           <div className="cc-col-body">
+            {rightPanelMode==='target' ? (
+              <TargetInspectorPanel targetInspector={targetInspector} />
+            ) : (
+              <>
 
             {/* SOW */}
             <div className="deliver-section">
@@ -959,6 +1419,8 @@ export default function CommandCenter() {
 
               {mfLog.length>0&&<div className="mf-log" ref={mfLogRef} onScroll={()=>keepLogAtBottom(mfLogRef.current, mfLogFollowRef)} style={{marginTop:12}}>{mfLog.map((l,i)=><div key={i} ref={i===mfLog.length-1?mfLogTailRef:null} className="ll"><span className="lt">{l.ts}</span><span className={l.t==='ok'?'lok':l.t==='error'?'lerr':'linf'}>{l.msg}</span></div>)}</div>}
             </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1007,6 +1469,61 @@ function SyncQueue({ available, queue, setQueue, stagedLabel }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function TargetInspectorPanel({ targetInspector }) {
+  return (
+    <div style={{padding:12,display:'flex',flexDirection:'column',gap:10}}>
+      <div className="deliver-section" style={{padding:0,borderBottom:'none',gap:10}}>
+        <div className="deliver-section-lbl">XState Inspector</div>
+        <div style={{border:'1px solid var(--border)',borderRadius:8,background:'var(--s2)',padding:10}}>
+          <div style={{fontSize:9,color:'var(--mid)',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:6}}>Selected State</div>
+          <div style={{fontSize:13,fontWeight:600,color:'var(--text)',marginBottom:8}}>{targetInspector.stateName}</div>
+          <div style={{display:'grid',gridTemplateColumns:'88px 1fr',gap:'6px 8px',fontSize:9.5}}>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Machine</span><span style={{color:'var(--text)',wordBreak:'break-word'}}>{targetInspector.xstateMachineId || 'Unavailable'}</span>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>State Id</span><span style={{color:'var(--a3)',wordBreak:'break-word'}}>{`states.${targetInspector.stateId}`}</span>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Entry</span><span style={{color:'var(--text)',wordBreak:'break-word'}}>{targetInspector.xstateState?.entry || 'None'}</span>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Exit</span><span style={{color:'var(--text)',wordBreak:'break-word'}}>{targetInspector.xstateState?.exit || 'None'}</span>
+          </div>
+        </div>
+
+        <div style={{border:'1px solid var(--border)',borderRadius:8,background:'var(--s2)',padding:10}}>
+          <div style={{fontSize:9,color:'var(--mid)',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:6}}>Transitions</div>
+          {targetInspector.xstateState?.on && Object.keys(targetInspector.xstateState.on).length ? (
+            Object.entries(targetInspector.xstateState.on).map(([eventName, config]) => (
+              <div key={eventName} style={{padding:'8px 0',borderTop:'1px solid rgba(255,255,255,.05)'}}>
+                <div style={{fontSize:10.5,color:'var(--a3)',marginBottom:4}}>{eventName}</div>
+                <div style={{fontSize:9.5,color:'var(--text)'}}>Target: {config.target || 'None'}</div>
+                <div style={{fontSize:9.5,color:'var(--text)'}}>Guard: {config.guard || 'None'}</div>
+              </div>
+            ))
+          ) : <div style={{fontSize:9.5,color:'var(--mid)'}}>No outgoing transitions compiled for this state.</div>}
+        </div>
+
+        <div style={{border:'1px solid var(--border)',borderRadius:8,background:'var(--s2)',padding:10}}>
+          <div style={{fontSize:9,color:'var(--mid)',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:6}}>n8n Mapping</div>
+          <div style={{display:'grid',gridTemplateColumns:'88px 1fr',gap:'6px 8px',fontSize:9.5}}>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Node</span><span style={{color:'var(--text)',wordBreak:'break-word'}}>{targetInspector.n8nStateNode?.id || 'Unavailable'}</span>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Type</span><span style={{color:'var(--text)'}}>{targetInspector.n8nStateNode?.type || 'Unknown'}</span>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Webhook</span><span style={{color:'var(--text)',wordBreak:'break-word'}}>{targetInspector.n8nStateNode?.webhookPath || 'None'}</span>
+            <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Connector</span><span style={{color:'var(--text)'}}>{targetInspector.n8nStateNode?.connector || 'Unknown'}</span>
+          </div>
+        </div>
+
+        <div style={{border:'1px solid var(--border)',borderRadius:8,background:'var(--s2)',padding:10}}>
+          <div style={{fontSize:9,color:'var(--mid)',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:6}}>Focused Edge</div>
+          {targetInspector.transition ? (
+            <div style={{display:'grid',gridTemplateColumns:'88px 1fr',gap:'6px 8px',fontSize:9.5}}>
+              <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Path</span><span style={{color:'var(--text)'}}>{`${targetInspector.transition.from} -> ${targetInspector.transition.to}`}</span>
+              <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Event</span><span style={{color:'var(--a3)',wordBreak:'break-word'}}>{targetInspector.transition.eventType}</span>
+              <span style={{color:'var(--mid)',textTransform:'uppercase'}}>Guard</span><span style={{color:'var(--text)'}}>{targetInspector.transition.guard || 'None'}</span>
+              <span style={{color:'var(--mid)',textTransform:'uppercase'}}>n8n Edge</span><span style={{color:'var(--text)',wordBreak:'break-word'}}>{targetInspector.transition.nodeId}</span>
+            </div>
+          ) : <div style={{fontSize:9.5,color:'var(--mid)'}}>Double-click an edge to inspect its compiled event and guard mapping.</div>}
+        </div>
+      </div>
     </div>
   );
 }

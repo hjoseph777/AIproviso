@@ -4,3 +4,6 @@ dist-electron
 .env
 .vite
 *.local
+__pycache__/
+*.pyc
+backups/*.zip

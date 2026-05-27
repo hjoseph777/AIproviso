@@ -42,6 +42,7 @@ DATABASE_URL  = os.environ["DATABASE_URL"]
 N8N_BASE_URL  = os.environ.get("N8N_BASE_URL", "http://n8n:5678")
 N8N_TOKEN     = os.environ.get("N8N_WEBHOOK_TOKEN", "")
 OCR_MODE      = os.environ.get("OCR_MODE", "stub")
+WORKFLOW_ENGINE_BASE_URL = os.environ.get("WORKFLOW_ENGINE_BASE_URL", "http://workflow-engine:5100")
 
 QUEUE_KEY = "ocr:jobs"       # BullMQ-compatible Redis list
 DLQ_KEY   = "dlq:events"    # Dead Letter Queue after max retries
@@ -101,7 +102,7 @@ def write_audit_event(conn, invoice_id: str, tenant_id: str, event_type: str, pa
 
 def fire_event(event: str, invoice_id: str, tenant_id: str, correlation_id: str, payload: dict, confidence: dict):
     """Fires an event to n8n via HTTP. Non-blocking — logs failure, does not crash."""
-    path = event.replace(".", "/")   # "invoice.extracted" → "invoice/extracted"
+    path = event.replace(".", "-")   # "invoice.extracted" → "invoice-extracted"
     url  = f"{N8N_BASE_URL}/webhook/{path}"
     body = {
         "event": event,
@@ -124,6 +125,26 @@ def fire_event(event: str, invoice_id: str, tenant_id: str, correlation_id: str,
         log.info("✓ Fired %s → n8n: status=%d", event, resp.status_code)
     except Exception as exc:
         log.error("✗ Failed to fire %s → n8n: %s", event, exc)
+
+
+def sync_workflow_transition(invoice_id: str, tenant_id: str, correlation_id: str, event_type: str, target_state: str):
+    body = {
+        "invoice_id": invoice_id,
+        "tenant_id": tenant_id,
+        "correlation_id": correlation_id,
+        "event_type": event_type,
+        "target_state": target_state,
+        "trigger_source": "worker",
+        "source_module": "MOD-02",
+    }
+    response = requests.post(
+        f"{WORKFLOW_ENGINE_BASE_URL}/advance",
+        json=body,
+        headers={"Content-Type": "application/json"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    return response.json()
 
 # ── Extraction Engines ────────────────────────────────────────────────────────
 
@@ -184,6 +205,15 @@ def process_job(job_data: bytes, conn) -> bool:
 
         # 4. Write audit event
         write_audit_event(conn, invoice_id, tenant_id, "invoice.extracted", extracted, correlation_id)
+
+        # 4b. Persist workflow runtime state through the workflow-engine
+        sync_workflow_transition(
+            invoice_id=invoice_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            event_type="invoice.extracted",
+            target_state="extracted",
+        )
 
         # 5. Fire invoice.extracted → n8n
         fire_event(

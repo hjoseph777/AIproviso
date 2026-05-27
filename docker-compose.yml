@@ -5,7 +5,7 @@ services:
   # POSTGRES 16 — Platform Master Database
   # ─────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: proviso-postgres
     restart: unless-stopped
     environment:
@@ -62,8 +62,10 @@ services:
       REDIS_URL: "redis://redis:6379/0"
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
       FLOWISE_BASE_URL: "http://flowise:3000"
+      WORKFLOW_ENGINE_BASE_URL: "http://workflow-engine:5100"
       N8N_BASE_URL: "http://n8n:5678"
       N8N_WEBHOOK_TOKEN: "${N8N_WEBHOOK_TOKEN:-proviso-dev-token}"
+      WORKFLOW_WEBHOOK_SECRET: "${WORKFLOW_WEBHOOK_SECRET:-proviso-dev-workflow-signing-secret}"
       PAPERLESS_BASE_URL: "http://paperless:8000"
       JWT_SECRET: "${JWT_SECRET:-change-me-in-env}"
     ports:
@@ -77,6 +79,35 @@ services:
       - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - proviso-net
+
+  # ─────────────────────────────────────────────────────────────
+  # WORKFLOW ENGINE — Dedicated XState runtime for workflow evaluation
+  # Persists no state locally. PostgreSQL remains the source of truth.
+  # ─────────────────────────────────────────────────────────────
+  workflow-engine:
+    build:
+      context: ./workflow-engine
+      dockerfile: Dockerfile
+    container_name: proviso-workflow-engine
+    restart: unless-stopped
+    environment:
+      PORT: "5100"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-proviso}:${POSTGRES_PASSWORD:-proviso_dev_password}@postgres:5432/proviso"
+      REDIS_URL: "redis://redis:6379/0"
+    ports:
+      - "${WORKFLOW_ENGINE_PORT:-5100}:5100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:5100/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -100,6 +131,7 @@ services:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-proviso}:${POSTGRES_PASSWORD:-proviso_dev_password}@postgres:5432/proviso"
       N8N_BASE_URL: "http://n8n:5678"
       N8N_WEBHOOK_TOKEN: "${N8N_WEBHOOK_TOKEN:-proviso-dev-token}"
+      WORKFLOW_ENGINE_BASE_URL: "http://workflow-engine:5100"
       OCR_MODE: "${OCR_MODE:-stub}"  # stub | paddle | ensemble
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
     depends_on:
@@ -111,11 +143,35 @@ services:
       - proviso-net
 
   # ─────────────────────────────────────────────────────────────
+  # TIMER WORKER — BullMQ consumer for timer lifecycle callbacks
+  # Posts signed webhook requests back to backend-api when timer jobs fire.
+  # ─────────────────────────────────────────────────────────────
+  timer-worker:
+    build:
+      context: ./timer-worker
+      dockerfile: Dockerfile
+    container_name: proviso-timer-worker
+    restart: unless-stopped
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      BACKEND_BASE_URL: "http://backend-api:5000"
+      WORKFLOW_WEBHOOK_SECRET: "${WORKFLOW_WEBHOOK_SECRET:-proviso-dev-workflow-signing-secret}"
+      TIMER_EVENTS_QUEUE: "workflow-timer-events"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend-api:
+        condition: service_healthy
+    networks:
+      - proviso-net
+
+  # ─────────────────────────────────────────────────────────────
   # N8N — Event Spine + Orchestration Hooks
   # Auto-seeded from ./config/n8n/workflows/ on startup
   # ─────────────────────────────────────────────────────────────
   n8n:
-    image: n8nio/n8n:1.94.1
+    image: n8nio/n8n:2.22.3
     container_name: proviso-n8n
     restart: unless-stopped
     environment:
@@ -125,29 +181,32 @@ services:
       DB_POSTGRESDB_DATABASE: "n8n"
       DB_POSTGRESDB_USER: "${POSTGRES_USER:-proviso}"
       DB_POSTGRESDB_PASSWORD: "${POSTGRES_PASSWORD:-proviso_dev_password}"
-      N8N_HOST: "${N8N_HOST:-localhost}"
+      N8N_HOST: "0.0.0.0"
       N8N_PORT: "5678"
       N8N_PROTOCOL: "http"
-      WEBHOOK_URL: "${N8N_WEBHOOK_URL:-http://localhost:5678/}"
+      N8N_EDITOR_BASE_URL: "http://localhost:5678"
+      # localhost so n8n's internal webhook-registration call hits its own loopback
+      WEBHOOK_URL: "http://localhost:5678/"
+      # Allow session cookies over plain HTTP (local/internal deployment only)
+      N8N_SECURE_COOKIE: "false"
       GENERIC_TIMEZONE: "${TIMEZONE:-UTC}"
       TZ: "${TIMEZONE:-UTC}"
-      # Security: basic auth on n8n UI for dev
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: "${N8N_BASIC_AUTH_USER:-proviso}"
-      N8N_BASIC_AUTH_PASSWORD: "${N8N_BASIC_AUTH_PASSWORD:-proviso_dev_password}"
+      # n8n 2.x removed Basic Auth — user management is the only auth layer
       # Disable telemetry
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_HIRING_BANNER_ENABLED: "false"
+      # Task runners required for webhook execution in n8n 2.x
+      N8N_RUNNERS_ENABLED: "true"
     ports:
       - "${N8N_PORT:-5678}:5678"
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./config/n8n/workflows:/home/node/.n8n/workflows:ro
+      - ./config/n8n/workflows:/home/node/.n8n/workflows
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:5678/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:5678/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 20
@@ -180,11 +239,6 @@ services:
     image: apache/tika:3.1.0.0
     container_name: proviso-tika
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9998/tika || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
     networks:
       - proviso-net
 
@@ -230,7 +284,7 @@ services:
       - paperless_export:/usr/src/paperless/export
       - paperless_consume:/usr/src/paperless/consume
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:8000 || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/ || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 15

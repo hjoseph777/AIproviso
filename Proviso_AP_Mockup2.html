@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso — AP Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fa;
+  --surface:#ffffff;
+  --surface2:#f1f3f5;
+  --border:#e9ecef;
+  --border2:#dee2e6;
+  --text:#212529;
+  --text2:#495057;
+  --text3:#868e96;
+  --blue:#1971c2;
+  --blue-lt:#e7f5ff;
+  --blue-txt:#1864ab;
+  --green:#2f9e44;
+  --green-lt:#ebfbee;
+  --green-txt:#2b8a3e;
+  --amber:#e67700;
+  --amber-lt:#fff9db;
+  --amber-txt:#b85c00;
+  --red:#c92a2a;
+  --red-lt:#fff5f5;
+  --red-txt:#a61e1e;
+  --purple:#7048e8;
+  --purple-lt:#f3f0ff;
+  --sidebar-w:68px;
+  --font:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',monospace;
+  --r:6px;--r-lg:10px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);font-size:14px;color:var(--text)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:10px 0;
+  gap:4px;
+}
+.sb-icon{
+  width:40px;height:40px;
+  border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  color:var(--text3);
+  font-size:20px;
+  transition:all .15s;
+  position:relative;
+}
+.sb-icon:hover{background:var(--surface2);color:var(--text2)}
+.sb-icon.active{background:var(--blue-lt);color:var(--blue)}
+.sb-icon.bottom{margin-top:auto}
+.sb-icon i{font-size:20px}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+/* ── TAB BAR ── */
+.tabbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:stretch;
+  padding:0 16px;
+  gap:0;
+  flex-shrink:0;
+  overflow-x:auto;
+}
+.tabbar::-webkit-scrollbar{height:0}
+.tab{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:0 14px;height:44px;
+  font-size:13px;font-weight:400;
+  color:var(--text3);
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+  white-space:nowrap;
+  transition:all .15s;
+  flex-shrink:0;
+}
+.tab i{font-size:14px}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+.tab .exc-badge{
+  background:var(--red);color:#fff;
+  font-size:10px;font-weight:700;
+  padding:1px 5px;border-radius:10px;
+  min-width:18px;text-align:center;
+}
+
+/* ── METRICS ROW ── */
+.metrics{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:0;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.metric{
+  padding:14px 20px;
+  border-right:1px solid var(--border);
+}
+.metric:last-child{border-right:none}
+.metric-val{
+  font-size:26px;font-weight:700;
+  color:var(--text);
+  line-height:1.1;
+  letter-spacing:-.5px;
+}
+.metric-val.green{color:var(--green)}
+.metric-val.amber{color:var(--amber)}
+.metric-val.red{color:var(--red)}
+.metric-lbl{font-size:12px;color:var(--text2);margin-top:2px}
+.metric-delta{font-size:11px;margin-top:2px}
+.delta-up{color:var(--green)}
+.delta-warn{color:var(--amber)}
+.delta-red{color:var(--red)}
+
+/* ── FILTER BAR ── */
+.filterbar{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.search-box{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:var(--r);
+  padding:6px 10px;
+  width:260px;
+  flex-shrink:0;
+}
+.search-box i{font-size:14px;color:var(--text3);flex-shrink:0}
+.search-box input{
+  border:none;background:transparent;
+  font-size:13px;color:var(--text);
+  outline:none;width:100%;
+  font-family:var(--font);
+}
+.search-box input::placeholder{color:var(--text3)}
+.filter-chips{display:flex;gap:6px;align-items:center}
+.chip{
+  display:inline-flex;align-items:center;
+  padding:5px 12px;font-size:12px;font-weight:500;
+  border-radius:20px;cursor:pointer;
+  border:1.5px solid var(--border2);
+  background:var(--surface);color:var(--text2);
+  transition:all .15s;white-space:nowrap;
+}
+.chip:hover{border-color:var(--blue);color:var(--blue)}
+.chip.active{
+  border-color:var(--blue);
+  background:var(--blue-lt);
+  color:var(--blue-txt);
+}
+.filter-actions{display:flex;gap:6px;margin-left:auto}
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;font-size:12px;font-weight:500;
+  border-radius:var(--r);cursor:pointer;
+  border:1px solid var(--border2);
+  background:var(--surface);color:var(--text2);
+  transition:all .15s;white-space:nowrap;
+  font-family:var(--font);
+}
+.btn:hover{background:var(--surface2);border-color:var(--text3)}
+.btn i{font-size:13px}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-txt)}
+
+/* ── CONTENT ── */
+.content{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* ── TABLE SECTION ── */
+.table-section{flex:1;overflow-y:auto;min-width:0}
+table.inv{width:100%;border-collapse:collapse}
+table.inv thead{position:sticky;top:0;z-index:2}
+table.inv thead tr{background:var(--surface);border-bottom:1px solid var(--border)}
+table.inv thead th{
+  padding:8px 12px;
+  font-size:10px;font-weight:600;
+  color:var(--text3);
+  text-align:left;
+  letter-spacing:.6px;text-transform:uppercase;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+  user-select:none;
+}
+table.inv thead th.sortable{cursor:pointer}
+table.inv thead th.sortable:hover{color:var(--text)}
+table.inv tbody tr{
+  border-bottom:1px solid var(--border);
+  cursor:pointer;
+  transition:background .1s;
+  background:var(--surface);
+}
+table.inv tbody tr:hover{background:#f8f9ff}
+table.inv tbody tr.selected{background:var(--blue-lt)}
+table.inv tbody td{
+  padding:10px 12px;
+  font-size:13px;color:var(--text);
+  vertical-align:middle;
+}
+table.inv tbody td.mono{
+  font-family:var(--mono);font-size:11.5px;
+  color:var(--text2);
+}
+
+/* ── VENDOR AVATAR ── */
+.vav{
+  width:32px;height:32px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;flex-shrink:0;
+}
+.vendor-cell{display:flex;align-items:center;gap:9px}
+.vendor-name{font-size:13px;font-weight:400;color:var(--text)}
+
+/* ── STATUS DOTS ── */
+.sdot{
+  width:8px;height:8px;border-radius:50%;
+  display:inline-block;flex-shrink:0;
+}
+.sdot-pending{background:var(--amber)}
+.sdot-approved{background:var(--green)}
+.sdot-exception{background:var(--red)}
+.sdot-extracted{background:var(--blue)}
+.sdot-posted{background:#20c997}
+
+/* ── CHECKBOX ── */
+.cb{
+  width:16px;height:16px;
+  border:1.5px solid var(--border2);
+  border-radius:3px;
+  display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;
+  background:var(--surface);
+  transition:all .15s;
+}
+.cb:hover{border-color:var(--blue)}
+.cb.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.cb.on i{display:block}
+.cb i{display:none;font-size:10px;color:#fff}
+
+/* ── DETAIL PANEL ── */
+.detail{
+  width:320px;flex-shrink:0;
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.detail-head{
+  padding:16px;
+  border-bottom:1px solid var(--border);
+}
+.detail-head-id{font-size:14px;font-weight:600;color:var(--text)}
+.detail-head-vendor{font-size:12px;color:var(--text3);margin-top:2px}
+.detail-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:16px}
+.detail-empty{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  height:100%;color:var(--text3);gap:10px;
+  padding:24px;text-align:center;
+}
+.detail-empty i{font-size:40px;opacity:.25}
+.detail-empty-title{font-size:13px;font-weight:500;color:var(--text2)}
+.detail-empty-sub{font-size:11px;line-height:1.7;color:var(--text3)}
+.sec-lbl{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:7px}
+.field-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
+.field-row:last-child{border-bottom:none}
+.fk{font-size:12px;color:var(--text2)}
+.fv{font-size:12px;font-weight:500;color:var(--text);text-align:right;max-width:60%}
+
+/* confidence */
+.cf-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
+.cf-lbl{font-size:12px;color:var(--text2)}
+.cf-right{display:flex;align-items:center;gap:7px;min-width:100px;justify-content:flex-end}
+.cf-track{width:60px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.cf-fill{height:100%;border-radius:2px}
+.cf-pct{font-size:10px;font-family:var(--mono);min-width:28px;text-align:right}
+
+/* timeline */
+.tl-item{display:flex;gap:9px;position:relative}
+.tl-line{position:absolute;left:8px;top:18px;bottom:-4px;width:1px;background:var(--border)}
+.tl-item:last-child .tl-line{display:none}
+.tl-dot{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;margin-top:1px}
+.tl-done{background:var(--green-lt);color:var(--green)}
+.tl-curr{background:var(--blue-lt);color:var(--blue)}
+.tl-pend{background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.tl-body{padding-bottom:11px}
+.tl-name{font-size:12px;font-weight:500;color:var(--text)}
+.tl-meta{font-size:11px;color:var(--text3);margin-top:1px}
+
+/* actions */
+.detail-actions{padding:12px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.btn-full{width:100%;justify-content:center;padding:8px 12px;font-size:13px}
+.btn-approve{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-approve:hover{background:var(--blue-txt)}
+.btn-reject{background:var(--red-lt);border-color:var(--red);color:var(--red-txt)}
+.btn-reject:hover{background:#ffe3e3}
+.btn-return{background:var(--surface2);border-color:var(--border2);color:var(--text2)}
+.btn-row{display:flex;gap:6px}
+.btn-row .btn{flex:1;justify-content:center}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;flex-direction:column;overflow:hidden}
+.view.active{display:flex}
+
+/* ── WORKFLOW DESIGNER ── */
+.wf-shell{display:flex;flex:1;overflow:hidden}
+.wf-palette{width:172px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:8px;overflow-y:auto}
+.pal-sec{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;padding:8px 4px 4px}
+.pal-item{display:flex;align-items:center;gap:7px;padding:7px 8px;font-size:12px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:grab;margin-bottom:3px;transition:all .15s;user-select:none}
+.pal-item:hover{border-color:var(--blue);background:var(--blue-lt);color:var(--blue-txt)}
+.pal-item i{font-size:14px;flex-shrink:0}
+.wf-canvas{flex:1;background:#fafafa;position:relative;overflow:auto}
+.wf-canvas::before{content:'';position:absolute;inset:0;background-image:radial-gradient(#e0e0e0 1px,transparent 1px);background-size:22px 22px;pointer-events:none}
+.wf-node{position:absolute;background:var(--surface);border:1.5px solid var(--border2);border-radius:var(--r-lg);padding:10px 14px;cursor:move;min-width:110px;text-align:center;transition:border-color .15s,box-shadow .15s}
+.wf-node:hover,.wf-node.sel{border-color:var(--blue);box-shadow:0 0 0 3px rgba(25,113,194,.1)}
+.wf-node.init{border-color:var(--green);border-width:2px}
+.wf-node.term{border-color:var(--purple);border-width:2px}
+.wf-node-name{font-size:12px;font-weight:500;color:var(--text)}
+.wf-node-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.wf-badge{display:inline-block;padding:1px 7px;border-radius:8px;font-size:9px;font-weight:600;margin-top:5px}
+.wf-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.wf-insp{width:220px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.insp-head{padding:12px 14px;border-bottom:1px solid var(--border)}
+.insp-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+.inp-lbl{font-size:10px;font-weight:500;color:var(--text2);margin-bottom:3px;display:block}
+.inp{width:100%;border:1px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:var(--font);color:var(--text);background:var(--surface2);outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--blue);background:var(--surface)}
+
+/* ── EXCEPTIONS ── */
+.exc-wrap{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.exc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.exc-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.exc-q{font-size:12px;font-weight:600;color:var(--text)}
+.exc-cnt{font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px}
+.exc-sla{margin-left:auto;font-size:11px;display:flex;align-items:center;gap:4px}
+.exc-items{padding:6px 8px;display:flex;flex-direction:column;gap:4px}
+.exc-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:var(--r);font-size:12px}
+.exc-id{font-family:var(--mono);font-size:10.5px;color:var(--text3);flex-shrink:0;width:100px}
+.exc-reason{color:var(--text);flex:1}
+.exc-age{font-size:11px;color:var(--text3);white-space:nowrap}
+
+/* ── ERP MAPPING ── */
+.erp-wrap{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.map-tbl{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.map-hdr{display:grid;grid-template-columns:1fr 42px 1fr;background:var(--surface2);border-bottom:1px solid var(--border)}
+.map-hdr-cell{padding:8px 12px;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.6px;text-transform:uppercase}
+.map-row{display:grid;grid-template-columns:1fr 42px 1fr;border-top:1px solid var(--border);align-items:center}
+.map-cell{padding:8px 12px;font-size:12px;font-family:var(--mono)}
+.map-center{display:flex;align-items:center;justify-content:center}
+
+/* ── AUDIT ── */
+.audit-wrap{flex:1;overflow-y:auto;padding:0}
+
+/* ── AI COCKPIT ── */
+.ai-shell{display:flex;flex:1;overflow:hidden}
+.ai-main{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.ai-prompt{padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.ai-inp-wrap{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;margin-bottom:8px}
+.ai-inp-wrap i{font-size:15px;color:var(--blue);flex-shrink:0}
+.ai-inp-wrap span{font-size:13px;color:var(--text2);flex:1}
+.cands{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.cand{flex:1;border:1.5px solid var(--border2);border-radius:var(--r-lg);padding:9px 11px;cursor:pointer;transition:all .15s}
+.cand:hover{border-color:var(--blue)}
+.cand.best{border-color:var(--blue);border-width:2px;background:var(--blue-lt)}
+.cand-name{font-size:12px;font-weight:500;color:var(--text)}
+.cand-pct{float:right;font-size:9px;font-weight:700;padding:1px 5px;border-radius:5px}
+.cand-meta{font-size:10.5px;color:var(--text3);margin-top:3px;clear:both}
+.ai-diff{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:5px}
+.diff-lbl{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.diff-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);font-size:12px}
+.diff-add{background:#ebfbee;border:1px solid #b2f2bb;color:var(--green-txt)}
+.diff-chg{background:var(--amber-lt);border:1px solid #ffe066;color:var(--amber-txt)}
+.diff-del{background:var(--red-lt);border:1px solid #ffc9c9;color:var(--red-txt)}
+.diff-btns{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+.ai-sb{width:240px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:var(--surface)}
+.ai-sb-head{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text)}
+.ai-sb-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+.stat-sm{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px}
+.stat-sm-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text);line-height:1}
+.stat-sm-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.bar-row{margin-bottom:5px}
+.bar-lbl-row{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text2);margin-bottom:3px}
+.bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px}
+
+/* topbar shared */
+.topbar{height:46px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px}
+.tb-title{font-size:14px;font-weight:600;color:var(--text);flex:1}
+.tb-sub{font-size:12px;font-weight:400;color:var(--text3);margin-left:6px}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sb-icon active" title="Dashboard" onclick=""><i class="ti ti-layout-dashboard"></i></div>
+    <div class="sb-icon" title="Vendors" onclick="alert('Vendor master — 247 vendors')"><i class="ti ti-building-store"></i></div>
+    <div class="sb-icon" title="Purchase Orders" onclick="alert('Purchase Orders')"><i class="ti ti-receipt"></i></div>
+    <div class="sb-icon" title="Analytics" onclick="alert('Analytics — Phase III')"><i class="ti ti-chart-bar"></i></div>
+    <div class="sb-icon bottom" title="Settings"><i class="ti ti-settings"></i></div>
+    <div class="sb-icon" title="Help"><i class="ti ti-help-circle"></i></div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TAB BAR -->
+    <div class="tabbar">
+      <div class="tab active" id="tab-ap" onclick="show('ap',this)">
+        <i class="ti ti-file-invoice"></i> AP Workbench
+      </div>
+      <div class="tab" id="tab-wf" onclick="show('wf',this)">
+        <i class="ti ti-git-branch"></i> Workflow Designer
+      </div>
+      <div class="tab" id="tab-exc" onclick="show('exc',this)">
+        <i class="ti ti-alert-triangle"></i> Exceptions
+        <span class="exc-badge">5</span>
+      </div>
+      <div class="tab" id="tab-erp" onclick="show('erp',this)">
+        <i class="ti ti-plug"></i> ERP Mapping
+      </div>
+      <div class="tab" id="tab-audit" onclick="show('audit',this)">
+        <i class="ti ti-shield-check"></i> Audit Trail
+      </div>
+      <div class="tab" id="tab-ai" onclick="show('ai',this)">
+        <i class="ti ti-sparkles"></i> AI Cockpit
+      </div>
+    </div>
+
+    <!-- ══ AP WORKBENCH ══ -->
+    <div class="view active" id="view-ap">
+
+      <!-- Metrics -->
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-val">247</div>
+          <div class="metric-lbl">Invoices today</div>
+          <div class="metric-delta delta-up">↑ 12% vs yesterday</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val green">84%</div>
+          <div class="metric-lbl">Touchless rate</div>
+          <div class="metric-delta delta-up">↑ 6% this week</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val amber">18</div>
+          <div class="metric-lbl">Pending approval</div>
+          <div class="metric-delta delta-warn">3 near SLA</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val red">5</div>
+          <div class="metric-lbl">Exceptions</div>
+          <div class="metric-delta delta-red">2 critical</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val">$1.4M</div>
+          <div class="metric-lbl">Volume processed</div>
+          <div class="metric-delta delta-up">↑ 23% this month</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filterbar">
+        <div class="search-box">
+          <i class="ti ti-search"></i>
+          <input type="text" placeholder="Search invoices, ven..." id="srch" oninput="filter(this.value)" aria-label="Search invoices">
+        </div>
+        <div class="filter-chips">
+          <div class="chip active" onclick="setChip(this,'all')">All</div>
+          <div class="chip" onclick="setChip(this,'pending')">Pending</div>
+          <div class="chip" onclick="setChip(this,'exception')">Exceptions</div>
+          <div class="chip" onclick="setChip(this,'approved')">Approved</div>
+        </div>
+        <div class="filter-actions">
+          <div class="btn" onclick="alert('3 selected invoices approved.')">
+            <i class="ti ti-checks"></i> Bulk approve
+          </div>
+          <div class="btn" onclick="alert('Exporting to CSV...')">
+            <i class="ti ti-download"></i> Export
+          </div>
+        </div>
+      </div>
+
+      <!-- Table + Detail -->
+      <div class="content">
+        <div class="table-section">
+          <table class="inv" id="inv-tbl" aria-label="Invoice queue">
+            <thead>
+              <tr>
+                <th style="width:36px;padding-left:14px">
+                  <div class="cb on" id="cb-all" onclick="this.classList.toggle('on')" aria-label="Select all">
+                    <i class="ti ti-check"></i>
+                  </div>
+                </th>
+                <th class="sortable">Vendor</th>
+                <th class="sortable">Invoice #</th>
+                <th class="sortable">Date</th>
+                <th class="sortable">Amount</th>
+                <th style="width:40px">ST</th>
+              </tr>
+            </thead>
+            <tbody id="inv-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Detail panel -->
+        <div class="detail" id="detail">
+          <div class="detail-head" id="d-head" style="display:none">
+            <div class="detail-head-id" id="d-id"></div>
+            <div class="detail-head-vendor" id="d-vendor"></div>
+          </div>
+          <div class="detail-body" id="d-body">
+            <div class="detail-empty">
+              <i class="ti ti-file-invoice"></i>
+              <div class="detail-empty-title">Select an invoice</div>
+              <div class="detail-empty-sub">Click any row to review</div>
+            </div>
+          </div>
+          <div class="detail-actions" id="d-actions" style="display:none">
+            <div class="btn btn-full btn-approve" onclick="approve()">
+              <i class="ti ti-check"></i> Approve invoice
+            </div>
+            <div class="btn-row">
+              <div class="btn btn-return" onclick="alert('Returned to vendor.')"><i class="ti ti-arrow-back"></i> Return</div>
+              <div class="btn btn-reject" onclick="reject()"><i class="ti ti-x"></i> Reject</div>
+            </div>
+            <div class="btn btn-full btn-return" onclick="alert('Note added to audit trail.')">
+              <i class="ti ti-message"></i> Add note
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WORKFLOW DESIGNER ══ -->
+    <div class="view" id="view-wf">
+      <div class="topbar">
+        <span class="tb-title">Workflow Designer <span class="tb-sub">Contract Lifecycle — Service Agreement</span></span>
+        <div class="btn" onclick="alert('Simulation passed. All 9 states validated.')"><i class="ti ti-player-play"></i> Simulate</div>
+        <div class="btn primary" onclick="alert('Workflow activated.')"><i class="ti ti-device-floppy"></i> Activate</div>
+      </div>
+      <div class="wf-shell">
+        <div class="wf-palette">
+          <div class="pal-sec">AP States</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-circle-dot"></i> Received</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-scan"></i> Extracting</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-arrows-exchange"></i> Matching</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-clock"></i> Pending</div>
+          <div class="pal-sec">Approval</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-user-check"></i> Manager</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-building"></i> Director</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-crown"></i> CFO</div>
+          <div class="pal-sec">Outcomes</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-check"></i> Approved</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-send"></i> Post to ERP</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-x"></i> Rejected</div>
+          <div class="pal-sec">Exceptions</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-alert-triangle"></i> Exception</div>
+          <div class="pal-item" draggable="true"><i class="ti ti-refresh"></i> Escalate</div>
+        </div>
+        <div class="wf-canvas" id="wf-canvas">
+          <svg class="wf-svg">
+            <defs>
+              <marker id="arr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L7,3 z" fill="#adb5bd"/>
+              </marker>
+            </defs>
+            <line x1="125" y1="72" x2="125" y2="122" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="125" y1="178" x2="125" y2="228" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="125" y1="284" x2="125" y2="334" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="125" y1="390" x2="75" y2="440" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="125" y1="390" x2="175" y2="440" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="75"  y1="496" x2="125" y2="546" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="175" y1="496" x2="125" y2="546" stroke="#ced4da" stroke-width="1.5" marker-end="url(#arr)"/>
+            <text x="132" y="102" font-size="9" fill="#adb5bd" font-family="DM Sans,sans-serif">OCR</text>
+            <text x="132" y="258" font-size="9" fill="#adb5bd" font-family="DM Sans,sans-serif">PO match</text>
+            <text x="132" y="365" font-size="9" fill="#adb5bd" font-family="DM Sans,sans-serif">amount</text>
+          </svg>
+          <div class="wf-node init" style="left:68px;top:18px" onclick="selNode(this,'Received','Entry point')">
+            <div class="wf-node-name">Received</div>
+            <div class="wf-node-sub">Entry point</div>
+            <span class="wf-badge" style="background:#ebfbee;color:#2b8a3e">initial</span>
+          </div>
+          <div class="wf-node" style="left:68px;top:122px" onclick="selNode(this,'Extracted','AI processing')">
+            <div class="wf-node-name">Extracted</div>
+            <div class="wf-node-sub">AI processing</div>
+          </div>
+          <div class="wf-node" style="left:68px;top:228px" onclick="selNode(this,'Matched','PO verified')">
+            <div class="wf-node-name">Matched</div>
+            <div class="wf-node-sub">PO verified</div>
+          </div>
+          <div class="wf-node" style="left:68px;top:334px" onclick="selNode(this,'Pending','Awaiting review')">
+            <div class="wf-node-name">Pending</div>
+            <div class="wf-node-sub">Awaiting review</div>
+          </div>
+          <div class="wf-node" style="left:18px;top:440px" onclick="selNode(this,'Manager','≤ $25k')">
+            <div class="wf-node-name">Manager</div>
+            <div class="wf-node-sub">≤ $25k</div>
+          </div>
+          <div class="wf-node" style="left:110px;top:440px" onclick="selNode(this,'CFO','> $25k')">
+            <div class="wf-node-name">CFO</div>
+            <div class="wf-node-sub">&gt; $25k</div>
+          </div>
+          <div class="wf-node term" style="left:68px;top:546px" onclick="selNode(this,'Approved','Terminal state')">
+            <div class="wf-node-name">Approved</div>
+            <div class="wf-node-sub">Terminal</div>
+            <span class="wf-badge" style="background:var(--purple-lt);color:var(--purple)">terminal</span>
+          </div>
+        </div>
+        <div class="wf-insp">
+          <div class="insp-head">
+            <div style="font-size:12px;font-weight:600;color:var(--text)" id="insp-title">State Inspector</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px" id="insp-sub">Click a state to configure</div>
+          </div>
+          <div class="insp-body" id="insp-body">
+            <div style="text-align:center;padding:20px 0;color:var(--text3)">
+              <i class="ti ti-cursor-text" style="font-size:28px;display:block;margin-bottom:6px;opacity:.3"></i>
+              <div style="font-size:11px">No state selected</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EXCEPTIONS ══ -->
+    <div class="view" id="view-exc">
+      <div class="topbar">
+        <span class="tb-title">Exception Workbench <span class="tb-sub">5 open · 2 critical · 1 SLA breached</span></span>
+        <div class="btn primary" onclick="alert('Selected exceptions resolved.')"><i class="ti ti-check"></i> Resolve selected</div>
+      </div>
+      <div class="exc-wrap">
+        <div class="exc-card">
+          <div class="exc-head">
+            <i class="ti ti-user-x" style="color:var(--red)"></i>
+            <span class="exc-q">Missing Vendor Reference</span>
+            <span class="exc-cnt" style="background:var(--red-lt);color:var(--red-txt)">2</span>
+            <span class="exc-sla" style="color:var(--amber)"><i class="ti ti-clock" style="font-size:12px"></i> SLA: 2h 14m</span>
+          </div>
+          <div class="exc-items">
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-id">INV-2026-0441</span>
+              <span class="exc-reason">Vendor "Tech Solutions Inc" — no ERP match</span>
+              <span class="exc-age">38 min ago</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px" onclick="alert('3 vendor candidates found.')">Match</div>
+            </div>
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-id">INV-2026-0438</span>
+              <span class="exc-reason">Domain @globaltech.io — 3 AI candidates</span>
+              <span class="exc-age">1h 12m</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px" onclick="alert('AI match: Global Technology Inc 87%')">Review</div>
+            </div>
+          </div>
+        </div>
+        <div class="exc-card">
+          <div class="exc-head">
+            <i class="ti ti-file-x" style="color:var(--amber)"></i>
+            <span class="exc-q">Missing PO Reference</span>
+            <span class="exc-cnt" style="background:var(--amber-lt);color:var(--amber-txt)">1</span>
+            <span class="exc-sla" style="color:var(--text3)"><i class="ti ti-clock" style="font-size:12px"></i> SLA: 6h 30m</span>
+          </div>
+          <div class="exc-items">
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-id">INV-2026-0439</span>
+              <span class="exc-reason">PO required by policy — none provided</span>
+              <span class="exc-age">2h 5m</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px" onclick="alert('Policy exception approved.')">Approve exception</div>
+            </div>
+          </div>
+        </div>
+        <div class="exc-card">
+          <div class="exc-head">
+            <i class="ti ti-eye-off" style="color:var(--red)"></i>
+            <span class="exc-q">Low Confidence Extraction</span>
+            <span class="exc-cnt" style="background:var(--red-lt);color:var(--red-txt)">2</span>
+            <span class="exc-sla" style="color:var(--red)"><i class="ti ti-alert-circle" style="font-size:12px"></i> SLA BREACHED</span>
+          </div>
+          <div class="exc-items">
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-id">INV-2026-0435</span>
+              <span class="exc-reason">Total confidence 0.51 — rotated scan</span>
+              <span class="exc-age">3h 45m</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px;border-color:var(--red);color:var(--red-txt)" onclick="alert('Manual review panel open.')">Review</div>
+            </div>
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-id">INV-2026-0431</span>
+              <span class="exc-reason">Handwritten amount — confidence 0.48</span>
+              <span class="exc-age">5h 02m</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px;border-color:var(--red);color:var(--red-txt)" onclick="alert('PDF side-by-side open.')">Review</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ERP MAPPING ══ -->
+    <div class="view" id="view-erp">
+      <div class="topbar">
+        <span class="tb-title">ERP Mapping <span class="tb-sub">SAP S/4HANA · confidence 0.94 · 23 postings</span></span>
+        <div class="btn" style="color:var(--green);border-color:var(--green)"><i class="ti ti-star"></i> Trusted standard</div>
+        <div class="btn primary" onclick="alert('Mapping saved to registry.')"><i class="ti ti-device-floppy"></i> Save</div>
+      </div>
+      <div class="erp-wrap">
+        <div style="padding:8px 12px;background:var(--blue-lt);border:1px solid #a5d8ff;border-radius:var(--r);font-size:12px;color:var(--blue-txt);display:flex;align-items:center;gap:8px">
+          <i class="ti ti-sparkles"></i> AI auto-mapped 4 of 5 fields from 23 previous SAP deployments.
+        </div>
+        <div class="map-tbl">
+          <div class="map-hdr">
+            <div class="map-hdr-cell">Proviso canonical field</div>
+            <div class="map-hdr-cell" style="text-align:center">Link</div>
+            <div class="map-hdr-cell">SAP S/4HANA field</div>
+          </div>
+          <div class="map-row"><div class="map-cell">vendor_name</div><div class="map-center"><i class="ti ti-link" style="color:var(--green)"></i></div><div class="map-cell" style="color:var(--blue-txt)">LIFNR / NAME1 <span style="font-size:9px;background:var(--green-lt);color:var(--green-txt);padding:1px 5px;border-radius:5px">0.98</span></div></div>
+          <div class="map-row"><div class="map-cell">invoice_number</div><div class="map-center"><i class="ti ti-link" style="color:var(--green)"></i></div><div class="map-cell" style="color:var(--blue-txt)">BELNR <span style="font-size:9px;background:var(--green-lt);color:var(--green-txt);padding:1px 5px;border-radius:5px">0.99</span></div></div>
+          <div class="map-row"><div class="map-cell">total_amount</div><div class="map-center"><i class="ti ti-link" style="color:var(--green)"></i></div><div class="map-cell" style="color:var(--blue-txt)">WRBTR <span style="font-size:9px;background:var(--green-lt);color:var(--green-txt);padding:1px 5px;border-radius:5px">0.97</span></div></div>
+          <div class="map-row"><div class="map-cell">due_date</div><div class="map-center"><i class="ti ti-link" style="color:var(--amber)"></i></div><div class="map-cell" style="color:var(--amber-txt)">ZFBDT <span style="font-size:9px;background:var(--amber-lt);color:var(--amber-txt);padding:1px 5px;border-radius:5px">review</span></div></div>
+          <div class="map-row"><div class="map-cell">cost_center</div><div class="map-center"><i class="ti ti-question-mark" style="color:var(--red)"></i></div><div class="map-cell" style="display:flex;align-items:center;gap:8px"><span style="color:var(--text3);font-size:12px">Not mapped</span><div class="btn primary" style="padding:3px 8px;font-size:10px;margin-left:auto" onclick="alert('Map to KOSTL')">Map field</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ AUDIT TRAIL ══ -->
+    <div class="view" id="view-audit">
+      <div class="topbar">
+        <span class="tb-title">Audit Trail <span class="tb-sub">Immutable · append-only · INSERT-only DB role</span></span>
+        <div class="btn"><i class="ti ti-download"></i> Export CSV</div>
+        <div class="btn primary" onclick="alert('PDF audit report generated.')"><i class="ti ti-file-text"></i> Export PDF</div>
+      </div>
+      <div class="audit-wrap">
+        <table class="inv" style="width:100%">
+          <thead>
+            <tr>
+              <th>Time</th><th>Event</th><th>Invoice</th><th>User</th><th>Module</th><th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">14:32:01</td><td><span class="sdot sdot-approved" style="display:inline-block;margin-right:5px"></span><span style="font-size:12px">approved</span></td><td class="mono">INV-0441</td><td style="font-size:12px">Sarah Mitchell</td><td><span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-04</span></td><td style="font-size:12px;color:var(--text2)">pending → approved · manager tier</td></tr>
+            <tr><td class="mono">14:28:14</td><td><span class="sdot sdot-extracted" style="display:inline-block;margin-right:5px"></span><span style="font-size:12px">extracted</span></td><td class="mono">INV-0442</td><td style="font-size:12px;color:var(--text3)">System</td><td><span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-02</span></td><td style="font-size:12px;color:var(--text2)">PaddleOCR · confidence 0.97 · 6.2s</td></tr>
+            <tr><td class="mono">14:25:50</td><td><span class="sdot sdot-exception" style="display:inline-block;margin-right:5px"></span><span style="font-size:12px">exception</span></td><td class="mono">INV-0438</td><td style="font-size:12px;color:var(--text3)">System</td><td><span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-03</span></td><td style="font-size:12px;color:var(--red-txt)">VENDOR_UNKNOWN · routed to queue</td></tr>
+            <tr><td class="mono">14:21:03</td><td><span class="sdot sdot-posted" style="display:inline-block;margin-right:5px"></span><span style="font-size:12px">posted</span></td><td class="mono">INV-0430</td><td style="font-size:12px;color:var(--text3)">System</td><td><span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-05</span></td><td style="font-size:12px;color:var(--text2)">SAP FI-2026-8821 · $12,450.00</td></tr>
+            <tr><td class="mono">14:18:44</td><td><span class="sdot sdot-pending" style="display:inline-block;margin-right:5px"></span><span style="font-size:12px">received</span></td><td class="mono">INV-0443</td><td style="font-size:12px;color:var(--text3)">System</td><td><span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-01</span></td><td style="font-size:12px;color:var(--text2)">email · vendor@acme.com · 342KB</td></tr>
+            <tr><td class="mono">14:15:22</td><td><span class="sdot sdot-pending" style="display:inline-block;margin-right:5px"></span><span style="font-size:12px">field edit</span></td><td class="mono">INV-0437</td><td style="font-size:12px">James Okonkwo</td><td><span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-08</span></td><td style="font-size:12px;color:var(--text2)">$9,200 → $9,850 · "corrected scan"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ AI COCKPIT ══ -->
+    <div class="view" id="view-ai">
+      <div class="topbar">
+        <span class="tb-title">AI Cockpit <span class="tb-sub">Integrator · RAG workflow generation</span></span>
+        <div class="btn"><i class="ti ti-database"></i> Dataset (142)</div>
+        <div class="btn primary" onclick="alert('Generating workflow from scenario...')"><i class="ti ti-sparkles"></i> Generate</div>
+      </div>
+      <div class="ai-shell">
+        <div class="ai-main">
+          <div class="ai-prompt">
+            <div style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Describe your workflow scenario</div>
+            <div class="ai-inp-wrap">
+              <i class="ti ti-sparkles"></i>
+              <span>Service agreement, Ontario manufacturer, dual approval above $25k CAD...</span>
+              <div class="btn primary" style="padding:5px 10px"><i class="ti ti-arrow-right"></i></div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
+              <div class="chip active">AP invoice</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Contract</div>
+              <div class="chip" onclick="this.classList.toggle('active')">NDA</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Approbation</div>
+            </div>
+          </div>
+          <div class="cands">
+            <div class="cand best" onclick="alert('Loading Service Agreement — Mfg as base template.')">
+              <span class="cand-pct" style="background:var(--blue-lt);color:var(--blue-txt)">94%</span>
+              <div class="cand-name">Service Agreement — Mfg</div>
+              <div class="cand-meta">11 states · 14 transitions · used 23×</div>
+            </div>
+            <div class="cand" onclick="alert('Loading AP Invoice — Dual Approval.')">
+              <span class="cand-pct" style="background:var(--surface2);color:var(--text2)">81%</span>
+              <div class="cand-name">AP Invoice — Dual Approval</div>
+              <div class="cand-meta">9 states · 11 transitions · used 41×</div>
+            </div>
+            <div class="cand" onclick="alert('Loading Contract Lifecycle — SMB.')">
+              <span class="cand-pct" style="background:var(--surface2);color:var(--text2)">73%</span>
+              <div class="cand-name">Contract Lifecycle — SMB</div>
+              <div class="cand-meta">8 states · 10 transitions · used 18×</div>
+            </div>
+          </div>
+          <div class="ai-diff">
+            <div class="diff-lbl">
+              AI customization diff
+              <div class="btn" style="padding:2px 8px;font-size:10px;color:var(--green);border-color:var(--green);margin-left:auto" onclick="alert('All changes accepted.')"><i class="ti ti-checks"></i> Accept all</div>
+              <div class="btn" style="padding:2px 8px;font-size:10px;color:var(--red-txt);border-color:var(--red)" onclick="alert('Changes rejected.')"><i class="ti ti-x"></i> Reject all</div>
+            </div>
+            <div class="diff-row diff-add">
+              <i class="ti ti-plus"></i>
+              <span>State added: <strong>VP Operations</strong> — $25k–$100k tier</span>
+              <div class="diff-btns">
+                <div class="btn" style="padding:2px 7px;font-size:10px;color:var(--green);border-color:var(--green)" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').remove()">Remove</div>
+              </div>
+            </div>
+            <div class="diff-row diff-chg">
+              <i class="ti ti-edit"></i>
+              <span>Threshold changed: Manager <strong>$10k → $25k</strong></span>
+              <div class="diff-btns">
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn" style="padding:2px 7px;font-size:10px;color:var(--red-txt);border-color:var(--red)">Keep $10k</div>
+              </div>
+            </div>
+            <div class="diff-row diff-del">
+              <i class="ti ti-minus"></i>
+              <span>State removed: <strong>Signed Internally</strong> — not applicable</span>
+              <div class="diff-btns">
+                <div class="btn" style="padding:2px 7px;font-size:10px;color:var(--red-txt);border-color:var(--red)" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').remove()">Restore</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ai-sb">
+          <div class="ai-sb-head">Dataset overview</div>
+          <div class="ai-sb-body">
+            <div class="stat-sm"><div class="stat-sm-val">142</div><div class="stat-sm-lbl">Total workflows</div></div>
+            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--green)">89%</div><div class="stat-sm-lbl">Avg reuse rate</div></div>
+            <div class="stat-sm"><div class="stat-sm-val">23</div><div class="stat-sm-lbl">Used this month</div></div>
+            <div>
+              <div class="sec-lbl" style="margin-bottom:7px">By type</div>
+              <div class="bar-row"><div class="bar-lbl-row"><span>AP Invoice</span><span>64</span></div><div class="bar-track"><div class="bar-fill" style="width:45%;background:var(--blue)"></div></div></div>
+              <div class="bar-row"><div class="bar-lbl-row"><span>Contract</span><span>41</span></div><div class="bar-track"><div class="bar-fill" style="width:29%;background:var(--green)"></div></div></div>
+              <div class="bar-row"><div class="bar-lbl-row"><span>NDA</span><span>22</span></div><div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--amber)"></div></div></div>
+              <div class="bar-row"><div class="bar-lbl-row"><span>Other</span><span>15</span></div><div class="bar-track"><div class="bar-fill" style="width:11%;background:#adb5bd"></div></div></div>
+            </div>
+            <div class="btn primary" style="justify-content:center;width:100%" onclick="alert('Dataset browser: 142 workflows.')"><i class="ti ti-database"></i> Browse dataset</div>
+            <div class="btn" style="justify-content:center;width:100%" onclick="alert('Import M-Files XML or JSON.')"><i class="ti ti-upload"></i> Import workflow</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const INV = [
+  {id:'INV-2026-0441',vendor:'Acme Corporation',vi:'AC',vc:'#dbeafe',vt:'#1864ab',amt:'$12,450.00',date:'2026-05-25',status:'pending',conf:0.94,assignee:'Sarah M.',sla:'2h 14m',slaWarn:true},
+  {id:'INV-2026-0440',vendor:'Global Tech Solutions',vi:'GT',vc:'#dcfce7',vt:'#2b8a3e',amt:'$74,200.00',date:'2026-05-25',status:'pending',conf:0.91,assignee:'David C.',sla:'4h 50m',slaWarn:false},
+  {id:'INV-2026-0439',vendor:'Northern Supplies Ltd',vi:'NS',vc:'#fff9db',vt:'#b85c00',amt:'$3,800.00',date:'2026-05-24',status:'exception',conf:0.88,assignee:'James O.',sla:'0h 45m',slaWarn:true},
+  {id:'INV-2026-0438',vendor:'Pacific Logistics Inc',vi:'PL',vc:'#fce7f3',vt:'#9d174d',amt:'$28,100.00',date:'2026-05-24',status:'extracted',conf:0.97,assignee:'System',sla:'6h 30m',slaWarn:false},
+  {id:'INV-2026-0437',vendor:'Summit Engineering',vi:'SE',vc:'#f3f0ff',vt:'#5f3dc4',amt:'$9,850.00',date:'2026-05-24',status:'approved',conf:0.99,assignee:'Sarah M.',sla:'—',slaWarn:false},
+  {id:'INV-2026-0436',vendor:'Apex Consulting Group',vi:'AG',vc:'#fff4e6',vt:'#963a00',amt:'$145,000.00',date:'2026-05-23',status:'approved',conf:0.96,assignee:'Michael R.',sla:'—',slaWarn:false},
+  {id:'INV-2026-0435',vendor:'Downtown Office Supply',vi:'DO',vc:'#e3fafc',vt:'#0b7285',amt:'$1,240.00',date:'2026-05-23',status:'exception',conf:0.51,assignee:'James O.',sla:'BREACH',slaWarn:true},
+];
+
+let selIdx=null, chipFilter='all';
+
+function sdot(s){
+  const m={pending:'sdot-pending',extracted:'sdot-extracted',approved:'sdot-approved',exception:'sdot-exception',posted:'sdot-posted'};
+  return `<span class="sdot ${m[s]||'sdot-pending'}"></span>`;
+}
+
+function cfBar(v){
+  const cls=v>=0.9?'#2f9e44':v>=0.7?'#e67700':'#c92a2a';
+  const tc=v>=0.9?'color:var(--green)':v>=0.7?'color:var(--amber)':'color:var(--red)';
+  return `<div style="display:flex;align-items:center;gap:6px;min-width:80px">
+    <div class="cf-track"><div class="cf-fill" style="width:${Math.round(v*100)}%;background:${cls}"></div></div>
+    <span class="cf-pct" style="${tc}">${Math.round(v*100)}%</span>
+  </div>`;
+}
+
+function render(q){
+  const rows=INV.filter(r=>{
+    const qs=!q||r.vendor.toLowerCase().includes(q.toLowerCase())||r.id.toLowerCase().includes(q.toLowerCase())||r.amt.includes(q);
+    const fs=chipFilter==='all'||r.status===chipFilter;
+    return qs&&fs;
+  });
+  document.getElementById('inv-body').innerHTML=rows.map((r,i)=>`
+    <tr class="${selIdx===i?'selected':''}" onclick="sel(${i})">
+      <td style="padding-left:14px"><div class="cb ${selIdx===i?'on':''}" onclick="event.stopPropagation();this.classList.toggle('on')"><i class="ti ti-check"></i></div></td>
+      <td><div class="vendor-cell"><div class="vav" style="background:${r.vc};color:${r.vt}">${r.vi}</div><div><div class="vendor-name">${r.vendor}</div></div></div></td>
+      <td class="mono">${r.id}</td>
+      <td style="font-size:12px;color:var(--text2)">${r.date}</td>
+      <td style="font-family:var(--mono);font-size:13px;font-weight:500">${r.amt}</td>
+      <td>${sdot(r.status)}</td>
+    </tr>`).join('');
+}
+
+function sel(i){
+  selIdx=i;
+  render(document.getElementById('srch').value);
+  const r=INV[i];
+  document.getElementById('d-head').style.display='block';
+  document.getElementById('d-id').textContent=r.id;
+  document.getElementById('d-vendor').textContent=r.vendor+' · '+r.amt;
+  document.getElementById('d-actions').style.display='flex';
+  document.getElementById('d-body').innerHTML=`
+    <div>
+      <div class="sec-lbl">Invoice fields</div>
+      <div class="field-row"><span class="fk">Vendor</span><span class="fv">${r.vendor}</span></div>
+      <div class="field-row"><span class="fk">Invoice #</span><span class="fv">${r.id}</span></div>
+      <div class="field-row"><span class="fk">Amount</span><span class="fv">${r.amt}</span></div>
+      <div class="field-row"><span class="fk">Date</span><span class="fv">${r.date}</span></div>
+      <div class="field-row"><span class="fk">Status</span><span class="fv">${sdot(r.status)} ${r.status}</span></div>
+      <div class="field-row"><span class="fk">SLA</span><span class="fv" style="${r.slaWarn?'color:var(--red);font-weight:600':''}">${r.sla}</span></div>
+    </div>
+    <div>
+      <div class="sec-lbl">AI confidence scores</div>
+      <div class="cf-row"><span class="cf-lbl">Vendor name</span>${cfBar(0.97)}</div>
+      <div class="cf-row"><span class="cf-lbl">Invoice number</span>${cfBar(0.99)}</div>
+      <div class="cf-row"><span class="cf-lbl">Total amount</span>${cfBar(r.conf)}</div>
+      <div class="cf-row"><span class="cf-lbl">Due date</span>${cfBar(0.88)}</div>
+      <div class="cf-row"><span class="cf-lbl">PO number</span>${cfBar(0.71)}</div>
+    </div>
+    <div>
+      <div class="sec-lbl">Lifecycle</div>
+      <div class="tl-item"><div class="tl-dot tl-done"><i class="ti ti-check" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">Received</div><div class="tl-meta">Email · 14:18</div></div></div>
+      <div class="tl-item"><div class="tl-dot tl-done"><i class="ti ti-check" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">AI extracted</div><div class="tl-meta">PaddleOCR · 6.2s</div></div></div>
+      <div class="tl-item"><div class="tl-dot ${r.status==='exception'?'tl-curr':'tl-done'}"><i class="ti ti-check" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">PO matched</div><div class="tl-meta">2-way · within tolerance</div></div></div>
+      <div class="tl-item"><div class="tl-dot ${r.status==='pending'?'tl-curr':r.status==='approved'?'tl-done':'tl-pend'}"><i class="ti ti-${r.status==='approved'?'check':'clock'}" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">Approval</div><div class="tl-meta">${r.assignee}</div></div></div>
+      <div class="tl-item"><div class="tl-dot ${r.status==='posted'?'tl-done':'tl-pend'}"><i class="ti ti-send" style="font-size:9px"></i></div><div class="tl-body"><div class="tl-name">Post to ERP</div><div class="tl-meta">${r.status==='posted'?'SAP posted':'Awaiting approval'}</div></div></div>
+    </div>`;
+}
+
+function approve(){
+  if(selIdx===null)return;
+  INV[selIdx].status='approved';INV[selIdx].sla='—';INV[selIdx].slaWarn=false;
+  render(document.getElementById('srch').value);sel(selIdx);
+}
+function reject(){
+  if(selIdx===null)return;
+  INV[selIdx].status='exception';
+  render(document.getElementById('srch').value);sel(selIdx);
+}
+function filter(v){render(v)}
+function setChip(el,f){
+  chipFilter=f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  render(document.getElementById('srch').value);
+}
+function show(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  el.classList.add('active');
+}
+function selNode(el,name,desc){
+  document.querySelectorAll('.wf-node').forEach(n=>n.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('insp-title').textContent=name;
+  document.getElementById('insp-sub').textContent=desc;
+  document.getElementById('insp-body').innerHTML=`
+    <div><label class="inp-lbl">State name</label><input class="inp" value="${name}"></div>
+    <div><label class="inp-lbl">Assignee</label><input class="inp" value="AP Data Validation"></div>
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:6px">
+      <div><label class="inp-lbl">SLA</label><input class="inp" type="number" value="4"></div>
+      <div><label class="inp-lbl">Unit</label><select class="inp" style="padding:6px 5px"><option>hours</option><option>days</option></select></div>
+    </div>
+    <div><label class="inp-lbl">Escalation</label><input class="inp" value="AP Manager → Controller"></div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px">
+      <div class="btn btn-full btn-approve" onclick="alert('State saved.')"><i class="ti ti-device-floppy"></i> Save state</div>
+      <div class="btn btn-full btn-reject" onclick="alert('State deleted.')"><i class="ti ti-trash"></i> Delete state</div>
+    </div>`;
+}
+render();
+</script>
+</body>
+</html>

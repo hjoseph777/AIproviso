@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso - Integrated Surface Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f7fb;
+  --surface:#ffffff;
+  --surface2:#eef2f7;
+  --surface3:#e6ebf2;
+  --line:#dde5ef;
+  --line2:#c9d5e4;
+  --text:#142033;
+  --text2:#4b5b72;
+  --text3:#7f8ea3;
+  --blue:#1b66c9;
+  --blue2:#1657ab;
+  --blue-soft:#e8f1ff;
+  --green:#278a52;
+  --green-soft:#eaf8ef;
+  --amber:#cc7a12;
+  --amber-soft:#fff3df;
+  --red:#c54040;
+  --red-soft:#fff0f0;
+  --ink:#0e1726;
+  --sidebar:#f9fbfe;
+  --design-bg:#0f1b2d;
+  --design-panel:#14253b;
+  --design-panel2:#18304d;
+  --design-line:#25405f;
+  --design-text:#d3e4ff;
+  --design-mid:#88a5c8;
+  --design-dim:#466485;
+  --font:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',monospace;
+  --r:8px;
+  --r-lg:14px;
+  --shadow:0 10px 30px rgba(18,31,52,.08);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text)}
+body{font-size:14px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:999px}
+
+.shell{display:flex;height:100vh;overflow:hidden;background:linear-gradient(180deg,#f7f9fc 0%,#eef3f9 100%)}
+
+.sidebar{width:76px;flex-shrink:0;background:rgba(255,255,255,.82);backdrop-filter:blur(12px);border-right:1px solid rgba(221,229,239,.9);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.brand{width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#1b66c9,#5ba1ff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 10px 20px rgba(27,102,201,.22);margin-bottom:6px}
+.rail-btn{width:44px;height:44px;border-radius:12px;border:none;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;transition:.18s}
+.rail-btn:hover{background:var(--surface2);color:var(--text2)}
+.rail-btn.active{background:var(--blue-soft);color:var(--blue)}
+.rail-spacer{flex:1}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+
+.topbar{height:72px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.84);backdrop-filter:blur(12px)}
+.title-wrap{display:flex;flex-direction:column;gap:4px}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--text3);font-weight:700}
+.title{font-size:22px;font-weight:700;letter-spacing:-.4px}
+.subtitle{font-size:13px;color:var(--text2)}
+
+.top-actions{display:flex;align-items:center;gap:10px}
+.segmented{display:flex;align-items:center;padding:4px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;gap:4px}
+.segmented button{border:none;background:transparent;color:var(--text2);padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;transition:.18s}
+.segmented button.active{background:#fff;color:var(--blue);box-shadow:0 2px 10px rgba(18,31,52,.08)}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:#fff;color:var(--text2);padding:10px 14px;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;transition:.18s}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 10px 18px rgba(27,102,201,.18)}
+
+.tabbar{height:48px;flex-shrink:0;display:flex;align-items:flex-end;padding:0 20px;background:rgba(255,255,255,.7);border-bottom:1px solid var(--line);gap:18px;overflow:auto}
+.tab{height:100%;display:flex;align-items:center;gap:7px;color:var(--text3);font-size:13px;font-weight:700;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab .badge{background:var(--red);color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;min-width:18px;text-align:center}
+
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--line);background:#fff}
+.metric{padding:16px 20px;border-right:1px solid var(--line)}
+.metric:last-child{border-right:none}
+.metric-value{font-size:28px;font-weight:700;letter-spacing:-.6px;line-height:1;color:var(--ink)}
+.metric-value.green{color:var(--green)}
+.metric-value.amber{color:var(--amber)}
+.metric-value.red{color:var(--red)}
+.metric-label{font-size:12px;color:var(--text2);margin-top:4px}
+.metric-note{font-size:11px;margin-top:3px}
+
+.toolbar{display:flex;align-items:center;gap:10px;padding:12px 20px;background:#fff;border-bottom:1px solid var(--line)}
+.search{display:flex;align-items:center;gap:8px;width:280px;padding:10px 12px;border:1px solid var(--line2);border-radius:12px;background:var(--surface)}
+.search i{font-size:15px;color:var(--text3)}
+.search input{width:100%;border:none;outline:none;background:transparent;font:inherit;color:var(--text)}
+.chip-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 12px;border-radius:999px;border:1px solid var(--line2);background:#fff;color:var(--text2);font-size:12px;font-weight:700}
+.chip.on{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+.toolbar .spacer{flex:1}
+
+.content{flex:1;min-height:0;display:flex;overflow:hidden}
+.surface{flex:1;display:none;min-width:0;min-height:0}
+.surface.active{display:flex}
+
+.workbench{display:flex;min-width:0;min-height:0}
+.table-pane{flex:1;min-width:0;background:#fff;border-right:1px solid var(--line);overflow:auto}
+.detail-pane{width:330px;flex-shrink:0;background:#fbfcfe;display:flex;flex-direction:column}
+
+table{width:100%;border-collapse:collapse}
+thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:12px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);text-align:left}
+tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+tbody tr:hover{background:#f8fbff}
+tbody tr.selected{background:var(--blue-soft)}
+tbody td{padding:12px 14px;font-size:13px;color:var(--text);vertical-align:middle}
+.mono{font-family:var(--mono);font-size:12px;color:var(--text2)}
+
+.status{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-pending{background:var(--amber-soft);color:var(--amber)}
+.st-review{background:var(--red-soft);color:var(--red)}
+.st-approved{background:var(--green-soft);color:var(--green)}
+.st-posted{background:#eefbf4;color:#1d7a46}
+
+.confidence{display:flex;align-items:center;gap:8px}
+.bar{width:74px;height:5px;background:var(--surface3);border-radius:999px;overflow:hidden}
+.fill{height:100%;border-radius:999px}
+.fill.green{background:var(--green)}
+.fill.amber{background:var(--amber)}
+.fill.red{background:var(--red)}
+.conf-text{font-family:var(--mono);font-size:11px}
+
+.detail-head{padding:18px 18px 14px;border-bottom:1px solid var(--line);background:#fff}
+.detail-kicker{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700}
+.detail-title{font-size:19px;font-weight:700;margin-top:4px}
+.detail-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.detail-body{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:18px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow)}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700;margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:none;padding-bottom:0}
+.kv span:first-child{font-size:12px;color:var(--text2)}
+.kv span:last-child{font-size:12px;color:var(--text);font-weight:700;text-align:right}
+.action-stack{display:flex;flex-direction:column;gap:8px}
+
+.design-wrap{display:grid;grid-template-columns:320px 1fr 300px;gap:0;min-width:0;min-height:0;background:linear-gradient(180deg,#101d31 0%,#13243b 100%)}
+.design-panel{background:var(--design-panel);border-right:1px solid var(--design-line);display:flex;flex-direction:column;min-height:0}
+.design-panel.right{border-right:none;border-left:1px solid var(--design-line)}
+.design-header{padding:16px 18px;border-bottom:1px solid var(--design-line);background:rgba(8,16,27,.24)}
+.design-kicker{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--design-mid);font-weight:700}
+.design-title{font-size:18px;font-weight:700;color:#fff;margin-top:4px}
+.design-sub{font-size:12px;color:var(--design-mid);margin-top:4px;line-height:1.45}
+.design-scroll{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.sec{border:1px solid var(--design-line);border-radius:14px;background:rgba(14,29,48,.66);overflow:hidden}
+.sec-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(37,64,95,.75)}
+.sec-head strong{font-size:12px;color:#fff}
+.sec-head span{font-size:11px;color:var(--design-mid);font-family:var(--mono)}
+.mini-list{display:flex;flex-direction:column}
+.mini-row{display:grid;grid-template-columns:1fr 90px 28px;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid rgba(37,64,95,.55);font-size:12px;color:var(--design-text)}
+.mini-row:first-child{border-top:none}
+.mini-chip{padding:4px 7px;border-radius:999px;background:rgba(27,102,201,.18);color:#9fc3ff;font-size:10px;font-weight:700;text-align:center}
+.mini-del{width:20px;height:20px;border-radius:6px;border:1px solid var(--design-line);display:flex;align-items:center;justify-content:center;color:var(--design-dim)}
+
+.canvas{position:relative;overflow:auto;background:
+ radial-gradient(circle at 1px 1px, rgba(129,163,205,.17) 1px, transparent 0);
+ background-size:22px 22px}
+.canvas-top{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--design-line);background:rgba(8,16,27,.24)}
+.canvas-title{display:flex;flex-direction:column;gap:4px}
+.canvas-title strong{font-size:17px;color:#fff}
+.canvas-title span{font-size:12px;color:var(--design-mid)}
+.canvas-actions{display:flex;gap:10px}
+.d-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border-radius:12px;border:1px solid var(--design-line);background:rgba(18,37,59,.95);color:var(--design-mid);font-size:12px;font-weight:700}
+.d-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+
+.diagram{position:relative;min-height:calc(100% - 60px);padding:30px}
+.wf-node{position:absolute;min-width:150px;padding:14px 16px;border-radius:16px;background:#fdfefe;border:1px solid rgba(204,219,236,.9);box-shadow:0 16px 26px rgba(3,11,22,.24)}
+.wf-node strong{display:block;font-size:13px;color:var(--ink)}
+.wf-node span{display:block;font-size:11px;color:var(--text3);margin-top:4px}
+.wf-node .node-badge{display:inline-block;margin-top:10px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700}
+.wf-node.initial .node-badge{background:var(--green-soft);color:var(--green)}
+.wf-node.review .node-badge{background:var(--amber-soft);color:var(--amber)}
+.wf-node.final .node-badge{background:var(--blue-soft);color:var(--blue)}
+.wf-node.reject .node-badge{background:var(--red-soft);color:var(--red)}
+
+.line{position:absolute;height:2px;background:linear-gradient(90deg,#77a9f5,#bad5ff);transform-origin:left center}
+.line::after{content:'';position:absolute;right:-1px;top:-4px;border-left:9px solid #bad5ff;border-top:5px solid transparent;border-bottom:5px solid transparent}
+
+.inspector-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inspector-box{padding:12px;border:1px solid var(--design-line);border-radius:12px;background:rgba(18,37,59,.95)}
+.inspector-box h4{font-size:11px;color:var(--design-mid);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.inspector-box p{font-size:12px;color:var(--design-text);line-height:1.5}
+
+.footer-note{padding:10px 16px;border-top:1px solid var(--line);background:rgba(255,255,255,.74);font-size:12px;color:var(--text2)}
+
+@media (max-width: 1280px){
+  .metrics{grid-template-columns:repeat(3,1fr)}
+  .design-wrap{grid-template-columns:280px 1fr 260px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><i class="ti ti-sparkles"></i></div>
+    <button class="rail-btn active"><i class="ti ti-layout-grid"></i></button>
+    <button class="rail-btn"><i class="ti ti-clipboard-data"></i></button>
+    <button class="rail-btn"><i class="ti ti-route-square"></i></button>
+    <button class="rail-btn"><i class="ti ti-settings-cog"></i></button>
+    <div class="rail-spacer"></div>
+    <button class="rail-btn"><i class="ti ti-bell"></i></button>
+    <button class="rail-btn"><i class="ti ti-user-circle"></i></button>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="title-wrap">
+        <div class="eyebrow">Unified Product Surface</div>
+        <div class="title">AI Proviso</div>
+        <div class="subtitle" id="subtitle">Client-facing AP operations with role-filtered navigation and a shared shell.</div>
+      </div>
+      <div class="top-actions">
+        <div class="segmented">
+          <button class="mode-btn active" data-mode="client">Client Workspace</button>
+          <button class="mode-btn" data-mode="integrator">Integrator Workspace</button>
+        </div>
+        <button class="btn"><i class="ti ti-share"></i> Share Demo</button>
+        <button class="btn primary"><i class="ti ti-player-play"></i> Guided Tour</button>
+      </div>
+    </header>
+
+    <nav class="tabbar" id="tabs"></nav>
+
+    <section class="metrics" id="metrics"></section>
+
+    <div class="toolbar">
+      <label class="search">
+        <i class="ti ti-search"></i>
+        <input type="text" value="" placeholder="Search invoices, workflows, vendors...">
+      </label>
+      <div class="chip-row" id="chips"></div>
+      <div class="spacer"></div>
+      <button class="btn"><i class="ti ti-filter"></i> Filters</button>
+      <button class="btn"><i class="ti ti-download"></i> Export</button>
+    </div>
+
+    <section class="content">
+      <div class="surface workbench active" id="client-surface">
+        <div class="table-pane">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Vendor</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Confidence</th>
+                <th>Queue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="selected">
+                <td class="mono">INV-2026-0412</td>
+                <td>Canon Canada</td>
+                <td>$4,280.00</td>
+                <td><span class="status st-pending">Pending Approval</span></td>
+                <td>
+                  <div class="confidence">
+                    <div class="bar"><div class="fill green" style="width:94%"></div></div>
+                    <div class="conf-text">0.94</div>
+                  </div>
+                </td>
+                <td>AP Approvals</td>
+              </tr>
+              <tr>
+                <td class="mono">INV-2026-0413</td>
+                <td>Ricoh North</td>
+                <td>$1,140.15</td>
+                <td><span class="status st-review">Needs Review</span></td>
+                <td>
+                  <div class="confidence">
+                    <div class="bar"><div class="fill amber" style="width:72%"></div></div>
+                    <div class="conf-text">0.72</div>
+                  </div>
+                </td>
+                <td>Low Confidence</td>
+              </tr>
+              <tr>
+                <td class="mono">INV-2026-0414</td>
+                <td>Staples Pro</td>
+                <td>$612.80</td>
+                <td><span class="status st-approved">Approved</span></td>
+                <td>
+                  <div class="confidence">
+                    <div class="bar"><div class="fill green" style="width:98%"></div></div>
+                    <div class="conf-text">0.98</div>
+                  </div>
+                </td>
+                <td>Ready to Post</td>
+              </tr>
+              <tr>
+                <td class="mono">INV-2026-0415</td>
+                <td>Fujifilm Business</td>
+                <td>$8,910.00</td>
+                <td><span class="status st-posted">Posted</span></td>
+                <td>
+                  <div class="confidence">
+                    <div class="bar"><div class="fill green" style="width:97%"></div></div>
+                    <div class="conf-text">0.97</div>
+                  </div>
+                </td>
+                <td>Posted</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <aside class="detail-pane">
+          <div class="detail-head">
+            <div class="detail-kicker">Client-facing panel</div>
+            <div class="detail-title">Invoice Review</div>
+            <div class="detail-sub">Calm operational view focused on queue management, approval, and exception clarity.</div>
+          </div>
+          <div class="detail-body">
+            <div class="card">
+              <div class="card-title">Invoice Summary</div>
+              <div class="kv"><span>Vendor</span><span>Canon Canada</span></div>
+              <div class="kv"><span>Invoice Number</span><span class="mono">INV-2026-0412</span></div>
+              <div class="kv"><span>Due Date</span><span>May 31, 2026</span></div>
+              <div class="kv"><span>Total</span><span>$4,280.00</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Confidence by Field</div>
+              <div class="kv"><span>Vendor</span><span>0.99</span></div>
+              <div class="kv"><span>Invoice Date</span><span>0.95</span></div>
+              <div class="kv"><span>Total</span><span>0.97</span></div>
+              <div class="kv"><span>PO Number</span><span>0.84</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Actions</div>
+              <div class="action-stack">
+                <button class="btn primary"><i class="ti ti-check"></i> Approve Invoice</button>
+                <button class="btn"><i class="ti ti-edit"></i> Send to Review</button>
+                <button class="btn"><i class="ti ti-alert-triangle"></i> Raise Exception</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="surface design-wrap" id="integrator-surface">
+        <aside class="design-panel left">
+          <div class="design-header">
+            <div class="design-kicker">Integrator-facing panel</div>
+            <div class="design-title">Design Workspace</div>
+            <div class="design-sub">The Proviso workflow studio lives inside the same shell, but runs denser and deeper for consultants and tenant integrators.</div>
+          </div>
+          <div class="design-scroll">
+            <div class="sec">
+              <div class="sec-head"><strong>States</strong><span>4</span></div>
+              <div class="mini-list">
+                <div class="mini-row"><div>Draft Intake</div><div class="mini-chip">Initial</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Review Required</div><div class="mini-chip">Manual</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Approved</div><div class="mini-chip">Terminal</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Rejected</div><div class="mini-chip">Terminal</div><div class="mini-del">+</div></div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><strong>Transitions</strong><span>5</span></div>
+              <div class="mini-list">
+                <div class="mini-row"><div>Draft -> Review</div><div class="mini-chip">Auto</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Review -> Approved</div><div class="mini-chip">Role Gate</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Review -> Rejected</div><div class="mini-chip">Exception</div><div class="mini-del">+</div></div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><strong>Users & Roles</strong><span>6</span></div>
+              <div class="mini-list">
+                <div class="mini-row"><div>Consultant</div><div class="mini-chip">Design</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Tenant Admin</div><div class="mini-chip">Setup</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>AP Manager</div><div class="mini-chip">Approval</div><div class="mini-del">+</div></div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div class="canvas">
+          <div class="canvas-top">
+            <div class="canvas-title">
+              <strong>Invoice Approval Flow</strong>
+              <span>Shared shell, specialist inner workspace. Same product. Different operating mode.</span>
+            </div>
+            <div class="canvas-actions">
+              <button class="d-btn"><i class="ti ti-player-play"></i> Simulate</button>
+              <button class="d-btn"><i class="ti ti-rotate-2"></i> Compare</button>
+              <button class="d-btn primary"><i class="ti ti-upload"></i> Publish</button>
+            </div>
+          </div>
+          <div class="diagram">
+            <div class="line" style="left:196px;top:140px;width:172px"></div>
+            <div class="line" style="left:434px;top:140px;width:180px"></div>
+            <div class="line" style="left:432px;top:248px;width:181px"></div>
+
+            <div class="wf-node initial" style="left:40px;top:100px">
+              <strong>Draft Intake</strong>
+              <span>Document received and validated</span>
+              <div class="node-badge">Initial</div>
+            </div>
+            <div class="wf-node review" style="left:300px;top:100px">
+              <strong>Review Required</strong>
+              <span>Confidence or policy threshold triggered</span>
+              <div class="node-badge">AP Review</div>
+            </div>
+            <div class="wf-node final" style="left:570px;top:100px">
+              <strong>Approved</strong>
+              <span>Ready for posting and audit completion</span>
+              <div class="node-badge">Terminal</div>
+            </div>
+            <div class="wf-node reject" style="left:570px;top:208px">
+              <strong>Rejected</strong>
+              <span>Exception route with traceable reason code</span>
+              <div class="node-badge">Terminal</div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="design-panel right">
+          <div class="design-header">
+            <div class="design-kicker">Inspector</div>
+            <div class="design-title">Review Required</div>
+            <div class="design-sub">Selected node details, conditions, publish impact, and deployment notes stay inside the same visual family.</div>
+          </div>
+          <div class="design-scroll">
+            <div class="inspector-grid">
+              <div class="inspector-box">
+                <h4>Role Access</h4>
+                <p>AP Operator, Reviewer, and AP Manager can enter this state. Consultant can edit the policy.</p>
+              </div>
+              <div class="inspector-box">
+                <h4>Entry Rules</h4>
+                <p>Trigger when confidence falls below 0.90 or matching threshold fails.</p>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><strong>Conditions</strong><span>3</span></div>
+              <div class="mini-list">
+                <div class="mini-row"><div>PO mismatch</div><div class="mini-chip">Reason</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Confidence < 0.90</div><div class="mini-chip">Guard</div><div class="mini-del">+</div></div>
+                <div class="mini-row"><div>Amount > 5,000</div><div class="mini-chip">Approval</div><div class="mini-del">+</div></div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><strong>Publish Notes</strong><span>Live</span></div>
+              <div class="mini-list">
+                <div class="mini-row" style="grid-template-columns:1fr"><div>Simulation passed on latest canonical schema.</div></div>
+                <div class="mini-row" style="grid-template-columns:1fr"><div>ERP Mapping dependencies resolved for NetSuite connector.</div></div>
+                <div class="mini-row" style="grid-template-columns:1fr"><div>Role-based sidebar visibility preserved for tenant client mode.</div></div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <div class="footer-note">Mock concept: one shared product shell, two operating modes. Client workspace sells clarity. Integrator workspace sells depth.</div>
+  </main>
+</div>
+
+<script>
+const modes = {
+  client: {
+    subtitle: 'Client-facing AP operations with role-filtered navigation and a shared shell.',
+    tabs: [
+      { label: 'AP Workbench', icon: 'ti ti-layout-list', active: true },
+      { label: 'Exceptions', icon: 'ti ti-alert-circle', badge: '6' },
+      { label: 'Approvals', icon: 'ti ti-checkup-list' },
+      { label: 'Audit', icon: 'ti ti-file-search' }
+    ],
+    metrics: [
+      { value: '186', label: 'Invoices Today', note: '+14% vs yesterday' },
+      { value: '24', label: 'Pending Approval', note: '8 due this morning', tone: 'amber' },
+      { value: '6', label: 'Exceptions', note: '3 require review', tone: 'red' },
+      { value: '94%', label: 'Extraction Confidence', note: 'Top 50 vendors', tone: 'green' },
+      { value: '71%', label: 'Auto-Posted', note: 'Phase I target on track', tone: 'green' }
+    ],
+    chips: ['All', 'Pending', 'Needs Review', 'Approved', 'Posted']
+  },
+  integrator: {
+    subtitle: 'Integrator-facing design and mapping inside the same shell, with deeper controls and denser workspace patterns.',
+    tabs: [
+      { label: 'Design', icon: 'ti ti-route-square', active: true },
+      { label: 'ERP Mapping', icon: 'ti ti-plug-connected' },
+      { label: 'AI Cockpit', icon: 'ti ti-sparkles' },
+      { label: 'Simulation', icon: 'ti ti-player-track-next' },
+      { label: 'Audit', icon: 'ti ti-file-search' }
+    ],
+    metrics: [
+      { value: '4', label: 'Active Workflows', note: '2 ready to publish' },
+      { value: '12', label: 'Transitions', note: 'Canonical schema aligned' },
+      { value: '3', label: 'Pending Diffs', note: 'Awaiting consultant review', tone: 'amber' },
+      { value: '98%', label: 'Simulation Pass Rate', note: 'Last 25 runs', tone: 'green' },
+      { value: '2', label: 'Connector Gaps', note: 'NetSuite + SAP mapping', tone: 'red' }
+    ],
+    chips: ['Workflow', 'Roles', 'Policies', 'Publish Ready', 'Needs Mapping']
+  }
+};
+
+const tabsEl = document.getElementById('tabs');
+const metricsEl = document.getElementById('metrics');
+const chipsEl = document.getElementById('chips');
+const subtitleEl = document.getElementById('subtitle');
+const clientSurface = document.getElementById('client-surface');
+const integratorSurface = document.getElementById('integrator-surface');
+const modeButtons = document.querySelectorAll('.mode-btn');
+
+function renderMode(mode) {
+  const config = modes[mode];
+  subtitleEl.textContent = config.subtitle;
+  tabsEl.innerHTML = config.tabs.map(tab => `
+    <div class="tab ${tab.active ? 'active' : ''}">
+      <i class="${tab.icon}"></i>
+      <span>${tab.label}</span>
+      ${tab.badge ? `<span class="badge">${tab.badge}</span>` : ''}
+    </div>
+  `).join('');
+
+  metricsEl.innerHTML = config.metrics.map(metric => `
+    <div class="metric">
+      <div class="metric-value ${metric.tone || ''}">${metric.value}</div>
+      <div class="metric-label">${metric.label}</div>
+      <div class="metric-note ${metric.tone || ''}">${metric.note}</div>
+    </div>
+  `).join('');
+
+  chipsEl.innerHTML = config.chips.map((chip, index) => `
+    <span class="chip ${index === 0 ? 'on' : ''}">${chip}</span>
+  `).join('');
+
+  clientSurface.classList.toggle('active', mode === 'client');
+  integratorSurface.classList.toggle('active', mode === 'integrator');
+
+  modeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+}
+
+modeButtons.forEach(btn => {
+  btn.addEventListener('click', () => renderMode(btn.dataset.mode));
+});
+
+renderMode('client');
+</script>
+</body>
+</html>

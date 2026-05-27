@@ -69,45 +69,45 @@
 
 ---
 
-## Phase II — Full Pipeline (Weeks 9–16)
+## Phase II — GUI Interface Design (Weeks 9–16)
 
-**Target:** First pilot client deployment
+**Target:** Demo-grade unified application shell with role-based views and mock-backed interactivity
 
 | Week | Focus Area | Key Deliverables | Status | Gate |
 | :--- | :--- | :--- | :---: | :---: |
-| **Week 9** | MOD-03 — Matching Engine | 2-way / 3-way PO + receipt matching · Configurable tolerance rules | ⬜ | ⬜ |
-| **Week 10** | MOD-05 — ERP Adapter | First live ERP connector (SAP or Dynamics 365) · Idempotent posting | ⬜ | ⬜ |
-| **Week 11** | MOD-06 — Exception Mgmt | Named exception queues · SLA timers · Escalation chains | ⬜ | ⬜ |
-| **Week 12** | First-Run Wizard | All 8 wizard steps functional · Client environment seeded in < 1 hour | ⬜ | ⬜ |
-| **Week 13** | Security Hardening | RBAC enforced · SoD policies · SSO integration · Column-level PII encryption | ⬜ | ⬜ |
-| **Week 14** | Backend Migration | Flask → Fastify (Node.js) API gateway · All routes migrated | ⬜ | ⬜ |
-| **Week 15** | Integration Testing | End-to-end pipeline test · BullMQ DLQ verified · Multi-tenant RLS confirmed | ⬜ | ⬜ |
-| **Week 16** | Pilot Hardening | Performance tuning · Monitoring · First client onboarding dry run | ⬜ | ⬜ |
+| **Week 9** | Unified App Shell | Single React app shell · role-based sidebar visibility · Electron consultant mode + web client mode defined | ⬜ | ⬜ |
+| **Week 10** | AP Workbench UI | Invoice queue · confidence bars · detail panel · inline edit states running on static mock data | ⬜ | ⬜ |
+| **Week 11** | Integrator Cockpit UI | Workflow Designer · ERP Mapping · AI Cockpit panels rendered with mocked contracts | ⬜ | ⬜ |
+| **Week 12** | Exceptions + Audit UI | Named exception queues · SLA visuals · audit trail screens · approval inbox interactions | ⬜ | ⬜ |
+| **Week 13** | Contract-First API Shapes | Canonical response schemas locked in `MOD-00` · mock payloads match real API contracts exactly | ⬜ | ⬜ |
+| **Week 14** | React Component Hardening | Keyboard flows · optimistic UI states · error/empty/loading states · responsive behaviour | ⬜ | ⬜ |
+| **Week 15** | Story-Driven Demo Build | Michel demo path polished end-to-end with realistic mock data and click-through scenarios | ⬜ | ⬜ |
+| **Week 16** | Wiring Readiness Gate | Component boundaries frozen · API hookup backlog sequenced · swap plan from mock to real endpoints approved | ⬜ | ⬜ |
 
-### Phase II — Gate Checklist (Pilot Deployment)
+### Phase II — Gate Checklist (GUI Readiness)
 
-- [ ] Matching engine executes 2-way/3-way checks under configured tolerance rules
-- [ ] ERP posting connects, posts, and registers reconciliation tokens idempotently
-- [ ] Exception routing escalates SLA breaches to AP Managers in **< 60 seconds**
-- [ ] First-run wizard seeds a client environment from scratch in **< 1 hour**
-- [ ] RLS policies block reads/writes when `app.current_tenant_id` session context is missing
+- [ ] Single React application renders correctly in Electron and browser-hosted modes
+- [ ] Sidebar visibility is enforced by role for `consultant`, `tenant-admin`, `ap-operator`, `approver`, `reviewer`, and `ap-manager`
+- [ ] AP Workbench, Workflow Designer, Exceptions, ERP Mapping, Audit Trail, and AI Cockpit all run with static contract-matching mock data
+- [ ] Canonical mock payloads are documented and match planned production API response shapes exactly
+- [ ] Demo path can be run without Docker dependencies beyond the frontend dev server
 
 ---
 
-## Phase III — Scale & Learn (Weeks 17–24)
+## Phase III — Pipeline Wiring & Pilot Hardening (Weeks 17–24)
 
-**Target:** Production General Availability
+**Target:** First pilot client deployment with real service integrations
 
 | Week | Focus Area | Key Deliverables | Status | Gate |
 | :--- | :--- | :--- | :---: | :---: |
-| **Week 17** | Form Builder | Drag-and-drop form builder complete · Form definitions stored as JSON | ⬜ | ⬜ |
-| **Week 18** | App/Menu Builder | Drag-and-drop menu and app builder live | ⬜ | ⬜ |
-| **Week 19** | SLA Analytics | SLA dashboard · Month-end AP analytics views | ⬜ | ⬜ |
-| **Week 20** | Vendor AI Tuning | Per-vendor extraction profile fine-tuning on accumulated invoice history | ⬜ | ⬜ |
-| **Week 21** | Template Library | RAG-powered workflow + form template library for new client onboarding | ⬜ | ⬜ |
-| **Week 22** | Broader DMS | Contract management · NDA workflows · Approval chains beyond AP | ⬜ | ⬜ |
-| **Week 23** | Load & Scale Testing | Queue depth testing · Horizontal OCR worker scaling verified | ⬜ | ⬜ |
-| **Week 24** | GA Hardening | Final security audit · DR runbook · Production go-live checklist | ⬜ | ⬜ |
+| **Week 17** | MOD-03 — Matching Engine | 2-way / 3-way PO + receipt matching · Configurable tolerance rules | ⬜ | ⬜ |
+| **Week 18** | MOD-05 — ERP Adapter | First live ERP connector (SAP or Dynamics 365) · Idempotent posting | ⬜ | ⬜ |
+| **Week 19** | MOD-06 — Exception Logic | Named exception queues live · SLA timers and escalation chains wired to backend | ⬜ | ⬜ |
+| **Week 20** | First-Run Wizard | All 8 wizard steps functional · client environment seeded in < 1 hour | ⬜ | ⬜ |
+| **Week 21** | Security Hardening | RBAC enforced server-side · SoD policies · SSO integration · column-level PII encryption | ⬜ | ⬜ |
+| **Week 22** | Backend Migration | Flask → Fastify (Node.js) API gateway · all routes migrated to production contracts | ⬜ | ⬜ |
+| **Week 23** | Integration Testing | End-to-end pipeline test · BullMQ DLQ verified · multi-tenant RLS confirmed | ⬜ | ⬜ |
+| **Week 24** | Pilot Hardening | Performance tuning · monitoring · first client onboarding dry run | ⬜ | ⬜ |
 
 ---
 
@@ -115,8 +115,8 @@
 
 ```
 Phase I  — Vertical Slice  ████░░░░░░░░░░░░  Week 1/8  (12.5%)
-Phase II — Full Pipeline   ░░░░░░░░░░░░░░░░  Week 0/8   (0%)
-Phase III — Scale & Learn  ░░░░░░░░░░░░░░░░  Week 0/8   (0%)
+Phase II — GUI Design      ░░░░░░░░░░░░░░░░  Week 0/8   (0%)
+Phase III — Wiring/Pilot   ░░░░░░░░░░░░░░░░  Week 0/8   (0%)
 
 Total: Week 1 / 24  (4.2%)
 ```
@@ -130,12 +130,12 @@ Total: Week 1 / 24  (4.2%)
 | MOD-00 | Core / Contract Layer | Always | ✅ | Schemas applied, event topics defined |
 | MOD-01 | Document Intake | Phase I | ⬜ | Week 2 |
 | MOD-02 | OCR & AI Extraction | Phase I | ⬜ | Week 3–4 |
-| MOD-03 | Matching Engine | Phase II | ⬜ | Stub active in Phase I |
+| MOD-03 | Matching Engine | Phase III | ⬜ | Stub active until pipeline wiring begins |
 | MOD-04 | Workflow & Approval | Phase I | ⬜ | Week 6 |
-| MOD-05 | ERP Adapter | Phase II | ⬜ | Stub active in Phase I |
-| MOD-06 | Exception Management | Phase II | ⬜ | Week 11 |
+| MOD-05 | ERP Adapter | Phase III | ⬜ | Wired after GUI contracts are frozen |
+| MOD-06 | Exception Management | Phase III | ⬜ | UI in Phase II, live backend in Phase III |
 | MOD-07 | Audit Trail | Phase I | ⬜ | Week 5 — wired from day one |
-| MOD-08 | UI & Builders | Phase I+ | ⬜ | Week 7 AP Workbench · Phase III full builders |
+| MOD-08 | Unified UI Layer | Phase II | ⬜ | One React app · role-based views · mock-first components before API hookup |
 
 ---
 

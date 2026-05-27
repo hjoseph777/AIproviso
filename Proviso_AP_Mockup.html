@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso — AP Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0a1628;--navy2:#0f1f3d;--navy3:#162a52;
+  --blue:#1a56db;--blue2:#1447c0;--blue3:#3b82f6;--blue-lt:#dbeafe;--blue-txt:#1d4ed8;
+  --surface:#ffffff;--surface2:#f8fafc;--surface3:#f1f5f9;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --green:#16a34a;--green-lt:#dcfce7;--green-txt:#15803d;
+  --amber:#d97706;--amber-lt:#fef3c7;--amber-txt:#92400e;
+  --red:#dc2626;--red-lt:#fee2e2;--red-txt:#991b1b;
+  --purple:#7c3aed;--purple-lt:#ede9fe;--purple-txt:#5b21b6;
+  --font-sans:'DM Sans',system-ui,sans-serif;
+  --font-mono:'DM Mono',monospace;
+  --font-display:'Fraunces',Georgia,serif;
+  --r-sm:6px;--r-md:8px;--r-lg:12px;--r-xl:16px;
+}
+html,body{height:100%;overflow:hidden;background:var(--navy);font-family:var(--font-sans);font-size:14px;color:var(--text)}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;flex-shrink:0;background:var(--navy);display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,.06)}
+.sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sb-wordmark{font-family:var(--font-display);font-size:26px;font-weight:300;color:#fff;letter-spacing:-.5px;line-height:1}
+.sb-wordmark span{color:var(--blue3);font-style:italic}
+.sb-tagline{font-size:9px;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
+.sb-section{padding:10px 10px 4px;font-size:9px;font-weight:500;color:rgba(255,255,255,.25);letter-spacing:1.2px;text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-radius:var(--r-md);margin:1px 8px;transition:all .15s;color:rgba(255,255,255,.5);font-size:12px}
+.sb-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.sb-item.active{background:rgba(26,86,219,.25);color:#93c5fd}
+.sb-item.active .sb-icon{color:#60a5fa}
+.sb-icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center}
+.sb-badge.warn{background:var(--amber)}
+.sb-foot{margin-top:auto;padding:12px;border-top:1px solid rgba(255,255,255,.06)}
+.sb-user{display:flex;align-items:center;gap:8px}
+.sb-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#1a56db,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0}
+.sb-uname{font-size:11px;color:rgba(255,255,255,.7);font-weight:500}
+.sb-urole{font-size:9px;color:rgba(255,255,255,.3)}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--surface2)}
+
+/* ── TOPBAR ── */
+.topbar{height:48px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px}
+.tb-title{font-size:14px;font-weight:500;color:var(--text);flex:1}
+.tb-sub{font-size:11px;color:var(--text3);margin-left:6px;font-weight:400}
+.tb-actions{display:flex;gap:6px;align-items:center}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:500;font-family:var(--font-sans);border-radius:var(--r-md);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;white-space:nowrap;line-height:1}
+.btn:hover{background:var(--surface3);border-color:var(--border2);color:var(--text)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue2)}
+.btn.success{background:var(--green-lt);border-color:var(--green);color:var(--green-txt)}
+.btn.danger{background:var(--red-lt);border-color:var(--red);color:var(--red-txt)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface3)}
+.btn i{font-size:13px}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.metric{background:var(--surface2);border-radius:var(--r-lg);padding:10px 12px;border:1px solid var(--border)}
+.metric-val{font-family:var(--font-mono);font-size:22px;font-weight:500;color:var(--text);line-height:1.1}
+.metric-label{font-size:10px;color:var(--text3);margin-top:3px;letter-spacing:.2px}
+.metric-delta{font-size:10px;margin-top:2px}
+.delta-up{color:var(--green)}
+.delta-down{color:var(--red)}
+.delta-warn{color:var(--amber)}
+
+/* ── FILTER BAR ── */
+.filterbar{display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.search-wrap{flex:1;display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:6px 10px}
+.search-wrap input{border:none;background:transparent;font-size:12px;color:var(--text);outline:none;flex:1;font-family:var(--font-sans)}
+.search-wrap input::placeholder{color:var(--text3)}
+.search-wrap i{font-size:14px;color:var(--text3)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;border-radius:20px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;white-space:nowrap}
+.chip:hover{border-color:var(--border2);color:var(--text)}
+.chip.on{background:var(--blue-lt);border-color:var(--blue3);color:var(--blue-txt);font-weight:500}
+
+/* ── CONTENT AREA ── */
+.content{flex:1;overflow:hidden;display:flex}
+
+/* ── TABLE ── */
+.table-wrap{flex:1;overflow:auto;min-width:0}
+table.inv-table{width:100%;border-collapse:collapse}
+table.inv-table thead th{position:sticky;top:0;z-index:2;background:var(--surface);padding:7px 12px;font-size:10px;font-weight:500;color:var(--text3);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:.5px;text-transform:uppercase}
+table.inv-table thead th.sortable{cursor:pointer}
+table.inv-table thead th.sortable:hover{color:var(--text)}
+table.inv-table tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+table.inv-table tbody tr:hover{background:#f8fafc}
+table.inv-table tbody tr.sel{background:var(--blue-lt)}
+table.inv-table tbody td{padding:8px 12px;font-size:12px;color:var(--text);vertical-align:middle}
+table.inv-table tbody td.mono{font-family:var(--font-mono);font-size:11px;color:var(--text2)}
+
+/* ── STATUS BADGES ── */
+.st{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;white-space:nowrap}
+.st::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7;flex-shrink:0}
+.st-recv{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+.st-extr{background:#dbeafe;color:#1d4ed8}
+.st-pend{background:#fef3c7;color:#92400e}
+.st-appr{background:#dcfce7;color:#15803d}
+.st-excp{background:#fee2e2;color:#991b1b}
+.st-post{background:#f0fdf4;color:#15803d;border:1px solid #86efac}
+
+/* ── CONFIDENCE BAR ── */
+.conf{display:flex;align-items:center;gap:6px;min-width:80px}
+.conf-track{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.conf-fill{height:100%;border-radius:2px}
+.conf-hi{background:#22c55e}
+.conf-mid{background:#f59e0b}
+.conf-lo{background:#ef4444}
+.conf-pct{font-size:10px;font-family:var(--font-mono);min-width:26px;text-align:right}
+.conf-hi-txt{color:var(--green)}
+.conf-mid-txt{color:var(--amber)}
+.conf-lo-txt{color:var(--red)}
+
+/* ── VENDOR AVATAR ── */
+.vav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+
+/* ── DETAIL PANEL ── */
+.detail{width:290px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.detail-head{padding:14px;border-bottom:1px solid var(--border)}
+.detail-head-title{font-size:13px;font-weight:500;color:var(--text)}
+.detail-head-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.detail-body{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:14px}
+.section-lbl{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px}
+.field-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)}
+.field-key{font-size:11px;color:var(--text2)}
+.field-val{font-size:11px;color:var(--text);font-weight:500;text-align:right;max-width:58%}
+.field-val.editable{border-bottom:1px dashed var(--blue3);color:var(--blue-txt);cursor:text}
+.cf-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
+.cf-lbl{font-size:11px;color:var(--text2)}
+/* timeline */
+.tl{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:8px;position:relative}
+.tl-line{position:absolute;left:8px;top:20px;bottom:-4px;width:1px;background:var(--border)}
+.tl-item:last-child .tl-line{display:none}
+.tl-dot{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px}
+.tl-dot.done{background:var(--green-lt);color:var(--green-txt)}
+.tl-dot.curr{background:var(--blue-lt);color:var(--blue-txt)}
+.tl-dot.pend{background:var(--surface3);color:var(--text3);border:1px solid var(--border)}
+.tl-content{padding-bottom:12px}
+.tl-name{font-size:11px;font-weight:500;color:var(--text)}
+.tl-meta{font-size:10px;color:var(--text3);margin-top:1px}
+.detail-actions{padding:12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+
+/* ── WORKFLOW DESIGNER ── */
+.wf-shell{display:flex;flex:1;overflow:hidden}
+.wf-palette{width:170px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.pal-lbl{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;padding:8px 4px 3px}
+.pal-node{display:flex;align-items:center;gap:7px;padding:7px 8px;font-size:11px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:grab;transition:all .15s;user-select:none}
+.pal-node:hover{border-color:var(--blue3);background:var(--blue-lt);color:var(--blue-txt)}
+.pal-node i{font-size:14px;flex-shrink:0}
+.wf-canvas-wrap{flex:1;background:var(--surface2);position:relative;overflow:auto;cursor:default}
+.wf-canvas-wrap::before{content:'';position:absolute;inset:0;background-image:radial-gradient(var(--border) 1px,transparent 1px);background-size:20px 20px;opacity:.8;pointer-events:none}
+.wf-node{position:absolute;border-radius:var(--r-lg);border:1.5px solid var(--border);background:var(--surface);padding:10px 14px;cursor:move;min-width:120px;text-align:center;transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.wf-node:hover{border-color:var(--blue3);box-shadow:0 2px 8px rgba(26,86,219,.12)}
+.wf-node.initial{border-color:var(--green);border-width:2px}
+.wf-node.terminal{border-color:var(--purple);border-width:2px}
+.wf-node.selected{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.12)}
+.wf-node-title{font-size:12px;font-weight:500;color:var(--text)}
+.wf-node-type{font-size:9px;color:var(--text3);margin-top:2px}
+.wf-node-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:9px;margin-top:5px}
+svg.wf-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.wf-inspector{width:230px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.inspector-head{padding:12px 14px;border-bottom:1px solid var(--border)}
+.inspector-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:12px}
+.inp{width:100%;border:1px solid var(--border);border-radius:var(--r-md);padding:6px 9px;font-size:11px;font-family:var(--font-sans);color:var(--text);background:var(--surface2);outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--blue3);background:var(--surface)}
+.inp-label{font-size:10px;color:var(--text2);margin-bottom:3px;display:block}
+.trans-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:8px;font-size:10px;margin-bottom:3px}
+
+/* ── EXCEPTIONS ── */
+.exc-wrap{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.exc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.exc-card-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.exc-q-name{font-size:12px;font-weight:500;color:var(--text)}
+.exc-cnt{font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px}
+.exc-sla{margin-left:auto;font-size:10px;display:flex;align-items:center;gap:4px}
+.exc-items{padding:6px 8px;display:flex;flex-direction:column;gap:4px}
+.exc-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:var(--r-md);font-size:11px}
+.exc-inv-id{font-family:var(--font-mono);font-size:10px;color:var(--text3);flex-shrink:0}
+.exc-reason{color:var(--text);flex:1}
+.exc-age{font-size:10px;color:var(--text3);white-space:nowrap}
+.cb{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--border2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--surface);transition:all .15s}
+.cb:hover{border-color:var(--blue3)}
+.cb.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ── ERP MAPPING ── */
+.erp-wrap{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.map-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.map-table-header{display:grid;grid-template-columns:1fr 44px 1fr;background:var(--surface2);border-bottom:1px solid var(--border)}
+.map-col-head{padding:8px 12px;font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.8px;text-transform:uppercase}
+.map-row{display:grid;grid-template-columns:1fr 44px 1fr;border-top:1px solid var(--border);align-items:center}
+.map-cell{padding:8px 12px;font-size:12px;font-family:var(--font-mono)}
+.map-center{display:flex;align-items:center;justify-content:center;padding:8px}
+.map-icon-ok{color:var(--green);font-size:16px}
+.map-icon-warn{color:var(--amber);font-size:16px}
+.map-icon-missing{color:var(--red);font-size:16px}
+
+/* ── AUDIT ── */
+.audit-wrap{flex:1;overflow-y:auto;padding:12px 16px}
+
+/* ── AI COCKPIT ── */
+.ai-shell{display:flex;flex:1;overflow:hidden}
+.ai-main{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.ai-prompt-bar{padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.ai-prompt-input{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:9px 12px;margin-bottom:8px}
+.ai-prompt-input span{font-size:12px;color:var(--text2);flex:1}
+.ai-prompt-input .spark{font-size:15px;color:var(--blue3)}
+.ai-candidates{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.candidates-lbl{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px}
+.cands{display:flex;gap:8px}
+.cand{flex:1;border:1px solid var(--border);border-radius:var(--r-lg);padding:9px 11px;cursor:pointer;transition:all .15s}
+.cand:hover{border-color:var(--blue3);background:var(--blue-lt)}
+.cand.best{border-color:var(--blue);border-width:2px;background:#eff6ff}
+.cand-name{font-size:11px;font-weight:500;color:var(--text)}
+.cand-pct{font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;float:right}
+.cand-meta{font-size:10px;color:var(--text3);margin-top:3px}
+.ai-diff{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:5px}
+.diff-lbl{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.diff-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-md);font-size:11px}
+.diff-add{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green-txt)}
+.diff-change{background:#fffbeb;border:1px solid #fde68a;color:var(--amber-txt)}
+.diff-remove{background:#fef2f2;border:1px solid #fecaca;color:var(--red-txt)}
+.diff-btns{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+.ai-sidebar{width:250px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:var(--surface)}
+.ai-sb-head{padding:10px 14px;border-bottom:1px solid var(--border)}
+.ai-sb-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+.stat-mini{background:var(--surface2);border-radius:var(--r-md);padding:8px 10px;border:1px solid var(--border)}
+.stat-mini-val{font-size:20px;font-weight:500;font-family:var(--font-mono);color:var(--text);line-height:1}
+.stat-mini-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.bar-item{margin-bottom:4px}
+.bar-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px}
+.bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0}
+.view.active{display:flex}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── RESPONSIVE TOPBAR TABS ── */
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;gap:1px;flex-shrink:0;overflow-x:auto}
+.tab{display:flex;align-items:center;gap:6px;padding:10px 13px;font-size:12px;font-weight:400;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+.tab:hover:not(.active){color:var(--text)}
+.tab i{font-size:14px}
+.tab .badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:2px}
+
+/* ── EMPTY STATE ── */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;padding:24px}
+.empty i{font-size:36px;opacity:.3}
+.empty-title{font-size:13px;font-weight:500}
+.empty-sub{font-size:11px;text-align:center;line-height:1.6}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:var(--border);margin:2px 0}
+
+/* ── ANIMATIONS ── */
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.view.active{animation:fadein .15s ease}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <nav class="sidebar" aria-label="Main navigation">
+    <div class="sb-logo">
+      <div class="sb-wordmark">Provi<span>so</span></div>
+      <div class="sb-tagline">AP Automation Platform</div>
+    </div>
+
+    <div class="sb-section">Workbench</div>
+    <div class="sb-item active" onclick="switchView('ap');setActive(this)">
+      <i class="ti ti-file-invoice sb-icon" aria-hidden="true"></i>
+      AP Workbench
+      <span class="sb-badge warn" id="sb-pending-count">18</span>
+    </div>
+    <div class="sb-item" onclick="switchView('exc');setActive(this)">
+      <i class="ti ti-alert-triangle sb-icon" aria-hidden="true"></i>
+      Exceptions
+      <span class="sb-badge" id="sb-exc-count">5</span>
+    </div>
+    <div class="sb-item" onclick="switchView('audit');setActive(this)">
+      <i class="ti ti-shield-check sb-icon" aria-hidden="true"></i>
+      Audit Trail
+    </div>
+
+    <div class="sb-section">Configuration</div>
+    <div class="sb-item" onclick="switchView('wf');setActive(this)">
+      <i class="ti ti-git-branch sb-icon" aria-hidden="true"></i>
+      Workflow Designer
+    </div>
+    <div class="sb-item" onclick="switchView('erp');setActive(this)">
+      <i class="ti ti-plug sb-icon" aria-hidden="true"></i>
+      ERP Mapping
+    </div>
+    <div class="sb-item" onclick="switchView('ai');setActive(this)">
+      <i class="ti ti-sparkles sb-icon" aria-hidden="true"></i>
+      AI Cockpit
+    </div>
+
+    <div class="sb-section">Data</div>
+    <div class="sb-item" onclick="alert('Vendor master — 247 vendors loaded.')">
+      <i class="ti ti-building-store sb-icon" aria-hidden="true"></i>
+      Vendors
+    </div>
+    <div class="sb-item" onclick="alert('Purchase Orders — live sync with ERP.')">
+      <i class="ti ti-receipt sb-icon" aria-hidden="true"></i>
+      Purchase Orders
+    </div>
+    <div class="sb-item" onclick="alert('Analytics dashboard — Phase III.')">
+      <i class="ti ti-chart-bar sb-icon" aria-hidden="true"></i>
+      Analytics
+    </div>
+
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-avatar">HJ</div>
+        <div>
+          <div class="sb-uname">Harry Joseph</div>
+          <div class="sb-urole">Consultant · Xerox Canada</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main">
+
+    <!-- ── AP WORKBENCH ── -->
+    <div class="view active" id="view-ap">
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-val">247</div>
+          <div class="metric-label">Invoices today</div>
+          <div class="metric-delta delta-up">↑ 12% vs yesterday</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="color:var(--green)">84%</div>
+          <div class="metric-label">Touchless rate</div>
+          <div class="metric-delta delta-up">↑ 6% this week</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="color:var(--amber)">18</div>
+          <div class="metric-label">Pending approval</div>
+          <div class="metric-delta delta-warn">3 near SLA breach</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="color:var(--red)">5</div>
+          <div class="metric-label">Open exceptions</div>
+          <div class="metric-delta delta-down">2 critical · SLA breached</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val">$1.4M</div>
+          <div class="metric-label">Volume processed</div>
+          <div class="metric-delta delta-up">↑ 23% this month</div>
+        </div>
+      </div>
+
+      <div class="filterbar">
+        <div class="search-wrap">
+          <i class="ti ti-search" aria-hidden="true"></i>
+          <input type="text" placeholder="Search invoices, vendors, amounts, PO numbers..." id="search-inp" oninput="filterTable(this.value)" aria-label="Search invoices">
+        </div>
+        <div class="chip on" onclick="setChip(this,'all')">All</div>
+        <div class="chip" onclick="setChip(this,'pending')">Pending</div>
+        <div class="chip" onclick="setChip(this,'exception')">Exceptions</div>
+        <div class="chip" onclick="setChip(this,'approved')">Approved</div>
+        <div class="chip" onclick="setChip(this,'extracted')">Extracted</div>
+        <div class="btn" onclick="alert('3 selected invoices approved and queued for ERP posting.')"><i class="ti ti-checks" aria-hidden="true"></i> Bulk approve</div>
+        <div class="btn"><i class="ti ti-download" aria-hidden="true"></i> Export</div>
+        <div class="btn primary" onclick="alert('New invoice intake — drag & drop or browse files.')"><i class="ti ti-upload" aria-hidden="true"></i> Upload invoice</div>
+      </div>
+
+      <div class="content">
+        <div class="table-wrap">
+          <table class="inv-table" id="inv-table" aria-label="Invoice queue">
+            <thead>
+              <tr>
+                <th style="width:32px"><div class="cb on" onclick="this.classList.toggle('on')" aria-label="Select all"><i class="ti ti-check" style="font-size:9px" aria-hidden="true"></i></div></th>
+                <th class="sortable">Vendor</th>
+                <th class="sortable">Invoice #</th>
+                <th class="sortable">Date</th>
+                <th class="sortable">Amount</th>
+                <th>Status</th>
+                <th>Confidence</th>
+                <th>Assigned</th>
+                <th class="sortable">SLA</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="inv-body"></tbody>
+          </table>
+        </div>
+
+        <div class="detail" id="detail-panel">
+          <div class="detail-head">
+            <div class="detail-head-title" id="d-inv-id">Select an invoice</div>
+            <div class="detail-head-sub" id="d-inv-vendor">Click any row to review details</div>
+          </div>
+          <div class="detail-body" id="d-body">
+            <div class="empty">
+              <i class="ti ti-file-invoice" aria-hidden="true"></i>
+              <div class="empty-title">No invoice selected</div>
+              <div class="empty-sub">Click a row in the queue to see fields, confidence scores and lifecycle history</div>
+            </div>
+          </div>
+          <div class="detail-actions" id="d-actions" style="display:none">
+            <div class="btn primary" onclick="approveSelected()" style="justify-content:center"><i class="ti ti-check" aria-hidden="true"></i> Approve invoice</div>
+            <div style="display:flex;gap:6px">
+              <div class="btn" style="flex:1;justify-content:center" onclick="alert('Invoice returned to vendor with comment.')"><i class="ti ti-arrow-back" aria-hidden="true"></i> Return</div>
+              <div class="btn danger" style="flex:1;justify-content:center" onclick="rejectInvoice()"><i class="ti ti-x" aria-hidden="true"></i> Reject</div>
+            </div>
+            <div class="btn" style="justify-content:center" onclick="alert('Note added to audit trail.')"><i class="ti ti-message" aria-hidden="true"></i> Add note</div>
+            <div class="btn ghost" style="justify-content:center" onclick="alert('Full invoice PDF viewer.')"><i class="ti ti-eye" aria-hidden="true"></i> View original PDF</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WORKFLOW DESIGNER ── -->
+    <div class="view" id="view-wf">
+      <div class="topbar">
+        <span class="tb-title">Workflow Designer <span class="tb-sub">Contract Lifecycle — Service Agreement v2.1</span></span>
+        <div class="tb-actions">
+          <div class="btn"><i class="ti ti-history" aria-hidden="true"></i> History</div>
+          <div class="btn" onclick="alert('Simulation: test invoice stepped through all 9 states. All routing rules validated. Ready to activate.')"><i class="ti ti-player-play" aria-hidden="true"></i> Simulate</div>
+          <div class="btn" onclick="alert('Workflow exported to JSON dataset with sanitized placeholders.')"><i class="ti ti-database" aria-hidden="true"></i> Save to dataset</div>
+          <div class="btn primary" onclick="alert('Workflow activated. All 9 states live. Simulation gate passed.')"><i class="ti ti-device-floppy" aria-hidden="true"></i> Activate</div>
+        </div>
+      </div>
+      <div class="wf-shell">
+        <div class="wf-palette" aria-label="Node palette">
+          <div class="pal-lbl">AP States</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-circle-dot" aria-hidden="true"></i> Received</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-scan" aria-hidden="true"></i> Extracting</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-arrows-exchange" aria-hidden="true"></i> Matching</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-clock" aria-hidden="true"></i> Pending</div>
+          <div class="pal-lbl">Approval Tiers</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-user-check" aria-hidden="true"></i> Manager</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-users" aria-hidden="true"></i> Director</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-building" aria-hidden="true"></i> VP Operations</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-crown" aria-hidden="true"></i> CFO</div>
+          <div class="pal-lbl">Outcomes</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-check" aria-hidden="true"></i> Approved</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-send" aria-hidden="true"></i> Posted to ERP</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-x" aria-hidden="true"></i> Rejected</div>
+          <div class="pal-lbl">Exceptions</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Exception</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-refresh" aria-hidden="true"></i> Escalate</div>
+          <div class="pal-node" draggable="true"><i class="ti ti-arrow-back" aria-hidden="true"></i> Return to vendor</div>
+        </div>
+
+        <div class="wf-canvas-wrap" id="wf-canvas" aria-label="Workflow canvas">
+          <svg class="wf-svg" id="wf-svg">
+            <defs>
+              <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+              </marker>
+            </defs>
+            <line x1="120" y1="74" x2="120" y2="128" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <line x1="120" y1="184" x2="120" y2="238" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <line x1="120" y1="294" x2="120" y2="348" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <line x1="120" y1="404" x2="72" y2="458" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <line x1="120" y1="404" x2="168" y2="458" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <line x1="72" y1="514" x2="120" y2="568" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <line x1="168" y1="514" x2="120" y2="568" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+            <text x="128" y="108" font-size="9" fill="#94a3b8" font-family="DM Sans, sans-serif">OCR extract</text>
+            <text x="128" y="268" font-size="9" fill="#94a3b8" font-family="DM Sans, sans-serif">PO match</text>
+            <text x="128" y="380" font-size="9" fill="#94a3b8" font-family="DM Sans, sans-serif">amount routing</text>
+            <text x="24" y="490" font-size="9" fill="#94a3b8" font-family="DM Sans, sans-serif">≤ $25k</text>
+            <text x="148" y="490" font-size="9" fill="#94a3b8" font-family="DM Sans, sans-serif">&gt; $25k</text>
+          </svg>
+          <div class="wf-node initial" style="left:60px;top:20px" onclick="selectNode(this,'Received','Entry point · initial state')">
+            <div class="wf-node-title">Received</div>
+            <div class="wf-node-type">Entry point</div>
+            <span class="wf-node-badge st-recv">initial</span>
+          </div>
+          <div class="wf-node" style="left:60px;top:128px" onclick="selectNode(this,'Extracted','AI OCR processing state')">
+            <div class="wf-node-title">Extracted</div>
+            <div class="wf-node-type">AI processing</div>
+          </div>
+          <div class="wf-node" style="left:60px;top:238px" onclick="selectNode(this,'Matched','PO matching verification')">
+            <div class="wf-node-title">Matched</div>
+            <div class="wf-node-type">PO verified</div>
+          </div>
+          <div class="wf-node" style="left:60px;top:348px" onclick="selectNode(this,'Pending Approval','Awaiting human review')">
+            <div class="wf-node-title">Pending</div>
+            <div class="wf-node-type">Awaiting approval</div>
+          </div>
+          <div class="wf-node" style="left:14px;top:458px" onclick="selectNode(this,'Manager Approval','Tier 1 · amount ≤ $25k')">
+            <div class="wf-node-title">Manager</div>
+            <div class="wf-node-type">≤ $25k</div>
+          </div>
+          <div class="wf-node" style="left:106px;top:458px" onclick="selectNode(this,'CFO Approval','Tier 2 · amount > $25k')">
+            <div class="wf-node-title">CFO</div>
+            <div class="wf-node-type">&gt; $25k</div>
+          </div>
+          <div class="wf-node terminal" style="left:60px;top:568px" onclick="selectNode(this,'Approved','Terminal state · triggers ERP posting')">
+            <div class="wf-node-title">Approved</div>
+            <div class="wf-node-type">Terminal · ERP post</div>
+            <span class="wf-node-badge" style="background:var(--purple-lt);color:var(--purple-txt)">terminal</span>
+          </div>
+        </div>
+
+        <div class="wf-inspector">
+          <div class="inspector-head">
+            <div style="font-size:12px;font-weight:500;color:var(--text)" id="insp-title">State Inspector</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="insp-sub">Click a state to configure</div>
+          </div>
+          <div class="inspector-body" id="insp-body">
+            <div class="empty" style="padding:16px 0">
+              <i class="ti ti-cursor-text" style="font-size:28px" aria-hidden="true"></i>
+              <div class="empty-title" style="font-size:11px">No state selected</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EXCEPTIONS ── -->
+    <div class="view" id="view-exc">
+      <div class="topbar">
+        <span class="tb-title">Exception Workbench <span class="tb-sub">5 open · 2 critical · 1 SLA breached</span></span>
+        <div class="tb-actions">
+          <div class="btn"><i class="ti ti-refresh" aria-hidden="true"></i> Refresh</div>
+          <div class="btn primary" onclick="alert('3 selected exceptions resolved and returned to approval queue.')"><i class="ti ti-check" aria-hidden="true"></i> Resolve selected</div>
+        </div>
+      </div>
+      <div class="exc-wrap">
+        <div class="exc-card">
+          <div class="exc-card-head">
+            <i class="ti ti-user-x" style="font-size:16px;color:var(--red)" aria-hidden="true"></i>
+            <span class="exc-q-name">Missing Vendor Reference</span>
+            <span class="exc-cnt" style="background:var(--red-lt);color:var(--red-txt)">2</span>
+            <span class="exc-sla" style="color:var(--amber)"><i class="ti ti-clock" aria-hidden="true"></i> SLA: 2h 14m remaining</span>
+          </div>
+          <div class="exc-items">
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-inv-id">INV-2026-0441</span>
+              <span class="exc-reason">Vendor name "Tech Solutions Inc" — no ERP match found</span>
+              <span class="exc-age">38 min ago</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px" onclick="alert('3 vendor candidates found. Select the correct match.')">Match vendor</div>
+            </div>
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-inv-id">INV-2026-0438</span>
+              <span class="exc-reason">Email domain @globaltech.io — 3 candidates found by AI</span>
+              <span class="exc-age">1h 12m ago</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px" onclick="alert('AI suggests: Global Technology Inc (87%), GlobalTech Canada (79%), GT Solutions (61%)')">Review AI match</div>
+            </div>
+          </div>
+        </div>
+        <div class="exc-card">
+          <div class="exc-card-head">
+            <i class="ti ti-file-x" style="font-size:16px;color:var(--amber)" aria-hidden="true"></i>
+            <span class="exc-q-name">Missing PO Reference</span>
+            <span class="exc-cnt" style="background:var(--amber-lt);color:var(--amber-txt)">1</span>
+            <span class="exc-sla" style="color:var(--text3)"><i class="ti ti-clock" aria-hidden="true"></i> SLA: 6h 30m remaining</span>
+          </div>
+          <div class="exc-items">
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-inv-id">INV-2026-0439</span>
+              <span class="exc-reason">PO required by tenant policy — none provided by vendor</span>
+              <span class="exc-age">2h 5m ago</span>
+              <div class="btn" style="padding:3px 8px;font-size:10px" onclick="alert('Policy exception approved. Invoice will continue to approval routing.')">Approve exception</div>
+            </div>
+          </div>
+        </div>
+        <div class="exc-card">
+          <div class="exc-card-head">
+            <i class="ti ti-eye-off" style="font-size:16px;color:var(--red)" aria-hidden="true"></i>
+            <span class="exc-q-name">Low Confidence Extraction</span>
+            <span class="exc-cnt" style="background:var(--red-lt);color:var(--red-txt)">2</span>
+            <span class="exc-sla" style="color:var(--red)"><i class="ti ti-alert-circle" aria-hidden="true"></i> SLA BREACHED — escalating to Controller</span>
+          </div>
+          <div class="exc-items">
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-inv-id">INV-2026-0435</span>
+              <span class="exc-reason">Total field confidence 0.51 — rotated scan detected</span>
+              <span class="exc-age">3h 45m ago</span>
+              <div class="btn danger" style="padding:3px 8px;font-size:10px" onclick="alert('Manual review panel: correct field values from PDF viewer.')">Manual review</div>
+            </div>
+            <div class="exc-item">
+              <div class="cb" onclick="this.classList.toggle('on')"></div>
+              <span class="exc-inv-id">INV-2026-0431</span>
+              <span class="exc-reason">Handwritten total amount — confidence 0.48 — needs human verification</span>
+              <span class="exc-age">5h 02m ago</span>
+              <div class="btn danger" style="padding:3px 8px;font-size:10px" onclick="alert('Side-by-side PDF + field editor open.')">Manual review</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ERP MAPPING ── -->
+    <div class="view" id="view-erp">
+      <div class="topbar">
+        <span class="tb-title">ERP Field Mapping <span class="tb-sub">SAP S/4HANA · confidence 0.94 · 23 successful postings</span></span>
+        <div class="tb-actions">
+          <div class="btn success"><i class="ti ti-star" aria-hidden="true"></i> Trusted standard</div>
+          <div class="btn" onclick="alert('Mapping forked as client-specific variant. Original preserved.')"><i class="ti ti-git-fork" aria-hidden="true"></i> Fork</div>
+          <div class="btn primary" onclick="alert('Mapping saved to erp_configs registry. Will auto-apply on next SAP deployment.')"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save mapping</div>
+        </div>
+      </div>
+      <div class="erp-wrap">
+        <div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--r-md);font-size:11px;color:var(--blue-txt);display:flex;align-items:center;gap:8px">
+          <i class="ti ti-sparkles" style="font-size:14px" aria-hidden="true"></i>
+          AI auto-mapped 4 of 5 fields using semantic embedding + historical inference from 23 previous SAP deployments. One field needs manual mapping.
+        </div>
+        <div class="map-table">
+          <div class="map-table-header">
+            <div class="map-col-head">Proviso canonical field</div>
+            <div class="map-col-head" style="text-align:center">Link</div>
+            <div class="map-col-head">SAP S/4HANA field</div>
+          </div>
+          <div class="map-row">
+            <div class="map-cell" style="color:var(--text)">vendor_name</div>
+            <div class="map-center"><i class="ti ti-link map-icon-ok" aria-hidden="true"></i></div>
+            <div class="map-cell" style="color:var(--blue-txt)">LIFNR / NAME1 <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:#dcfce7;color:var(--green-txt)">0.98</span></div>
+          </div>
+          <div class="map-row">
+            <div class="map-cell" style="color:var(--text)">invoice_number</div>
+            <div class="map-center"><i class="ti ti-link map-icon-ok" aria-hidden="true"></i></div>
+            <div class="map-cell" style="color:var(--blue-txt)">BELNR <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:#dcfce7;color:var(--green-txt)">0.99</span></div>
+          </div>
+          <div class="map-row">
+            <div class="map-cell" style="color:var(--text)">total_amount</div>
+            <div class="map-center"><i class="ti ti-link map-icon-ok" aria-hidden="true"></i></div>
+            <div class="map-cell" style="color:var(--blue-txt)">WRBTR <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:#dcfce7;color:var(--green-txt)">0.97</span></div>
+          </div>
+          <div class="map-row">
+            <div class="map-cell" style="color:var(--text)">due_date</div>
+            <div class="map-center"><i class="ti ti-link map-icon-warn" aria-hidden="true"></i></div>
+            <div class="map-cell" style="color:var(--amber-txt)">ZFBDT <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:var(--amber-lt);color:var(--amber-txt)">review</span></div>
+          </div>
+          <div class="map-row">
+            <div class="map-cell" style="color:var(--text)">cost_center</div>
+            <div class="map-center"><i class="ti ti-question-mark map-icon-missing" aria-hidden="true"></i></div>
+            <div class="map-cell" style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:var(--text3)">Not mapped</span>
+              <div class="btn primary" style="padding:3px 8px;font-size:10px;margin-left:auto" onclick="alert('Manual mapping: select SAP field KOSTL (Cost Center) to map cost_center.')">Map field</div>
+            </div>
+          </div>
+          <div class="map-row">
+            <div class="map-cell" style="color:var(--text)">currency</div>
+            <div class="map-center"><i class="ti ti-link map-icon-ok" aria-hidden="true"></i></div>
+            <div class="map-cell" style="color:var(--blue-txt)">WAERS <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:#dcfce7;color:var(--green-txt)">0.95</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px">
+            <div class="section-lbl">Learning loop</div>
+            <div class="field-row"><span class="field-key">Confidence score</span><span class="field-val" style="color:var(--green)">0.94</span></div>
+            <div class="field-row"><span class="field-key">Usage count</span><span class="field-val">23 postings</span></div>
+            <div class="field-row"><span class="field-key">Auto-apply threshold</span><span class="field-val">0.90 ✓ passed</span></div>
+            <div class="field-row"><span class="field-key">Trusted standard</span><span class="field-val" style="color:var(--green)">✓ Yes</span></div>
+            <div class="field-row"><span class="field-key">ERP version</span><span class="field-val">SAP 2024</span></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px">
+            <div class="section-lbl">Posting stats</div>
+            <div class="field-row"><span class="field-key">Last posted</span><span class="field-val">Today 14:21</span></div>
+            <div class="field-row"><span class="field-key">Success rate</span><span class="field-val" style="color:var(--green)">100%</span></div>
+            <div class="field-row"><span class="field-key">Failed postings</span><span class="field-val">0</span></div>
+            <div class="field-row"><span class="field-key">DLQ events</span><span class="field-val">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AUDIT TRAIL ── -->
+    <div class="view" id="view-audit">
+      <div class="topbar">
+        <span class="tb-title">Audit Trail <span class="tb-sub">Immutable · append-only · 7-year retention · INSERT-only DB role</span></span>
+        <div class="tb-actions">
+          <div class="btn"><i class="ti ti-filter" aria-hidden="true"></i> Filter</div>
+          <div class="btn"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</div>
+          <div class="btn primary" onclick="alert('Full audit report generated as PDF for compliance review.')"><i class="ti ti-file-text" aria-hidden="true"></i> Export PDF report</div>
+        </div>
+      </div>
+      <div class="audit-wrap">
+        <table class="inv-table" style="width:100%" aria-label="Audit trail events">
+          <thead>
+            <tr>
+              <th class="sortable">Time</th>
+              <th>Event type</th>
+              <th>Invoice</th>
+              <th>User</th>
+              <th>Module</th>
+              <th>Old value</th>
+              <th>New value / detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">14:32:01</td>
+              <td><span class="st st-appr">approved</span></td>
+              <td class="mono">INV-0441</td>
+              <td style="font-size:11px">Sarah Mitchell</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-04</span></td>
+              <td style="font-size:11px;color:var(--text3)">pending_approval</td>
+              <td style="font-size:11px">approved · manager tier</td>
+            </tr>
+            <tr>
+              <td class="mono">14:28:14</td>
+              <td><span class="st st-extr">extracted</span></td>
+              <td class="mono">INV-0442</td>
+              <td style="font-size:11px;color:var(--text3)">System</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-02</span></td>
+              <td style="font-size:11px;color:var(--text3)">received</td>
+              <td style="font-size:11px">OCR confidence 0.97 · 6.2s · PaddleOCR</td>
+            </tr>
+            <tr>
+              <td class="mono">14:25:50</td>
+              <td><span class="st st-excp">exception</span></td>
+              <td class="mono">INV-0438</td>
+              <td style="font-size:11px;color:var(--text3)">System</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-03</span></td>
+              <td style="font-size:11px;color:var(--text3)">extracted</td>
+              <td style="font-size:11px;color:var(--red-txt)">VENDOR_UNKNOWN · routed to exception queue</td>
+            </tr>
+            <tr>
+              <td class="mono">14:21:03</td>
+              <td><span class="st st-post">posted</span></td>
+              <td class="mono">INV-0430</td>
+              <td style="font-size:11px;color:var(--text3)">System</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-05</span></td>
+              <td style="font-size:11px;color:var(--text3)">approved</td>
+              <td style="font-size:11px">SAP FI ref: 2026-88214 · $12,450.00</td>
+            </tr>
+            <tr>
+              <td class="mono">14:18:44</td>
+              <td><span class="st st-recv">received</span></td>
+              <td class="mono">INV-0443</td>
+              <td style="font-size:11px;color:var(--text3)">System</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-01</span></td>
+              <td style="font-size:11px;color:var(--text3)">—</td>
+              <td style="font-size:11px">email · vendor@acme.com · 342KB PDF</td>
+            </tr>
+            <tr>
+              <td class="mono">14:15:22</td>
+              <td><span class="st st-pend">field edit</span></td>
+              <td class="mono">INV-0437</td>
+              <td style="font-size:11px">James Okonkwo</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-08</span></td>
+              <td style="font-size:11px;color:var(--red-txt)">$9,200.00</td>
+              <td style="font-size:11px;color:var(--green-txt)">$9,850.00 · reason: "corrected scan error"</td>
+            </tr>
+            <tr>
+              <td class="mono">14:10:08</td>
+              <td><span class="st st-appr">approved</span></td>
+              <td class="mono">INV-0436</td>
+              <td style="font-size:11px">David Chen</td>
+              <td><span style="font-size:10px;padding:1px 6px;background:#f1f5f9;border-radius:4px;color:var(--text2);font-family:var(--font-mono)">MOD-04</span></td>
+              <td style="font-size:11px;color:var(--text3)">pending_approval</td>
+              <td style="font-size:11px">CFO approval · $74,200 · above $25k threshold</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── AI COCKPIT ── -->
+    <div class="view" id="view-ai">
+      <div class="topbar">
+        <span class="tb-title">AI Cockpit <span class="tb-sub">Integrator view · RAG workflow generation · dataset management</span></span>
+        <div class="tb-actions">
+          <div class="btn"><i class="ti ti-database" aria-hidden="true"></i> Dataset (142 workflows)</div>
+          <div class="btn" onclick="alert('First-Run Wizard: configure tenant policies, load vendor master, build approval matrix, validate workflow, go live.')"><i class="ti ti-wand" aria-hidden="true"></i> First-Run Wizard</div>
+          <div class="btn primary" onclick="alert('AI generating workflow from scenario. Fetching top 3 RAG candidates...')"><i class="ti ti-sparkles" aria-hidden="true"></i> Generate workflow</div>
+        </div>
+      </div>
+      <div class="ai-shell">
+        <div class="ai-main">
+          <div class="ai-prompt-bar">
+            <div style="font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Describe your workflow scenario</div>
+            <div class="ai-prompt-input">
+              <i class="ti ti-sparkles spark" aria-hidden="true"></i>
+              <span>Service agreement workflow for Ontario manufacturer, dual approval above $25k CAD, CFO sign-off above $100k, PDF lock on execution...</span>
+              <div class="btn primary" style="padding:5px 10px;font-size:11px"><i class="ti ti-arrow-right" aria-hidden="true"></i></div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              <div class="chip on">AP invoice</div>
+              <div class="chip" onclick="this.classList.toggle('on')">Contract lifecycle</div>
+              <div class="chip" onclick="this.classList.toggle('on')">NDA</div>
+              <div class="chip" onclick="this.classList.toggle('on')">Approbation</div>
+              <div class="chip" onclick="this.classList.toggle('on')">Service agreement</div>
+              <div class="chip" onclick="this.classList.toggle('on')">Custom</div>
+            </div>
+          </div>
+
+          <div class="ai-candidates">
+            <div class="candidates-lbl">3 closest dataset matches · select a starting point</div>
+            <div class="cands">
+              <div class="cand best" onclick="alert('Loading: Service Agreement — Mfg. 11 states, 14 transitions. AI will customize to your scenario.')">
+                <span class="cand-pct" style="background:var(--blue-lt);color:var(--blue-txt)">94%</span>
+                <div class="cand-name">Service Agreement — Mfg</div>
+                <div class="cand-meta">11 states · 14 transitions · used 23×</div>
+                <div class="cand-meta" style="margin-top:3px">Ontario manufacturing · 2024</div>
+              </div>
+              <div class="cand" onclick="alert('Loading: AP Invoice — Dual Approval. 9 states, 11 transitions. AI will customize.')">
+                <span class="cand-pct" style="background:var(--surface3);color:var(--text2)">81%</span>
+                <div class="cand-name">AP Invoice — Dual Approval</div>
+                <div class="cand-meta">9 states · 11 transitions · used 41×</div>
+                <div class="cand-meta" style="margin-top:3px">Finance · SMB · 2024</div>
+              </div>
+              <div class="cand" onclick="alert('Loading: Contract Lifecycle — SMB. 8 states, 10 transitions.')">
+                <span class="cand-pct" style="background:var(--surface3);color:var(--text2)">73%</span>
+                <div class="cand-name">Contract Lifecycle — SMB</div>
+                <div class="cand-meta">8 states · 10 transitions · used 18×</div>
+                <div class="cand-meta" style="margin-top:3px">General · multi-industry</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-diff">
+            <div class="diff-lbl">
+              AI customization diff — review each change before saving
+              <div class="btn success" style="padding:3px 8px;font-size:10px" onclick="alert('All changes accepted. Workflow ready to save and activate.')"><i class="ti ti-checks" aria-hidden="true"></i> Accept all</div>
+              <div class="btn danger" style="padding:3px 8px;font-size:10px" onclick="alert('All AI changes rejected. Base template restored.')"><i class="ti ti-x" aria-hidden="true"></i> Reject all</div>
+            </div>
+            <div class="diff-row diff-add">
+              <i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i>
+              <span>State added: <strong>VP Operations</strong> — approval tier · $25k–$100k</span>
+              <div class="diff-btns">
+                <div class="btn success" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').remove()">Remove</div>
+              </div>
+            </div>
+            <div class="diff-row diff-change">
+              <i class="ti ti-edit" style="font-size:13px" aria-hidden="true"></i>
+              <span>Threshold changed: Manager approval <strong>$10k → $25k CAD</strong></span>
+              <div class="diff-btns">
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn danger" style="padding:2px 7px;font-size:10px">Keep $10k</div>
+              </div>
+            </div>
+            <div class="diff-row diff-add">
+              <i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i>
+              <span>Transition added: <strong>PDF Lock</strong> on execution — post Approved state</span>
+              <div class="diff-btns">
+                <div class="btn success" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').remove()">Remove</div>
+              </div>
+            </div>
+            <div class="diff-row diff-remove">
+              <i class="ti ti-minus" style="font-size:13px" aria-hidden="true"></i>
+              <span>State removed: <strong>Signed Internally</strong> — not applicable for this scenario</span>
+              <div class="diff-btns">
+                <div class="btn danger" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn" style="padding:2px 7px;font-size:10px">Restore</div>
+              </div>
+            </div>
+            <div class="diff-row diff-change">
+              <i class="ti ti-edit" style="font-size:13px" aria-hidden="true"></i>
+              <span>Approver changed: CFO role → <strong>CFO + Board approval</strong> above $100k</span>
+              <div class="diff-btns">
+                <div class="btn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-row').style.opacity='.4'">Accept</div>
+                <div class="btn danger" style="padding:2px 7px;font-size:10px">Keep CFO only</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-sidebar">
+          <div class="ai-sb-head">
+            <div style="font-size:11px;font-weight:500;color:var(--text)">Dataset overview</div>
+          </div>
+          <div class="ai-sb-body">
+            <div class="stat-mini"><div class="stat-mini-val">142</div><div class="stat-mini-lbl">Total workflows</div></div>
+            <div class="stat-mini"><div class="stat-mini-val" style="color:var(--green)">89%</div><div class="stat-mini-lbl">Average reuse rate</div></div>
+            <div class="stat-mini"><div class="stat-mini-val">23</div><div class="stat-mini-lbl">Used this month</div></div>
+
+            <div>
+              <div class="section-lbl" style="margin-bottom:8px">By workflow type</div>
+              <div class="bar-item"><div class="bar-lbl"><span>AP Invoice</span><span>64</span></div><div class="bar-track"><div class="bar-fill" style="width:45%;background:var(--blue)"></div></div></div>
+              <div class="bar-item"><div class="bar-lbl"><span>Contract lifecycle</span><span>41</span></div><div class="bar-track"><div class="bar-fill" style="width:29%;background:var(--green)"></div></div></div>
+              <div class="bar-item"><div class="bar-lbl"><span>NDA</span><span>22</span></div><div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--amber)"></div></div></div>
+              <div class="bar-item"><div class="bar-lbl"><span>Approbation</span><span>10</span></div><div class="bar-track"><div class="bar-fill" style="width:7%;background:var(--purple)"></div></div></div>
+              <div class="bar-item"><div class="bar-lbl"><span>Other</span><span>5</span></div><div class="bar-track"><div class="bar-fill" style="width:4%;background:#94a3b8"></div></div></div>
+            </div>
+
+            <div>
+              <div class="section-lbl" style="margin-bottom:6px">Sanitization pipeline</div>
+              <div style="font-size:11px;color:var(--text2);line-height:1.6">
+                Level 1 — Direct: names, emails, amounts<br>
+                Level 2 — Semantic: role generalisation<br>
+                Level 3 — Pattern: logic abstraction
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px">
+              <div class="btn primary" style="justify-content:center" onclick="alert('Dataset browser: filter by type, industry, complexity, usage count. Preview any workflow in read-only canvas.')"><i class="ti ti-database" aria-hidden="true"></i> Browse full dataset</div>
+              <div class="btn" style="justify-content:center" onclick="alert('Import M-Files XML or JSON workflow. Sanitization pipeline runs automatically.')"><i class="ti ti-upload" aria-hidden="true"></i> Import workflow</div>
+              <div class="btn" style="justify-content:center" onclick="alert('Sanitization report: shows what was replaced and why for each workflow.')"><i class="ti ti-shield" aria-hidden="true"></i> Sanitization report</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const invoices = [
+  {id:'INV-2026-0441',vendor:'Acme Corporation',vi:'AC',vc:'#dbeafe',vt:'#1d4ed8',amt:'$12,450.00',date:'2026-05-25',status:'pending',conf:0.94,assignee:'Sarah M.',sla:'2h 14m',slaWarn:true},
+  {id:'INV-2026-0440',vendor:'Global Tech Solutions',vi:'GT',vc:'#dcfce7',vt:'#166534',amt:'$74,200.00',date:'2026-05-25',status:'pending',conf:0.91,assignee:'David C.',sla:'4h 50m',slaWarn:false},
+  {id:'INV-2026-0439',vendor:'Northern Supplies Ltd',vi:'NS',vc:'#fef9c3',vt:'#854d0e',amt:'$3,800.00',date:'2026-05-24',status:'exception',conf:0.88,assignee:'James O.',sla:'0h 45m',slaWarn:true},
+  {id:'INV-2026-0438',vendor:'Pacific Logistics Inc',vi:'PL',vc:'#fce7f3',vt:'#9d174d',amt:'$28,100.00',date:'2026-05-24',status:'extracted',conf:0.97,assignee:'System',sla:'6h 30m',slaWarn:false},
+  {id:'INV-2026-0437',vendor:'Summit Engineering',vi:'SE',vc:'#f3e8ff',vt:'#6b21a8',amt:'$9,850.00',date:'2026-05-24',status:'approved',conf:0.99,assignee:'Sarah M.',sla:'—',slaWarn:false},
+  {id:'INV-2026-0436',vendor:'Apex Consulting Group',vi:'AG',vc:'#ffedd5',vt:'#9a3412',amt:'$145,000.00',date:'2026-05-23',status:'approved',conf:0.96,assignee:'Michael R.',sla:'—',slaWarn:false},
+  {id:'INV-2026-0435',vendor:'Downtown Office Supply',vi:'DO',vc:'#e0f2fe',vt:'#0c4a6e',amt:'$1,240.00',date:'2026-05-23',status:'exception',conf:0.51,assignee:'James O.',sla:'BREACH',slaWarn:true},
+  {id:'INV-2026-0434',vendor:'Eastside Manufacturing Co',vi:'EM',vc:'#f0fdf4',vt:'#15803d',amt:'$33,600.00',date:'2026-05-22',status:'pending',conf:0.93,assignee:'David C.',sla:'7h 10m',slaWarn:false},
+  {id:'INV-2026-0433',vendor:'Horizon Cloud Services',vi:'HC',vc:'#ede9fe',vt:'#5b21b6',amt:'$8,400.00',date:'2026-05-22',status:'posted',conf:0.98,assignee:'System',sla:'—',slaWarn:false},
+];
+
+let selIdx = null;
+let curFilter = 'all';
+
+function stBadge(s){
+  const m={
+    pending:'<span class="st st-pend">Pending</span>',
+    extracted:'<span class="st st-extr">Extracted</span>',
+    approved:'<span class="st st-appr">Approved</span>',
+    exception:'<span class="st st-excp">Exception</span>',
+    received:'<span class="st st-recv">Received</span>',
+    posted:'<span class="st st-post">Posted</span>',
+  };
+  return m[s]||s;
+}
+
+function confBar(v){
+  const cls=v>=0.9?'conf-hi':v>=0.7?'conf-mid':'conf-lo';
+  const tcls=v>=0.9?'conf-hi-txt':v>=0.7?'conf-mid-txt':'conf-lo-txt';
+  return `<div class="conf"><div class="conf-track"><div class="conf-fill ${cls}" style="width:${Math.round(v*100)}%"></div></div><span class="conf-pct ${tcls}">${Math.round(v*100)}%</span></div>`;
+}
+
+function renderTable(filter=''){
+  const tbody = document.getElementById('inv-body');
+  const rows = invoices.filter(inv=>{
+    const matchSearch = !filter || inv.vendor.toLowerCase().includes(filter.toLowerCase()) || inv.id.toLowerCase().includes(filter.toLowerCase()) || inv.amt.includes(filter);
+    const matchChip = curFilter==='all' || inv.status===curFilter;
+    return matchSearch && matchChip;
+  });
+  tbody.innerHTML = rows.map((inv,i)=>`
+    <tr class="${selIdx===i?'sel':''}" onclick="selectRow(${i})" role="row" aria-selected="${selIdx===i}">
+      <td><div class="cb ${selIdx===i?'on':''}" onclick="event.stopPropagation();this.classList.toggle('on')" aria-label="Select invoice"></div></td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="vav" style="background:${inv.vc};color:${inv.vt}">${inv.vi}</div><span>${inv.vendor}</span></div></td>
+      <td class="mono">${inv.id}</td>
+      <td style="font-size:11px;color:var(--text2)">${inv.date}</td>
+      <td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${inv.amt}</td>
+      <td>${stBadge(inv.status)}</td>
+      <td>${confBar(inv.conf)}</td>
+      <td style="font-size:11px;color:var(--text2)">${inv.assignee}</td>
+      <td style="font-size:11px;${inv.slaWarn?'color:var(--red);font-weight:600':'color:var(--text2)'}">${inv.sla}</td>
+      <td><div class="btn ghost" style="padding:3px 7px" onclick="event.stopPropagation();selectRow(${i})" aria-label="View invoice details"><i class="ti ti-eye" aria-hidden="true"></i></div></td>
+    </tr>`).join('');
+}
+
+function selectRow(i){
+  selIdx=i;
+  renderTable(document.getElementById('search-inp').value);
+  showDetail(i);
+}
+
+function showDetail(i){
+  const inv=invoices[i];
+  document.getElementById('d-inv-id').textContent=inv.id;
+  document.getElementById('d-inv-vendor').textContent=inv.vendor+' · '+inv.amt;
+  document.getElementById('d-actions').style.display='flex';
+  const body=document.getElementById('d-body');
+  body.innerHTML=`
+    <div>
+      <div class="section-lbl">Invoice fields</div>
+      <div class="field-row"><span class="field-key">Vendor</span><span class="field-val">${inv.vendor}</span></div>
+      <div class="field-row"><span class="field-key">Invoice #</span><span class="field-val">${inv.id}</span></div>
+      <div class="field-row"><span class="field-key">Amount</span><span class="field-val">${inv.amt}</span></div>
+      <div class="field-row"><span class="field-key">Date</span><span class="field-val">${inv.date}</span></div>
+      <div class="field-row"><span class="field-key">Status</span><span class="field-val">${stBadge(inv.status)}</span></div>
+      <div class="field-row"><span class="field-key">Assigned to</span><span class="field-val">${inv.assignee}</span></div>
+      <div class="field-row"><span class="field-key">SLA</span><span class="field-val ${inv.slaWarn?'':'field-val'}" style="${inv.slaWarn?'color:var(--red)':''}">${inv.sla}</span></div>
+    </div>
+    <div>
+      <div class="section-lbl">AI confidence scores</div>
+      <div class="cf-row"><span class="cf-lbl">Vendor name</span>${confBar(0.97)}</div>
+      <div class="cf-row"><span class="cf-lbl">Invoice number</span>${confBar(0.99)}</div>
+      <div class="cf-row"><span class="cf-lbl">Total amount</span>${confBar(inv.conf)}</div>
+      <div class="cf-row"><span class="cf-lbl">Due date</span>${confBar(0.88)}</div>
+      <div class="cf-row"><span class="cf-lbl">PO number</span>${confBar(0.71)}</div>
+      <div class="cf-row"><span class="cf-lbl">Currency</span>${confBar(0.99)}</div>
+    </div>
+    <div>
+      <div class="section-lbl">Lifecycle</div>
+      <div class="tl">
+        <div class="tl-item">
+          <div class="tl-dot done"><i class="ti ti-check" aria-hidden="true"></i></div>
+          <div class="tl-line"></div>
+          <div class="tl-content"><div class="tl-name">Received</div><div class="tl-meta">Email · vendor@${inv.vendor.toLowerCase().replace(/\s/g,'')}.com · 14:18</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot done"><i class="ti ti-check" aria-hidden="true"></i></div>
+          <div class="tl-line"></div>
+          <div class="tl-content"><div class="tl-name">AI extracted</div><div class="tl-meta">PaddleOCR · 6.2s · confidence ${(inv.conf*100).toFixed(0)}%</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot ${inv.status==='exception'?'curr':'done'}"><i class="ti ti-${inv.status==='exception'?'alert-triangle':'check'}" aria-hidden="true"></i></div>
+          <div class="tl-line"></div>
+          <div class="tl-content"><div class="tl-name">PO matched</div><div class="tl-meta">${inv.status==='exception'?'Exception — routed to queue':'2-way match · within tolerance'}</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot ${inv.status==='pending'?'curr':inv.status==='approved'||inv.status==='posted'?'done':'pend'}"><i class="ti ti-${inv.status==='pending'?'clock':inv.status==='approved'||inv.status==='posted'?'check':'lock'}" aria-hidden="true"></i></div>
+          <div class="tl-line"></div>
+          <div class="tl-content"><div class="tl-name">Approval</div><div class="tl-meta">Assigned: ${inv.assignee}</div></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot ${inv.status==='posted'?'done':'pend'}"><i class="ti ti-${inv.status==='posted'?'check':'send'}" aria-hidden="true"></i></div>
+          <div class="tl-content"><div class="tl-name">Post to ERP</div><div class="tl-meta">${inv.status==='posted'?'SAP FI ref posted':'Awaiting approval'}</div></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function filterTable(v){ renderTable(v); }
+
+function setChip(el,f){
+  curFilter=f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  renderTable(document.getElementById('search-inp').value);
+}
+
+function approveSelected(){
+  if(selIdx!==null){
+    invoices[selIdx].status='approved';
+    invoices[selIdx].sla='—';
+    invoices[selIdx].slaWarn=false;
+    document.getElementById('sb-pending-count').textContent=String(parseInt(document.getElementById('sb-pending-count').textContent)-1);
+    renderTable(document.getElementById('search-inp').value);
+    showDetail(selIdx);
+  }
+}
+
+function rejectInvoice(){
+  if(selIdx!==null){
+    invoices[selIdx].status='exception';
+    renderTable(document.getElementById('search-inp').value);
+    showDetail(selIdx);
+  }
+}
+
+function switchView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+}
+
+function setActive(el){
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function selectNode(el,name,desc){
+  document.querySelectorAll('.wf-node').forEach(n=>n.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('insp-title').textContent=name;
+  document.getElementById('insp-sub').textContent=desc;
+  document.getElementById('insp-body').innerHTML=`
+    <div>
+      <label class="inp-label">State name</label>
+      <input class="inp" value="${name}">
+    </div>
+    <div>
+      <label class="inp-label">Assignee / owner</label>
+      <input class="inp" value="AP Data Validation Team">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:6px">
+      <div><label class="inp-label">SLA duration</label><input class="inp" type="number" value="4"></div>
+      <div><label class="inp-label">Unit</label>
+        <select class="inp" style="padding:6px 6px">
+          <option>hours</option><option>days</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="inp-label">Outgoing transitions</label>
+      <div class="trans-tag st-extr"><i class="ti ti-arrow-right" style="font-size:11px" aria-hidden="true"></i> → Pending Approval</div>
+      <div class="trans-tag st-excp"><i class="ti ti-alert-triangle" style="font-size:11px" aria-hidden="true"></i> → Exception queue</div>
+    </div>
+    <div>
+      <label class="inp-label">Escalation chain</label>
+      <input class="inp" value="AP Manager → Controller">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div class="btn primary" style="justify-content:center" onclick="alert('State saved.')"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save state</div>
+      <div class="btn danger" style="justify-content:center" onclick="alert('State deleted. Reconnect affected transitions.')"><i class="ti ti-trash" aria-hidden="true"></i> Delete state</div>
+    </div>`;
+}
+
+renderTable();
+</script>
+</body>
+</html>

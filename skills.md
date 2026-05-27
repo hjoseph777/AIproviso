@@ -1,7 +1,118 @@
 # Proviso Core — Master Prompt & Architecture Notes
 
+## Reboot Handoff — 2026-05-26
+
+### Session Closeout — Canvas / Semantic Lens Stop Point
+
+- The workflow canvas direction is now settled: the correct visual language is a canvas-level atmospheric starfield and blueprint grid, not node-pinned stars.
+- The node-badge "Shiny Stars" experiment was intentionally removed from the live designer after confirming it fought the workflow instead of supporting it.
+- The live canvas in [src/App.jsx](c:/Users/Owner/Xerox/AIproviso/src/App.jsx) now carries the merged look from the old mockup:
+  - darker integrator-style base gradient
+  - subtle dotted/star field integrated into the background
+  - clearer blueprint grid structure
+  - slightly increased contrast for better separation
+- The designer in [src/components/CommandCenter.jsx](c:/Users/Owner/Xerox/AIproviso/src/components/CommandCenter.jsx) still retains the foundational semantic translation slice underneath:
+  - canonical workflow IR helper
+  - compile projection to XState metadata
+  - compile projection to n8n metadata
+- Important clarification for tomorrow:
+  - "Shiny Stars" should now mean the canvas atmosphere and semantic depth of the surface, not floating badges attached to every node.
+  - Runtime/target specificity should surface through overlays, inspectors, and compiled detail panels, not decorative node markers.
+
+### Current Build State
+
+- The AP shell in [src/App.jsx](c:/Users/Owner/Xerox/AIproviso/src/App.jsx) is no longer purely mock-driven.
+- The current AP GUI is considered visually solid and acceptable as the working baseline for the next backend validation pass.
+- The frontend now calls a shared API client in [src/lib/api.js](c:/Users/Owner/Xerox/AIproviso/src/lib/api.js).
+- The workflow designer in [src/components/CommandCenter.jsx](c:/Users/Owner/Xerox/AIproviso/src/components/CommandCenter.jsx) now supports semantic view modes: `Business`, `Runtime`, and `Target`.
+- These view modes keep the Proviso-native model as the source of truth while exposing runtime and engine-specific overlays on demand.
+- Vite dev proxy support was added in [vite.config.js](c:/Users/Owner/Xerox/AIproviso/vite.config.js) for `/api` and `/health`.
+- The legacy Cacoo import path has been removed from the active renderer, Electron bridge, and Flask backend so Proviso remains the single source of truth.
+- The Flask backend in [backend/app.py](c:/Users/Owner/Xerox/AIproviso/backend/app.py) now includes:
+  - `GET /api/dashboard/summary`
+  - `GET /api/invoices`
+  - `POST /api/invoices/:id/approve`
+  - `POST /api/invoices/:id/review`
+- Backend endpoints are designed to use Postgres when available and fall back to dev invoice data when the DB path is unavailable.
+
+### Validation Completed
+
+- [backend/app.py](c:/Users/Owner/Xerox/AIproviso/backend/app.py) passes editor diagnostics.
+- `python -m py_compile app.py` passed.
+- `npm run build` passed after wiring the frontend to the API.
+- `npm run build` passed again after removing the Cacoo mode and bridge.
+- `npm run build` passed after adding the initial canonical workflow IR + XState/n8n compile projection helpers in [src/components/CommandCenter.jsx](c:/Users/Owner/Xerox/AIproviso/src/components/CommandCenter.jsx).
+- `npm run build` passed after removing node-pinned badge stars and moving the visual treatment back into the shared canvas background in [src/App.jsx](c:/Users/Owner/Xerox/AIproviso/src/App.jsx).
+- `npm run build` passed after the final canvas polish pass that increased contrast and reinforced the blueprint grid in [src/App.jsx](c:/Users/Owner/Xerox/AIproviso/src/App.jsx).
+
+### Current Blockers
+
+- Docker is not usable on this Windows machine yet.
+- `docker version` shows the CLI is installed, but the Linux engine pipe is missing:
+  - `npipe:////./pipe/dockerDesktopLinuxEngine`
+- The Windows service `com.docker.service` is running, but Docker Desktop’s Linux backend is not actually available.
+- Local Python fallback validation also hit environment issues:
+  - `.venv` did not have backend dependencies installed
+  - `psycopg2-binary` failed to build because `pg_config` is not available locally
+- Because of that, the Flask app must be validated either:
+  - with Docker once Docker Desktop is healthy, or
+  - in fallback mode after confirming the optional-import branch boots cleanly in the local Python environment
+
+### Important Backend Notes
+
+- [backend/app.py](c:/Users/Owner/Xerox/AIproviso/backend/app.py) was updated so `psycopg2` and `redis` imports are optional.
+- The fallback classifier in `should_fallback()` was expanded to include:
+  - `psycopg2 is not installed`
+  - `redis client is not installed`
+- This is intended to let the API serve dev fallback invoice data even when Postgres/Redis drivers are missing.
+- Runtime payloads now expose backend-owned `routeHistory`, `ruleDecision`, and `executionTicker` data.
+- Native `guard_name` is persisted in workflow history, and `rule_id` persistence was added via `core/migrations/006_workflow_history_rule_id.sql`.
+
+### Remaining Next Steps
+
+1. Re-run local Flask startup and endpoint checks:
+   - `source "/c/Users/Owner/Xerox/.venv/bin/activate"`
+   - `cd "/c/Users/Owner/Xerox/AIproviso/backend"`
+   - `python app.py`
+   - `curl -s http://127.0.0.1:5000/api/dashboard/summary`
+   - `curl -s "http://127.0.0.1:5000/api/invoices?status=review&search=Ricoh"`
+2. If Docker Desktop is healthy after reboot, validate the real stack with:
+   - `docker version`
+   - `cd "/c/Users/Owner/Xerox/AIproviso"`
+   - `docker compose up -d postgres redis backend-api`
+3. Once either local fallback or Docker-backed API is responding, run the UI in dev mode and verify:
+   - AP table loads from `/api/invoices`
+   - metrics row loads from `/api/dashboard/summary`
+   - approve/review buttons update backend state
+4. After that, update the remaining progress tracker items to completed and continue with exception/audit real-data wiring if needed.
+5. Formalize the canonical workflow IR so semantic view modes and target compilers use typed metadata instead of ad hoc projection helpers.
+6. Add compile/publish output for XState machine config and n8n orchestration spec from the same canonical workflow model.
+7. Extract the IR/compiler helpers out of [src/components/CommandCenter.jsx](c:/Users/Owner/Xerox/AIproviso/src/components/CommandCenter.jsx) into dedicated modules.
+8. Replace heuristic state-to-rule derivation with authoritative backend/runtime metadata where available.
+9. Add inspector-driven compiled detail for selected states/transitions so runtime/target specifics open in the side panel instead of appearing as node badges.
+10. Keep the canvas background direction stable unless explicitly changing the visual language again; do not reintroduce per-node star ornaments.
+
+### Resume Anchor
+
+- Resume from: `AP-CANVAS-IR-HANDOFF-0526`
+- Immediate file focus:
+  - [backend/app.py](c:/Users/Owner/Xerox/AIproviso/backend/app.py)
+  - [src/App.jsx](c:/Users/Owner/Xerox/AIproviso/src/App.jsx)
+  - [src/components/CommandCenter.jsx](c:/Users/Owner/Xerox/AIproviso/src/components/CommandCenter.jsx)
+  - [workflow-engine/server.mjs](c:/Users/Owner/Xerox/AIproviso/workflow-engine/server.mjs)
+  - [src/lib/api.js](c:/Users/Owner/Xerox/AIproviso/src/lib/api.js)
+  - [vite.config.js](c:/Users/Owner/Xerox/AIproviso/vite.config.js)
+- Tomorrow's first move:
+  - keep the canvas visuals as-is
+  - extract the canonical workflow IR / XState / n8n projection logic into dedicated modules
+  - continue semantic lens work through inspector panels and backend-owned metadata, not node decorations
+
 ## Role
 Senior Frontend Architect — React, Zustand, Zod, custom spreadsheet grids.
+
+## Core Competency Highlight
+
+- Polymorphic UI state management for hybrid architectures: the workflow canvas is decoupled from underlying runtimes such as XState and n8n, while semantic overlays dynamically map distributed runtime traces back to localized business entities without creating a second authoring surface.
 
 ## Tech Stack
 
@@ -606,7 +717,6 @@ useEffect(() => {
 | `mfiles:progress` | ← renderer | — | Streaming log lines from PS |
 | `file:save` | → OS | — | Native Save-As dialog |
 | `sow:claude-extract` | → HTTPS | api.anthropic.com | Claude NLP extraction |
-| `sow:cacoo-fetch` | → HTTPS | Cacoo API | Diagram import |
 
 ### Updated File Structure
 
@@ -625,7 +735,7 @@ src/
     └── CommandCenter.jsx        ← all UI: SyncQueue, Unified Sync Menu, diagram, grids
 
 electron/
-├── main.cjs                     ← IPC: push, pull, list, file:save, claude, cacoo
+├── main.cjs                     ← IPC: push, pull, list, file:save, claude
 └── preload.cjs                  ← contextBridge: window.mfiles, window.sow, window.file
 
 scripts/

@@ -7,6 +7,10 @@
 
 \c proviso;
 
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- TENANT CONFIGURATIONS
 -- Single source of truth for all per-tenant AP policy settings.

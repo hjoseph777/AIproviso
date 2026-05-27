@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso — AP Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* Client mode */
+  --c-bg:#f0f4f9;
+  --c-surface:#ffffff;
+  --c-surface2:#f5f8fc;
+  --c-surface3:#edf1f7;
+  --c-border:#e2e8f2;
+  --c-border2:#cdd5e3;
+  --c-text:#0d1b2e;
+  --c-text2:#4a5568;
+  --c-text3:#8a97a8;
+  --c-blue:#1a6bdb;
+  --c-blue2:#1459ba;
+  --c-blue-lt:#e8f2ff;
+  --c-blue-txt:#1459ba;
+  --c-green:#1a7a45;
+  --c-green-lt:#e8f8ef;
+  --c-green-txt:#176038;
+  --c-amber:#b85c00;
+  --c-amber-lt:#fff4e0;
+  --c-amber-txt:#8f4700;
+  --c-red:#c42b2b;
+  --c-red-lt:#fff0f0;
+  --c-red-txt:#9e2020;
+  --c-purple:#5b35b5;
+  --c-purple-lt:#f1edff;
+  /* Integrator mode (dark) */
+  --i-bg:#0a1525;
+  --i-surface:#0f1e34;
+  --i-surface2:#142540;
+  --i-surface3:#1a2e4e;
+  --i-border:#1e3452;
+  --i-border2:#274468;
+  --i-text:#d4e6ff;
+  --i-text2:#7da8d4;
+  --i-text3:#3d6894;
+  --i-accent:#2a7fff;
+  --i-accent2:#1d6ae8;
+  --i-green:#2ecc71;
+  --i-green-lt:rgba(46,204,113,.12);
+  --i-amber:#f39c12;
+  --i-amber-lt:rgba(243,156,18,.12);
+  --i-red:#e74c3c;
+  --i-red-lt:rgba(231,76,60,.12);
+  /* Active mode vars (toggled by JS) */
+  --bg:var(--c-bg);
+  --surface:var(--c-surface);
+  --surface2:var(--c-surface2);
+  --surface3:var(--c-surface3);
+  --border:var(--c-border);
+  --border2:var(--c-border2);
+  --text:var(--c-text);
+  --text2:var(--c-text2);
+  --text3:var(--c-text3);
+  --accent:var(--c-blue);
+  --accent2:var(--c-blue2);
+  --accent-lt:var(--c-blue-lt);
+  --font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --r:8px;--r-lg:14px;--r-xl:20px;
+  --shadow:0 2px 12px rgba(13,27,46,.08);
+  --shadow-md:0 8px 24px rgba(13,27,46,.12);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text);transition:background .3s,color .3s}
+body{font-size:14px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes slideIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+.fade-up{animation:fadeUp .2s ease forwards}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:64px;flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:12px 0 10px;
+  gap:2px;
+  transition:background .3s,border-color .3s;
+  position:relative;z-index:10;
+}
+.sb-brand{
+  width:40px;height:40px;border-radius:12px;
+  background:linear-gradient(135deg,#1a6bdb 0%,#5b9fff 100%);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:17px;
+  margin-bottom:10px;
+  box-shadow:0 6px 16px rgba(26,107,219,.28);
+  flex-shrink:0;
+}
+.sb-btn{
+  width:40px;height:40px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text3);font-size:19px;
+  transition:all .15s;border:none;background:transparent;
+  position:relative;
+}
+.sb-btn:hover{background:var(--surface2);color:var(--text2)}
+.sb-btn.active{background:var(--accent-lt);color:var(--accent)}
+.sb-btn .sb-tip{
+  position:absolute;left:calc(100% + 10px);
+  background:var(--text);color:var(--surface);
+  font-size:11px;font-weight:500;font-family:var(--font);
+  padding:5px 9px;border-radius:6px;
+  white-space:nowrap;pointer-events:none;
+  opacity:0;transform:translateX(-4px);
+  transition:all .15s;z-index:100;
+}
+.sb-btn:hover .sb-tip{opacity:1;transform:translateX(0)}
+.sb-sep{width:28px;height:1px;background:var(--border);margin:4px 0}
+.sb-spacer{flex:1}
+.sb-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,#1a6bdb,#7c3aed);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#fff;cursor:pointer;
+  margin-top:4px;
+}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;transition:background .3s}
+
+/* ── TOP BAR ── */
+.topbar{
+  height:58px;flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 20px;
+  gap:12px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  transition:background .3s,border-color .3s;
+}
+.tb-logo{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.4px}
+.tb-logo span{color:var(--accent)}
+.tb-version{font-size:10px;font-weight:600;color:var(--text3);background:var(--surface3);border:1px solid var(--border);padding:2px 7px;border-radius:20px;letter-spacing:.3px}
+.tb-spacer{flex:1}
+/* Mode toggle */
+.mode-toggle{
+  display:flex;background:var(--surface3);border:1px solid var(--border);
+  border-radius:20px;padding:3px;gap:2px;
+}
+.mode-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 13px;border-radius:16px;
+  font-size:12px;font-weight:600;font-family:var(--font);
+  cursor:pointer;border:none;background:transparent;
+  color:var(--text2);transition:all .2s;
+}
+.mode-btn.active.client{background:#fff;color:var(--c-blue);box-shadow:var(--shadow)}
+.mode-btn.active.integrator{background:var(--i-accent);color:#fff;box-shadow:0 4px 12px rgba(42,127,255,.3)}
+.mode-btn i{font-size:14px}
+.tb-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 13px;border-radius:var(--r);
+  font-size:12px;font-weight:600;font-family:var(--font);
+  cursor:pointer;border:1px solid var(--border2);
+  background:var(--surface);color:var(--text2);
+  transition:all .15s;
+}
+.tb-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tb-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.tb-btn.primary:hover{background:var(--accent2)}
+.tb-btn i{font-size:13px}
+.notif-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--c-red);position:absolute;
+  top:6px;right:6px;border:2px solid var(--surface);
+}
+
+/* ── CONTEXT BAR (below topbar) ── */
+.ctxbar{
+  height:44px;flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 20px;gap:10px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  transition:background .3s;
+}
+.ctx-title{font-size:13px;font-weight:600;color:var(--text)}
+.ctx-sub{font-size:12px;color:var(--text3)}
+.ctx-sep{color:var(--border2);font-size:14px}
+.ctx-tabs{display:flex;gap:2px;margin-left:auto}
+.ctx-tab{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:var(--r);
+  font-size:12px;font-weight:500;
+  cursor:pointer;border:none;background:transparent;
+  color:var(--text3);transition:all .15s;
+  font-family:var(--font);
+}
+.ctx-tab:hover{background:var(--surface3);color:var(--text2)}
+.ctx-tab.active{background:var(--accent-lt);color:var(--accent);font-weight:600}
+.ctx-tab i{font-size:13px}
+.ctx-tab .ct-badge{
+  background:var(--c-red);color:#fff;
+  font-size:9px;font-weight:700;
+  padding:1px 5px;border-radius:8px;
+}
+
+/* ── METRICS ── */
+.metrics{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;transition:background .3s;
+}
+.metric{padding:14px 18px;border-right:1px solid var(--border)}
+.metric:last-child{border-right:none}
+.m-val{font-size:24px;font-weight:700;letter-spacing:-.5px;line-height:1.1;color:var(--text)}
+.m-val.green{color:var(--c-green)}
+.m-val.amber{color:var(--c-amber)}
+.m-val.red{color:var(--c-red)}
+.m-val.blue{color:var(--c-blue)}
+.m-lbl{font-size:11px;color:var(--text2);margin-top:3px}
+.m-delta{font-size:10px;margin-top:2px}
+.m-up{color:var(--c-green)}.m-warn{color:var(--c-amber)}.m-dn{color:var(--c-red)}
+
+/* integrator metric overrides */
+.integrator-mode .m-val{color:var(--i-text)}
+.integrator-mode .m-lbl{color:var(--i-text2)}
+
+/* ── FILTER BAR ── */
+.filterbar{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 20px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;transition:background .3s;
+}
+.search{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r);padding:7px 11px;width:260px;
+  transition:border-color .15s;
+}
+.search:focus-within{border-color:var(--accent)}
+.search i{font-size:14px;color:var(--text3);flex-shrink:0}
+.search input{border:none;background:transparent;font:inherit;font-size:12px;color:var(--text);outline:none;width:100%}
+.search input::placeholder{color:var(--text3)}
+.chips{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto}
+.chips::-webkit-scrollbar{height:0}
+.pill{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 11px;border-radius:20px;
+  font-size:11px;font-weight:600;
+  cursor:pointer;border:1px solid var(--border2);
+  background:var(--surface);color:var(--text2);
+  transition:all .15s;white-space:nowrap;
+  font-family:var(--font);
+}
+.pill:hover{border-color:var(--accent);color:var(--accent)}
+.pill.on{background:var(--accent-lt);border-color:var(--accent);color:var(--accent)}
+.fb-actions{display:flex;gap:6px;margin-left:auto;flex-shrink:0}
+.xb{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:var(--r);
+  font-size:11px;font-weight:600;font-family:var(--font);
+  cursor:pointer;border:1px solid var(--border2);
+  background:var(--surface);color:var(--text2);
+  transition:all .15s;white-space:nowrap;
+}
+.xb:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-lt)}
+.xb.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.xb.primary:hover{background:var(--accent2)}
+.xb.success{background:var(--c-green-lt);border-color:var(--c-green);color:var(--c-green-txt)}
+.xb.danger{background:var(--c-red-lt);border-color:var(--c-red);color:var(--c-red-txt)}
+.xb i{font-size:13px}
+
+/* ── CONTENT AREA ── */
+.content{flex:1;display:flex;overflow:hidden;min-height:0}
+.surface{display:none;flex:1;min-height:0;min-width:0;overflow:hidden}
+.surface.active{display:flex;animation:fadeUp .18s ease}
+
+/* ══════════════════════════════════════
+   CLIENT WORKSPACE
+══════════════════════════════════════ */
+.ap-shell{display:flex;flex:1;overflow:hidden;min-height:0}
+.ap-table-wrap{flex:1;overflow:auto;min-width:0;background:var(--c-surface)}
+
+table.inv{width:100%;border-collapse:collapse}
+table.inv thead{position:sticky;top:0;z-index:3}
+table.inv thead tr{background:var(--c-surface);border-bottom:1px solid var(--c-border)}
+table.inv thead th{
+  padding:9px 14px;
+  font-size:10px;font-weight:700;
+  color:var(--c-text3);text-align:left;
+  letter-spacing:.7px;text-transform:uppercase;
+  border-bottom:1px solid var(--c-border);
+  white-space:nowrap;user-select:none;cursor:pointer;
+}
+table.inv thead th:hover{color:var(--c-text2)}
+table.inv tbody tr{
+  border-bottom:1px solid var(--c-border);
+  cursor:pointer;transition:background .1s;
+}
+table.inv tbody tr:hover{background:#f4f8ff}
+table.inv tbody tr.sel{background:var(--c-blue-lt)}
+table.inv tbody tr.sel td{color:var(--c-blue-txt)}
+table.inv tbody td{padding:11px 14px;font-size:13px;color:var(--c-text);vertical-align:middle}
+table.inv tbody td.mono{font-family:var(--mono);font-size:11.5px;color:var(--c-text2)}
+
+/* status */
+.st{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.st::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.st-pending{background:var(--c-amber-lt);color:var(--c-amber-txt)}
+.st-review{background:var(--c-red-lt);color:var(--c-red-txt)}
+.st-approved{background:var(--c-green-lt);color:var(--c-green-txt)}
+.st-posted{background:#e8faf2;color:#166038}
+.st-extracted{background:var(--c-blue-lt);color:var(--c-blue-txt)}
+.st-exception{background:var(--c-red-lt);color:var(--c-red-txt)}
+
+/* confidence */
+.cf{display:flex;align-items:center;gap:6px}
+.cf-track{width:64px;height:4px;background:var(--c-surface3);border-radius:2px;overflow:hidden;flex-shrink:0}
+.cf-fill{height:100%;border-radius:2px;transition:width .3s}
+.cf-hi{background:#1a7a45}.cf-mid{background:#b85c00}.cf-lo{background:#c42b2b}
+.cf-num{font-family:var(--mono);font-size:10.5px;min-width:28px;text-align:right}
+.cf-hi-t{color:#1a7a45}.cf-mid-t{color:#b85c00}.cf-lo-t{color:#c42b2b}
+
+/* avatar */
+.av{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+
+/* checkbox */
+.ck{width:15px;height:15px;border:1.5px solid var(--c-border2);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--c-surface);transition:all .15s}
+.ck:hover{border-color:var(--c-blue)}
+.ck.on{background:var(--c-blue);border-color:var(--c-blue);color:#fff}
+.ck i{display:none;font-size:9px}
+.ck.on i{display:block}
+
+/* ── DETAIL PANEL ── */
+.detail{
+  width:300px;flex-shrink:0;
+  background:var(--c-surface2);
+  border-left:1px solid var(--c-border);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.d-head{
+  padding:16px;background:var(--c-surface);
+  border-bottom:1px solid var(--c-border);
+}
+.d-id{font-size:14px;font-weight:700;color:var(--c-text);font-family:var(--mono)}
+.d-vendor{font-size:11px;color:var(--c-text3);margin-top:2px}
+.d-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.d-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--c-text3);gap:10px;padding:24px;text-align:center}
+.d-empty i{font-size:38px;opacity:.2}
+.d-empty h3{font-size:13px;font-weight:600;color:var(--c-text2)}
+.d-empty p{font-size:11px;line-height:1.7}
+.d-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-lg);padding:13px 14px;box-shadow:var(--shadow)}
+.d-card-title{font-size:9px;font-weight:700;color:var(--c-text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:9px}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--c-border)}
+.kv:last-child{border-bottom:none}
+.kk{font-size:11px;color:var(--c-text2)}
+.kv-val{font-size:11px;font-weight:600;color:var(--c-text);text-align:right;max-width:58%}
+.cf-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
+.cf-lbl{font-size:11px;color:var(--c-text2)}
+/* timeline */
+.tl{display:flex;flex-direction:column}
+.tl-item{display:flex;gap:9px;position:relative}
+.tl-line{position:absolute;left:8px;top:18px;bottom:-4px;width:1px;background:var(--c-border)}
+.tl-item:last-child .tl-line{display:none}
+.tl-dot{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px}
+.tl-done{background:var(--c-green-lt);color:var(--c-green-txt)}
+.tl-curr{background:var(--c-blue-lt);color:var(--c-blue-txt)}
+.tl-pend{background:var(--c-surface3);color:var(--c-text3);border:1px solid var(--c-border2)}
+.tl-body{padding-bottom:11px}
+.tl-name{font-size:11px;font-weight:600;color:var(--c-text)}
+.tl-meta{font-size:10px;color:var(--c-text3);margin-top:1px}
+.d-actions{padding:12px 14px;border-top:1px solid var(--c-border);display:flex;flex-direction:column;gap:6px;background:var(--c-surface)}
+
+/* ══════════════════════════════════════
+   INTEGRATOR WORKSPACE (dark)
+══════════════════════════════════════ */
+.integrator-mode{
+  --bg:var(--i-bg);
+  --surface:var(--i-surface);
+  --surface2:var(--i-surface2);
+  --surface3:var(--i-surface3);
+  --border:var(--i-border);
+  --border2:var(--i-border2);
+  --text:var(--i-text);
+  --text2:var(--i-text2);
+  --text3:var(--i-text3);
+  --accent:var(--i-accent);
+  --accent2:var(--i-accent2);
+  --accent-lt:rgba(42,127,255,.15);
+}
+.i-shell{display:grid;grid-template-columns:260px 1fr 240px;flex:1;overflow:hidden;min-height:0}
+.i-panel{
+  background:var(--i-surface);
+  border-right:1px solid var(--i-border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.i-panel.right{border-right:none;border-left:1px solid var(--i-border)}
+.i-ph{
+  padding:14px 16px;
+  border-bottom:1px solid var(--i-border);
+  background:rgba(8,16,30,.4);
+}
+.i-ph-kicker{font-size:9px;font-weight:700;color:var(--i-text3);letter-spacing:1.2px;text-transform:uppercase}
+.i-ph-title{font-size:16px;font-weight:700;color:var(--i-text);margin-top:3px;letter-spacing:-.2px}
+.i-ph-sub{font-size:11px;color:var(--i-text2);margin-top:3px;line-height:1.5}
+.i-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.i-sec{border:1px solid var(--i-border);border-radius:12px;background:rgba(10,21,37,.5);overflow:hidden}
+.i-sec-head{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid rgba(30,52,82,.6)}
+.i-sec-head strong{font-size:11px;font-weight:700;color:var(--i-text);letter-spacing:.2px}
+.i-sec-head span{font-size:10px;color:var(--i-text3);font-family:var(--mono)}
+.i-sec-add{font-size:12px;color:var(--i-accent);cursor:pointer;padding:0 4px}
+.i-row{display:flex;align-items:center;gap:8px;padding:9px 13px;border-top:1px solid rgba(30,52,82,.4);cursor:pointer;transition:background .12s}
+.i-row:hover{background:rgba(42,127,255,.06)}
+.i-row.sel{background:rgba(42,127,255,.12)}
+.i-row-name{font-size:11.5px;color:var(--i-text);flex:1}
+.i-chip{padding:2px 7px;border-radius:8px;font-size:9px;font-weight:700;white-space:nowrap}
+.i-chip-blue{background:rgba(42,127,255,.15);color:#7ab8ff}
+.i-chip-green{background:var(--i-green-lt);color:#2ecc71}
+.i-chip-amber{background:var(--i-amber-lt);color:#f39c12}
+.i-chip-red{background:var(--i-red-lt);color:#e74c3c}
+.i-chip-dim{background:rgba(255,255,255,.05);color:var(--i-text3)}
+.i-del{width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--i-text3);cursor:pointer;border:1px solid var(--i-border);font-size:10px;flex-shrink:0}
+.i-del:hover{color:var(--i-red);border-color:var(--i-red)}
+
+/* Workflow canvas (dark) */
+.i-canvas{
+  flex:1;position:relative;overflow:auto;
+  background:radial-gradient(circle at 1px 1px,rgba(42,127,255,.1) 1px,transparent 0);
+  background-size:20px 20px;
+  background-color:var(--i-bg);
+}
+.i-canvas-top{
+  height:54px;display:flex;align-items:center;
+  padding:0 18px;gap:10px;
+  border-bottom:1px solid var(--i-border);
+  background:rgba(8,16,30,.5);
+  flex-shrink:0;
+  position:sticky;top:0;z-index:5;
+}
+.i-canvas-title{font-size:14px;font-weight:700;color:var(--i-text)}
+.i-canvas-sub{font-size:11px;color:var(--i-text3);margin-left:6px}
+.i-canvas-spacer{flex:1}
+.i-dbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r);border:1px solid var(--i-border2);background:rgba(18,37,59,.9);color:var(--i-text2);font-size:11px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .15s}
+.i-dbtn:hover{border-color:var(--i-accent);color:var(--i-accent)}
+.i-dbtn.primary{background:var(--i-accent);border-color:var(--i-accent);color:#fff}
+.i-dbtn i{font-size:13px}
+.canvas-body{position:relative;min-height:500px;padding:28px}
+.arch-lens{padding:0 28px 24px;display:flex;flex-direction:column;gap:10px}
+.arch-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid var(--i-border);border-radius:12px;background:rgba(10,21,37,.72)}
+.arch-head i{font-size:15px;color:var(--i-accent)}
+.arch-head strong{font-size:11px;color:var(--i-text)}
+.arch-head span{font-size:10px;color:var(--i-text3)}
+.arch-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:10px}
+.arch-card{position:relative;border:1px solid var(--i-border);border-radius:14px;padding:14px;background:linear-gradient(180deg,rgba(15,30,52,.96),rgba(10,21,37,.92));box-shadow:0 10px 24px rgba(0,0,0,.22)}
+.arch-card:after{content:'';position:absolute;top:34px;right:-10px;width:20px;height:2px;background:var(--i-border2)}
+.arch-card:last-child:after{display:none}
+.arch-kicker{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--i-text3);margin-bottom:7px}
+.arch-title{font-size:13px;font-weight:700;color:var(--i-text);margin-bottom:6px}
+.arch-copy{font-size:11px;line-height:1.55;color:var(--i-text2)}
+.arch-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.arch-pill{padding:3px 7px;border-radius:999px;border:1px solid var(--i-border2);background:rgba(42,127,255,.08);font-size:9px;font-weight:700;color:#86bcff}
+.arch-list{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.arch-item{display:flex;align-items:flex-start;gap:7px;font-size:10.5px;line-height:1.45;color:var(--i-text2)}
+.arch-item i{font-size:12px;color:var(--i-accent);margin-top:1px}
+.arch-note{padding:10px 12px;border-radius:12px;border:1px dashed var(--i-border2);background:rgba(42,127,255,.06);font-size:10.5px;line-height:1.55;color:var(--i-text2)}
+.arch-note strong{color:var(--i-text)}
+.wf-node-d{
+  position:absolute;min-width:150px;
+  background:rgba(15,30,52,.92);
+  border:1px solid var(--i-border2);
+  border-radius:14px;padding:13px 16px;
+  cursor:pointer;transition:all .2s;
+  box-shadow:0 8px 20px rgba(0,0,0,.3);
+}
+.wf-node-d:hover,.wf-node-d.sel{border-color:var(--i-accent);box-shadow:0 0 0 3px rgba(42,127,255,.15),0 8px 20px rgba(0,0,0,.3)}
+.wf-node-d strong{display:block;font-size:12px;font-weight:700;color:var(--i-text);letter-spacing:.1px}
+.wf-node-d span{display:block;font-size:10px;color:var(--i-text3);margin-top:3px}
+.wf-node-d .nd-badge{display:inline-block;margin-top:9px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:700}
+.nd-initial{border-color:var(--i-green)!important}
+.nd-initial .nd-badge{background:var(--i-green-lt);color:var(--i-green)}
+.nd-terminal{border-color:#7c3aed!important}
+.nd-terminal .nd-badge{background:rgba(124,58,237,.15);color:#a78bfa}
+.nd-review .nd-badge{background:var(--i-amber-lt);color:var(--i-amber)}
+.nd-reject .nd-badge{background:var(--i-red-lt);color:var(--i-red)}
+svg.canvas-svg{position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible}
+.wf-edge-line{stroke:#274468;stroke-width:1.5;transition:stroke .18s,filter .18s}
+.wf-edge-hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer}
+.wf-edge-label{font-size:9px;fill:#3d6894;font-family:"Plus Jakarta Sans",sans-serif;cursor:pointer;transition:fill .18s}
+.wf-edge.sel .wf-edge-line,.wf-edge:hover .wf-edge-line{stroke:#7ab8ff;filter:drop-shadow(0 0 6px rgba(42,127,255,.28))}
+.wf-edge.sel .wf-edge-label,.wf-edge:hover .wf-edge-label{fill:#d7e7fb}
+.i-crumb{display:flex;align-items:center;gap:6px;padding:7px 9px;margin-bottom:8px;border:1px dashed var(--i-border2);border-radius:10px;background:rgba(42,127,255,.06);font-size:10px;color:var(--i-text2)}
+.i-crumb i{font-size:12px;color:var(--i-accent)}
+
+/* Inspector (dark) */
+.i-insp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.i-insp-box{padding:11px;border:1px solid var(--i-border);border-radius:10px;background:rgba(10,21,37,.5)}
+.i-insp-box h4{font-size:9px;font-weight:700;color:var(--i-text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.i-insp-box p{font-size:11px;color:var(--i-text2);line-height:1.55}
+.i-inp{width:100%;border:1px solid var(--i-border2);border-radius:var(--r);padding:7px 9px;font-size:11.5px;font-family:var(--font);color:var(--i-text);background:rgba(10,21,37,.6);outline:none;transition:border-color .15s}
+.i-inp:focus{border-color:var(--i-accent)}
+.i-lbl{font-size:9px;font-weight:700;color:var(--i-text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;display:block}
+.i-divider{height:1px;background:var(--i-border);margin:4px 0}
+
+/* AI Cockpit (integrator) */
+.ai-prompt-wrap{
+  padding:12px 14px;
+  border-bottom:1px solid var(--i-border);
+  background:rgba(8,16,30,.3);
+}
+.ai-prompt-inp{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(10,21,37,.7);border:1px solid var(--i-border2);
+  border-radius:var(--r-lg);padding:9px 12px;margin-bottom:8px;
+}
+.ai-prompt-inp i{font-size:16px;color:var(--i-accent);flex-shrink:0}
+.ai-prompt-inp span{font-size:12px;color:var(--i-text2);flex:1}
+.cand-row{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--i-border)}
+.cand{flex:1;border:1px solid var(--i-border2);border-radius:10px;padding:8px 10px;cursor:pointer;transition:all .15s;background:rgba(10,21,37,.4)}
+.cand:hover{border-color:var(--i-accent);background:rgba(42,127,255,.06)}
+.cand.best{border-color:var(--i-accent);border-width:2px;background:rgba(42,127,255,.1)}
+.cand-name{font-size:11px;font-weight:600;color:var(--i-text)}
+.cand-pct{float:right;font-size:9px;font-weight:700;padding:1px 5px;border-radius:5px}
+.cand-meta{font-size:10px;color:var(--i-text3);margin-top:3px;clear:both}
+.diff-wrap{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:4px}
+.diff-hdr{font-size:9px;font-weight:700;color:var(--i-text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.diff-r{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);font-size:11px}
+.diff-add{background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.2);color:#2ecc71}
+.diff-chg{background:rgba(243,156,18,.08);border:1px solid rgba(243,156,18,.2);color:#f39c12}
+.diff-del{background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);color:#e74c3c}
+.diff-btns{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+
+/* ── EXCEPTIONS VIEW ── */
+.exc-shell{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:8px}
+.exc-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-lg);overflow:hidden}
+.exc-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--c-surface2);border-bottom:1px solid var(--c-border)}
+.exc-q{font-size:12px;font-weight:700;color:var(--c-text)}
+.exc-cnt{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}
+.exc-sla{margin-left:auto;font-size:10px;display:flex;align-items:center;gap:4px;font-weight:600}
+.exc-items{padding:6px 8px;display:flex;flex-direction:column;gap:3px}
+.exc-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--c-surface2);border-radius:var(--r);font-size:11px;transition:background .1s}
+.exc-item:hover{background:var(--c-surface3)}
+.exc-inv{font-family:var(--mono);font-size:10.5px;color:var(--c-text3);flex-shrink:0;width:96px}
+.exc-reason{color:var(--c-text);flex:1;font-size:11px}
+.exc-age{font-size:10px;color:var(--c-text3);white-space:nowrap}
+
+/* ── AUDIT VIEW ── */
+.audit-wrap{flex:1;overflow-y:auto}
+table.audit{width:100%;border-collapse:collapse}
+table.audit thead{position:sticky;top:0;z-index:2}
+table.audit thead th{background:var(--c-surface);padding:9px 14px;font-size:10px;font-weight:700;color:var(--c-text3);text-align:left;letter-spacing:.7px;text-transform:uppercase;border-bottom:1px solid var(--c-border);white-space:nowrap}
+table.audit tbody tr{border-bottom:1px solid var(--c-border);background:var(--c-surface)}
+table.audit tbody tr:hover{background:var(--c-surface2)}
+table.audit tbody td{padding:9px 14px;font-size:12px;color:var(--c-text);vertical-align:middle}
+
+/* ── ERP MAPPING ── */
+.erp-wrap{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;background:var(--c-surface2)}
+.erp-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-lg);overflow:hidden}
+.erp-grid-hdr{display:grid;grid-template-columns:1fr 44px 1fr;background:var(--c-surface2);border-bottom:1px solid var(--c-border)}
+.erp-hdr-cell{padding:8px 12px;font-size:9px;font-weight:700;color:var(--c-text3);letter-spacing:.7px;text-transform:uppercase}
+.erp-row{display:grid;grid-template-columns:1fr 44px 1fr;border-top:1px solid var(--c-border);align-items:center}
+.erp-cell{padding:8px 12px;font-size:12px;font-family:var(--mono)}
+.erp-center{display:flex;align-items:center;justify-content:center;padding:8px}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;overflow:hidden;min-height:0;flex-direction:column}
+.view.active{display:flex;animation:fadeUp .18s ease}
+
+/* ── FOOTER STRIP ── */
+.footer{
+  height:30px;flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 20px;gap:16px;
+  background:var(--surface);border-top:1px solid var(--border);
+  font-size:10px;color:var(--text3);
+  transition:background .3s;
+}
+.footer-dot{width:6px;height:6px;border-radius:50%;background:#2ecc71;animation:pulse 2s infinite}
+.footer-sep{color:var(--border2)}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sb-brand"><i class="ti ti-sparkles"></i></div>
+    <button class="sb-btn active" id="nav-ap" onclick="navClick('ap',this)" title="">
+      <i class="ti ti-layout-list"></i>
+      <span class="sb-tip">AP Workbench</span>
+    </button>
+    <button class="sb-btn" id="nav-exc" onclick="navClick('exc',this)" title="">
+      <i class="ti ti-alert-triangle"></i>
+      <span class="sb-tip">Exceptions</span>
+      <div class="notif-dot"></div>
+    </button>
+    <button class="sb-btn" id="nav-audit" onclick="navClick('audit',this)" title="">
+      <i class="ti ti-shield-check"></i>
+      <span class="sb-tip">Audit Trail</span>
+    </button>
+    <div class="sb-sep"></div>
+    <button class="sb-btn" id="nav-wf" onclick="navClick('wf',this)" title="">
+      <i class="ti ti-git-branch"></i>
+      <span class="sb-tip">Workflow Designer</span>
+    </button>
+    <button class="sb-btn" id="nav-erp" onclick="navClick('erp',this)" title="">
+      <i class="ti ti-plug"></i>
+      <span class="sb-tip">ERP Mapping</span>
+    </button>
+    <button class="sb-btn" id="nav-ai" onclick="navClick('ai',this)" title="">
+      <i class="ti ti-sparkles"></i>
+      <span class="sb-tip">AI Cockpit</span>
+    </button>
+    <button class="sb-btn" id="nav-runtime" onclick="navClick('runtime',this)" title="">
+      <i class="ti ti-route-square-2"></i>
+      <span class="sb-tip">Runtime View</span>
+    </button>
+    <div class="sb-spacer"></div>
+    <button class="sb-btn" title=""><i class="ti ti-bell"></i><span class="sb-tip">Notifications</span></button>
+    <div class="sb-avatar" title="Harry Joseph — Consultant">HJ</div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main" id="main">
+
+    <!-- TOP BAR -->
+    <div class="topbar" id="topbar">
+      <div class="tb-logo">Provi<span>so</span></div>
+      <div class="tb-version">v1.0 · Phase I</div>
+      <div class="tb-spacer"></div>
+      <div class="mode-toggle">
+        <button class="mode-btn active client" onclick="setMode('client')">
+          <i class="ti ti-users"></i> Client Workspace
+        </button>
+        <button class="mode-btn integrator" onclick="setMode('integrator')">
+          <i class="ti ti-tool"></i> Integrator
+        </button>
+      </div>
+      <button class="tb-btn" onclick="alert('Demo tour starting...')"><i class="ti ti-player-play"></i> Guided Tour</button>
+      <button class="tb-btn primary" onclick="alert('Invoice upload panel open.')"><i class="ti ti-upload"></i> Upload Invoice</button>
+    </div>
+
+    <!-- CONTEXT BAR -->
+    <div class="ctxbar" id="ctxbar">
+      <span class="ctx-title" id="ctx-title">AP Workbench</span>
+      <span class="ctx-sep">›</span>
+      <span class="ctx-sub" id="ctx-sub">Invoice processing queue</span>
+      <div class="ctx-tabs" id="ctx-tabs">
+        <button class="ctx-tab active" onclick="setCtxTab(this,'all')"><i class="ti ti-list"></i> All</button>
+        <button class="ctx-tab" onclick="setCtxTab(this,'pending')"><i class="ti ti-clock"></i> Pending <span style="font-size:10px;color:var(--c-amber);margin-left:2px">18</span></button>
+        <button class="ctx-tab" onclick="setCtxTab(this,'exception')"><i class="ti ti-alert-circle"></i> Exceptions <span class="ct-badge">5</span></button>
+        <button class="ctx-tab" onclick="setCtxTab(this,'approved')"><i class="ti ti-check"></i> Approved</button>
+      </div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="metrics" id="metrics">
+      <div class="metric"><div class="m-val">247</div><div class="m-lbl">Invoices today</div><div class="m-delta m-up">↑ 12% vs yesterday</div></div>
+      <div class="metric"><div class="m-val green">84%</div><div class="m-lbl">Touchless rate</div><div class="m-delta m-up">↑ 6% this week</div></div>
+      <div class="metric"><div class="m-val amber">18</div><div class="m-lbl">Pending approval</div><div class="m-delta m-warn">3 near SLA</div></div>
+      <div class="metric"><div class="m-val red">5</div><div class="m-lbl">Open exceptions</div><div class="m-delta m-dn">2 critical</div></div>
+      <div class="metric"><div class="m-val blue">$1.4M</div><div class="m-lbl">Volume processed</div><div class="m-delta m-up">↑ 23% this month</div></div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filterbar" id="filterbar">
+      <div class="search">
+        <i class="ti ti-search"></i>
+        <input id="srch" type="text" placeholder="Search invoices, vendors, amounts..." oninput="loadInvoices()">
+      </div>
+      <div class="chips" id="chip-row">
+        <div class="pill on" onclick="setChip(this,'all')">All</div>
+        <div class="pill" onclick="setChip(this,'pending')">Pending</div>
+        <div class="pill" onclick="setChip(this,'exception')">Exceptions</div>
+        <div class="pill" onclick="setChip(this,'approved')">Approved</div>
+        <div class="pill" onclick="setChip(this,'extracted')">Extracted</div>
+      </div>
+      <div class="fb-actions">
+        <div class="xb" onclick="alert('3 selected invoices approved.')"><i class="ti ti-checks"></i> Bulk approve</div>
+        <div class="xb" onclick="alert('Exporting CSV...')"><i class="ti ti-download"></i> Export</div>
+        <div class="xb primary" onclick="alert('Upload invoice panel.')"><i class="ti ti-upload"></i> Upload</div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ██ AP WORKBENCH ██ -->
+      <div class="view active" id="view-ap">
+        <div class="ap-shell">
+          <div class="ap-table-wrap">
+            <table class="inv" id="inv-tbl">
+              <thead>
+                <tr>
+                  <th style="width:34px;padding-left:16px"><div class="ck on" onclick="this.classList.toggle('on')"><i class="ti ti-check"></i></div></th>
+                  <th>Vendor</th>
+                  <th>Invoice #</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Confidence</th>
+                  <th>Assigned</th>
+                  <th>SLA</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="inv-body"></tbody>
+            </table>
+          </div>
+          <!-- detail -->
+          <div class="detail" id="detail">
+            <div class="d-head" id="d-head" style="display:none">
+              <div class="d-id" id="d-id"></div>
+              <div class="d-vendor" id="d-vendor"></div>
+            </div>
+            <div class="d-body" id="d-body">
+              <div class="d-empty">
+                <i class="ti ti-file-invoice"></i>
+                <h3>Select an invoice</h3>
+                <p>Click any row to view fields, confidence scores, and the lifecycle timeline</p>
+              </div>
+            </div>
+            <div class="d-actions" id="d-actions" style="display:none">
+              <div class="xb primary" style="justify-content:center" onclick="approveInv()"><i class="ti ti-check"></i> Approve invoice</div>
+              <div style="display:flex;gap:6px">
+                <div class="xb" style="flex:1;justify-content:center" onclick="alert('Returned to vendor.')"><i class="ti ti-arrow-back"></i> Return</div>
+                <div class="xb danger" style="flex:1;justify-content:center" onclick="rejectInv()"><i class="ti ti-x"></i> Reject</div>
+              </div>
+              <div class="xb" style="justify-content:center" onclick="alert('Note added to audit trail.')"><i class="ti ti-message"></i> Add note</div>
+              <div class="xb" style="justify-content:center;color:var(--c-text3)" onclick="alert('PDF viewer open.')"><i class="ti ti-eye"></i> View original PDF</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ██ EXCEPTIONS ██ -->
+      <div class="view" id="view-exc">
+        <div class="exc-shell">
+          <div class="exc-card">
+            <div class="exc-head">
+              <i class="ti ti-user-x" style="color:var(--c-red)"></i>
+              <span class="exc-q">Missing Vendor Reference</span>
+              <span class="exc-cnt" style="background:var(--c-red-lt);color:var(--c-red-txt)">2</span>
+              <span class="exc-sla" style="color:var(--c-amber)"><i class="ti ti-clock" style="font-size:11px"></i> SLA: 2h 14m</span>
+            </div>
+            <div class="exc-items">
+              <div class="exc-item">
+                <div class="ck" onclick="this.classList.toggle('on')"></div>
+                <span class="exc-inv">INV-2026-0441</span>
+                <span class="exc-reason">Vendor "Tech Solutions Inc" — no ERP match found</span>
+                <span class="exc-age">38 min</span>
+                <div class="xb" style="padding:3px 8px;font-size:10px" onclick="alert('3 vendor candidates. Select correct match.')">Match vendor</div>
+              </div>
+              <div class="exc-item">
+                <div class="ck" onclick="this.classList.toggle('on')"></div>
+                <span class="exc-inv">INV-2026-0438</span>
+                <span class="exc-reason">Domain @globaltech.io — 3 AI candidates found</span>
+                <span class="exc-age">1h 12m</span>
+                <div class="xb" style="padding:3px 8px;font-size:10px" onclick="alert('AI: Global Technology Inc 87%')">Review AI match</div>
+              </div>
+            </div>
+          </div>
+          <div class="exc-card">
+            <div class="exc-head">
+              <i class="ti ti-file-x" style="color:var(--c-amber)"></i>
+              <span class="exc-q">Missing PO Reference</span>
+              <span class="exc-cnt" style="background:var(--c-amber-lt);color:var(--c-amber-txt)">1</span>
+              <span class="exc-sla" style="color:var(--c-text3)"><i class="ti ti-clock" style="font-size:11px"></i> SLA: 6h 30m</span>
+            </div>
+            <div class="exc-items">
+              <div class="exc-item">
+                <div class="ck" onclick="this.classList.toggle('on')"></div>
+                <span class="exc-inv">INV-2026-0439</span>
+                <span class="exc-reason">PO required by tenant policy — none provided by vendor</span>
+                <span class="exc-age">2h 5m</span>
+                <div class="xb" style="padding:3px 8px;font-size:10px" onclick="alert('Policy exception approved.')">Approve exception</div>
+              </div>
+            </div>
+          </div>
+          <div class="exc-card">
+            <div class="exc-head">
+              <i class="ti ti-eye-off" style="color:var(--c-red)"></i>
+              <span class="exc-q">Low Confidence Extraction</span>
+              <span class="exc-cnt" style="background:var(--c-red-lt);color:var(--c-red-txt)">2</span>
+              <span class="exc-sla" style="color:var(--c-red)"><i class="ti ti-alert-circle" style="font-size:11px"></i> SLA BREACHED — escalating</span>
+            </div>
+            <div class="exc-items">
+              <div class="exc-item">
+                <div class="ck" onclick="this.classList.toggle('on')"></div>
+                <span class="exc-inv">INV-2026-0435</span>
+                <span class="exc-reason">Total field confidence 0.51 — rotated scan detected</span>
+                <span class="exc-age">3h 45m</span>
+                <div class="xb danger" style="padding:3px 8px;font-size:10px" onclick="alert('Manual review panel open.')">Manual review</div>
+              </div>
+              <div class="exc-item">
+                <div class="ck" onclick="this.classList.toggle('on')"></div>
+                <span class="exc-inv">INV-2026-0431</span>
+                <span class="exc-reason">Handwritten total amount — confidence 0.48</span>
+                <span class="exc-age">5h 02m</span>
+                <div class="xb danger" style="padding:3px 8px;font-size:10px" onclick="alert('PDF side-by-side open.')">Manual review</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ██ AUDIT TRAIL ██ -->
+      <div class="view" id="view-audit">
+        <div class="audit-wrap">
+          <table class="audit">
+            <thead>
+              <tr>
+                <th>Time</th><th>Event</th><th>Invoice</th><th>User</th><th>Module</th><th>Old value</th><th>New value / detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="mono" style="color:var(--c-text3)">14:32:01</td><td><span class="st st-approved">approved</span></td><td class="mono">INV-0441</td><td style="font-size:11px">Sarah Mitchell</td><td><span style="font-size:10px;background:var(--c-surface2);border:1px solid var(--c-border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-04</span></td><td style="font-size:11px;color:var(--c-text3)">pending_approval</td><td style="font-size:11px">approved · manager tier · $12,450</td></tr>
+              <tr><td class="mono" style="color:var(--c-text3)">14:28:14</td><td><span class="st st-extracted">extracted</span></td><td class="mono">INV-0442</td><td style="font-size:11px;color:var(--c-text3)">System</td><td><span style="font-size:10px;background:var(--c-surface2);border:1px solid var(--c-border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-02</span></td><td style="font-size:11px;color:var(--c-text3)">received</td><td style="font-size:11px">PaddleOCR · confidence 0.97 · 6.2s</td></tr>
+              <tr><td class="mono" style="color:var(--c-text3)">14:25:50</td><td><span class="st st-exception">exception</span></td><td class="mono">INV-0438</td><td style="font-size:11px;color:var(--c-text3)">System</td><td><span style="font-size:10px;background:var(--c-surface2);border:1px solid var(--c-border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-03</span></td><td style="font-size:11px;color:var(--c-text3)">extracted</td><td style="font-size:11px;color:var(--c-red-txt)">VENDOR_UNKNOWN · routed to queue</td></tr>
+              <tr><td class="mono" style="color:var(--c-text3)">14:21:03</td><td><span class="st st-posted">posted</span></td><td class="mono">INV-0430</td><td style="font-size:11px;color:var(--c-text3)">System</td><td><span style="font-size:10px;background:var(--c-surface2);border:1px solid var(--c-border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-05</span></td><td style="font-size:11px;color:var(--c-text3)">approved</td><td style="font-size:11px">SAP FI-2026-8821 · $12,450.00</td></tr>
+              <tr><td class="mono" style="color:var(--c-text3)">14:15:22</td><td><span class="st st-pending">field edit</span></td><td class="mono">INV-0437</td><td style="font-size:11px">James Okonkwo</td><td><span style="font-size:10px;background:var(--c-surface2);border:1px solid var(--c-border);padding:1px 6px;border-radius:4px;font-family:var(--mono)">MOD-08</span></td><td style="font-size:11px;color:var(--c-red-txt)">$9,200.00</td><td style="font-size:11px;color:var(--c-green-txt)">$9,850.00 · "corrected scan error"</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ██ WORKFLOW DESIGNER (INTEGRATOR - DARK) ██ -->
+      <div class="view" id="view-wf">
+        <div class="i-shell">
+          <div class="i-panel">
+            <div class="i-ph">
+              <div class="i-ph-kicker">Palette</div>
+              <div class="i-ph-title">States & Nodes</div>
+            </div>
+            <div class="i-scroll">
+              <div class="i-sec">
+                <div class="i-sec-head"><strong>AP States</strong><span class="i-sec-add">+ Add</span></div>
+                <div class="i-row"><span class="i-row-name">Received</span><span class="i-chip i-chip-green">Initial</span></div>
+                <div class="i-row"><span class="i-row-name">Extracting</span><span class="i-chip i-chip-blue">AI</span></div>
+                <div class="i-row"><span class="i-row-name">Matching</span><span class="i-chip i-chip-blue">Auto</span></div>
+                <div class="i-row"><span class="i-row-name">Pending</span><span class="i-chip i-chip-amber">Manual</span></div>
+              </div>
+              <div class="i-sec">
+                <div class="i-sec-head"><strong>Approval Tiers</strong><span class="i-sec-add">+ Add</span></div>
+                <div class="i-row"><span class="i-row-name">Manager</span><span class="i-chip i-chip-blue">≤ $25k</span></div>
+                <div class="i-row"><span class="i-row-name">Director</span><span class="i-chip i-chip-blue">≤ $100k</span></div>
+                <div class="i-row"><span class="i-row-name">CFO</span><span class="i-chip i-chip-amber">&gt; $100k</span></div>
+              </div>
+              <div class="i-sec">
+                <div class="i-sec-head"><strong>Outcomes</strong><span class="i-sec-add">+ Add</span></div>
+                <div class="i-row"><span class="i-row-name">Approved</span><span class="i-chip i-chip-green">Terminal</span></div>
+                <div class="i-row"><span class="i-row-name">Posted to ERP</span><span class="i-chip i-chip-dim">Auto</span></div>
+                <div class="i-row"><span class="i-row-name">Rejected</span><span class="i-chip i-chip-red">Terminal</span></div>
+              </div>
+              <div class="i-sec">
+                <div class="i-sec-head"><strong>Transitions</strong><span>7</span></div>
+                <div class="i-row"><span class="i-row-name" style="font-family:var(--mono);font-size:10px">Received → Extracted</span><span class="i-chip i-chip-blue">Auto</span></div>
+                <div class="i-row"><span class="i-row-name" style="font-family:var(--mono);font-size:10px">Extracted → Matched</span><span class="i-chip i-chip-blue">Auto</span></div>
+                <div class="i-row"><span class="i-row-name" style="font-family:var(--mono);font-size:10px">Matched → Pending</span><span class="i-chip i-chip-blue">Auto</span></div>
+                <div class="i-row"><span class="i-row-name" style="font-family:var(--mono);font-size:10px">Pending → Approved</span><span class="i-chip i-chip-amber">Role Gate</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="i-canvas" style="display:flex;flex-direction:column">
+            <div class="i-canvas-top">
+              <span class="i-canvas-title">Invoice Approval Flow</span>
+              <span class="i-canvas-sub">v2.1 · Service Agreement</span>
+              <div class="i-canvas-spacer"></div>
+              <div class="i-dbtn" onclick="alert('Simulation: all 9 states validated.')"><i class="ti ti-player-play"></i> Simulate</div>
+              <div class="i-dbtn" onclick="alert('Dataset browser open.')"><i class="ti ti-database"></i> Save to dataset</div>
+              <div class="i-dbtn primary" onclick="alert('Workflow activated. Simulation gate passed.')"><i class="ti ti-upload"></i> Activate</div>
+            </div>
+            <div style="flex:1;position:relative;overflow:auto">
+              <div class="canvas-body">
+                <svg class="canvas-svg">
+                  <defs>
+                    <marker id="wfarr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L8,3 z" fill="#3d6894"/>
+                    </marker>
+                  </defs>
+                  <g class="wf-edge" id="edge-extracted" onclick="selSvgTransition(this,'EXTRACTED','OCR extract','System')">
+                    <line class="wf-edge-line" x1="100" y1="78" x2="100" y2="128" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="100" y1="78" x2="100" y2="128"/>
+                    <text class="wf-edge-label" x="108" y="108">OCR extract</text>
+                  </g>
+                  <g class="wf-edge" id="edge-matched" onclick="selSvgTransition(this,'MATCHED','PO match','Auto')">
+                    <line class="wf-edge-line" x1="100" y1="190" x2="100" y2="238" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="100" y1="190" x2="100" y2="238"/>
+                    <text class="wf-edge-label" x="108" y="214">PO match</text>
+                  </g>
+                  <g class="wf-edge" id="edge-route" onclick="selSvgTransition(this,'APPROVE_ROUTE','Amount route','Guard')">
+                    <line class="wf-edge-line" x1="100" y1="300" x2="100" y2="348" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="100" y1="300" x2="100" y2="348"/>
+                    <text class="wf-edge-label" x="108" y="326">Amount route</text>
+                  </g>
+                  <g class="wf-edge" id="edge-manager" onclick="selSvgTransition(this,'APPROVE_MANAGER','Amount ≤ $25k','Guard')">
+                    <line class="wf-edge-line" x1="100" y1="410" x2="52" y2="458" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="100" y1="410" x2="52" y2="458"/>
+                    <text class="wf-edge-label" x="18" y="492">≤ $25k</text>
+                  </g>
+                  <g class="wf-edge" id="edge-cfo" onclick="selSvgTransition(this,'APPROVE_CFO','Amount > $25k','Guard')">
+                    <line class="wf-edge-line" x1="100" y1="410" x2="148" y2="458" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="100" y1="410" x2="148" y2="458"/>
+                    <text class="wf-edge-label" x="130" y="492">&gt; $25k</text>
+                  </g>
+                  <g class="wf-edge" id="edge-manager-approved" onclick="selSvgTransition(this,'MANAGER_APPROVED','Manager approves','Manual')">
+                    <line class="wf-edge-line" x1="52" y1="520" x2="100" y2="568" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="52" y1="520" x2="100" y2="568"/>
+                    <text class="wf-edge-label" x="14" y="548">Manager approves</text>
+                  </g>
+                  <g class="wf-edge" id="edge-cfo-approved" onclick="selSvgTransition(this,'CFO_APPROVED','CFO approves','Manual')">
+                    <line class="wf-edge-line" x1="148" y1="520" x2="100" y2="568" marker-end="url(#wfarr)"/>
+                    <line class="wf-edge-hit" x1="148" y1="520" x2="100" y2="568"/>
+                    <text class="wf-edge-label" x="132" y="548">CFO approves</text>
+                  </g>
+                </svg>
+                <div class="wf-node-d nd-initial" style="left:28px;top:18px" ondblclick="selWfNode(this,'Received','Entry point · initial state · OCR triggers on intake')">
+                  <strong>Received</strong><span>Entry point</span>
+                  <div class="nd-badge">Initial</div>
+                </div>
+                <div class="wf-node-d" style="left:28px;top:128px" ondblclick="selWfNode(this,'Extracted','AI OCR processing · PaddleOCR + phi4-mini extraction')">
+                  <strong>Extracted</strong><span>AI processing</span>
+                </div>
+                <div class="wf-node-d" style="left:28px;top:238px" ondblclick="selWfNode(this,'Matched','2-way PO verification · tolerance rules applied')">
+                  <strong>Matched</strong><span>PO verified</span>
+                </div>
+                <div class="wf-node-d nd-review" style="left:28px;top:348px" ondblclick="selWfNode(this,'Pending Approval','Awaiting human decision · approval matrix applied')">
+                  <strong>Pending Approval</strong><span>Awaiting review</span>
+                  <div class="nd-badge">AP Review</div>
+                </div>
+                <div class="wf-node-d" style="left:0px;top:458px" ondblclick="selWfNode(this,'Manager Approval','Tier 1 · amount ≤ $25k · role gate enforced')">
+                  <strong>Manager</strong><span>≤ $25k</span>
+                </div>
+                <div class="wf-node-d" style="left:92px;top:458px" ondblclick="selWfNode(this,'CFO Approval','Tier 2 · amount > $25k · CFO role required')">
+                  <strong>CFO</strong><span>&gt; $25k</span>
+                </div>
+                <div class="wf-node-d nd-terminal" style="left:28px;top:568px" ondblclick="selWfNode(this,'Approved','Terminal state · triggers ERP posting · audit sealed')">
+                  <strong>Approved</strong><span>Terminal · ERP post</span>
+                  <div class="nd-badge">Terminal</div>
+                </div>
+              </div>
+              <div class="arch-lens">
+                <div class="arch-head">
+                  <i class="ti ti-schema"></i>
+                  <strong>Integrator architecture lens</strong>
+                  <span>Business language on the canvas, compiled runtime underneath</span>
+                </div>
+                <div class="arch-grid">
+                  <div class="arch-card">
+                    <div class="arch-kicker">What the integrator edits</div>
+                    <div class="arch-title">Workflow canvas</div>
+                    <div class="arch-copy">Double-click a state or transition and work in operational language: approvals, SLAs, notifications, escalations, assignees, and exception behavior.</div>
+                    <div class="arch-pills">
+                      <span class="arch-pill">Pending Approval</span>
+                      <span class="arch-pill">Amount &gt; $25k</span>
+                      <span class="arch-pill">Send email</span>
+                      <span class="arch-pill">Escalate in 4h</span>
+                    </div>
+                  </div>
+                  <div class="arch-card">
+                    <div class="arch-kicker">Compiled workflow logic</div>
+                    <div class="arch-title">XState</div>
+                    <div class="arch-copy">The platform converts business intent into states, guards, entry and exit actions, transition rules, and timed events. Integrators never edit machine syntax directly.</div>
+                    <div class="arch-list">
+                      <div class="arch-item"><i class="ti ti-check"></i><span>Guard: invoice.total &gt; 25000</span></div>
+                      <div class="arch-item"><i class="ti ti-check"></i><span>Entry: sendApprovalEmail, startSLATimer</span></div>
+                      <div class="arch-item"><i class="ti ti-check"></i><span>Target: cfo_approval</span></div>
+                    </div>
+                  </div>
+                  <div class="arch-card">
+                    <div class="arch-kicker">Authoritative memory</div>
+                    <div class="arch-title">PostgreSQL</div>
+                    <div class="arch-copy">Every invoice carries a persisted workflow snapshot, history log, timer record, and immutable audit trail. The runtime can restart safely because the database stays authoritative.</div>
+                    <div class="arch-list">
+                      <div class="arch-item"><i class="ti ti-database"></i><span>workflow_state current snapshot</span></div>
+                      <div class="arch-item"><i class="ti ti-database"></i><span>workflow_state_history append-only log</span></div>
+                      <div class="arch-item"><i class="ti ti-database"></i><span>workflow_timers SLA registry</span></div>
+                    </div>
+                  </div>
+                  <div class="arch-card">
+                    <div class="arch-kicker">Post-commit dispatch</div>
+                    <div class="arch-title">n8n + BullMQ</div>
+                    <div class="arch-copy">Once the transaction commits, the platform dispatches approval emails, ERP callbacks, SLA notifications, and retryable external events. Messaging happens after workflow truth is already saved.</div>
+                    <div class="arch-list">
+                      <div class="arch-item"><i class="ti ti-mail"></i><span>Approval email to CFO</span></div>
+                      <div class="arch-item"><i class="ti ti-plug-connected"></i><span>ERP webhook after approval</span></div>
+                      <div class="arch-item"><i class="ti ti-clock-exclamation"></i><span>SLA breach retry and escalation</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="arch-note"><strong>Locked principle:</strong> the integrator never configures XState, n8n, or BullMQ directly. The designer translates business rules into runtime configuration automatically and exposes technical detail only in controlled diagnostic views.</div>
+              </div>
+            </div>
+          </div>
+          <div class="i-panel right">
+            <div class="i-ph">
+              <div class="i-ph-kicker">Inspector</div>
+              <div class="i-ph-title" id="insp-title">State Inspector</div>
+              <div class="i-ph-sub" id="insp-sub">Click a state node to configure</div>
+            </div>
+            <div class="i-scroll" id="insp-body">
+              <div style="text-align:center;padding:20px 0;color:var(--i-text3)">
+                <i class="ti ti-cursor-text" style="font-size:26px;display:block;margin-bottom:6px;opacity:.3"></i>
+                <div style="font-size:11px">Double-click a state to configure it</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ██ ERP MAPPING ██ -->
+      <div class="view" id="view-erp">
+        <div class="erp-wrap">
+          <div style="padding:8px 12px;background:var(--c-blue-lt);border:1px solid #b3d4f8;border-radius:var(--r);font-size:11px;color:var(--c-blue-txt);display:flex;align-items:center;gap:8px">
+            <i class="ti ti-sparkles" style="font-size:14px"></i>
+            AI auto-mapped 5 of 6 fields using semantic embedding and 23 previous SAP deployments. One field needs manual mapping.
+          </div>
+          <div class="erp-card">
+            <div class="erp-grid-hdr">
+              <div class="erp-hdr-cell">Proviso canonical field</div>
+              <div class="erp-hdr-cell" style="text-align:center">Link</div>
+              <div class="erp-hdr-cell">SAP S/4HANA field</div>
+            </div>
+            <div class="erp-row"><div class="erp-cell">vendor_name</div><div class="erp-center"><i class="ti ti-link" style="color:var(--c-green)"></i></div><div class="erp-cell" style="color:var(--c-blue-txt)">LIFNR / NAME1 <span style="font-size:9px;background:var(--c-green-lt);color:var(--c-green-txt);padding:1px 5px;border-radius:4px">0.98</span></div></div>
+            <div class="erp-row"><div class="erp-cell">invoice_number</div><div class="erp-center"><i class="ti ti-link" style="color:var(--c-green)"></i></div><div class="erp-cell" style="color:var(--c-blue-txt)">BELNR <span style="font-size:9px;background:var(--c-green-lt);color:var(--c-green-txt);padding:1px 5px;border-radius:4px">0.99</span></div></div>
+            <div class="erp-row"><div class="erp-cell">total_amount</div><div class="erp-center"><i class="ti ti-link" style="color:var(--c-green)"></i></div><div class="erp-cell" style="color:var(--c-blue-txt)">WRBTR <span style="font-size:9px;background:var(--c-green-lt);color:var(--c-green-txt);padding:1px 5px;border-radius:4px">0.97</span></div></div>
+            <div class="erp-row"><div class="erp-cell">due_date</div><div class="erp-center"><i class="ti ti-link" style="color:var(--c-amber)"></i></div><div class="erp-cell" style="color:var(--c-amber-txt)">ZFBDT <span style="font-size:9px;background:var(--c-amber-lt);color:var(--c-amber-txt);padding:1px 5px;border-radius:4px">review</span></div></div>
+            <div class="erp-row"><div class="erp-cell">currency</div><div class="erp-center"><i class="ti ti-link" style="color:var(--c-green)"></i></div><div class="erp-cell" style="color:var(--c-blue-txt)">WAERS <span style="font-size:9px;background:var(--c-green-lt);color:var(--c-green-txt);padding:1px 5px;border-radius:4px">0.95</span></div></div>
+            <div class="erp-row"><div class="erp-cell">cost_center</div><div class="erp-center"><i class="ti ti-question-mark" style="color:var(--c-red)"></i></div><div class="erp-cell" style="display:flex;align-items:center;gap:8px"><span style="color:var(--c-text3);font-size:11px">Not mapped</span><div class="xb primary" style="padding:3px 8px;font-size:10px;margin-left:auto" onclick="alert('Map cost_center to KOSTL.')">Map field</div></div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="erp-card" style="padding:13px 14px">
+              <div class="d-card-title">Learning loop</div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">Confidence score</span><span class="kv-val" style="color:var(--c-green)">0.94</span></div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">Usage count</span><span class="kv-val">23 postings</span></div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">Trusted standard</span><span class="kv-val" style="color:var(--c-green)">✓ Yes</span></div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">Last posted</span><span class="kv-val">Today 14:21</span></div>
+            </div>
+            <div class="erp-card" style="padding:13px 14px">
+              <div class="d-card-title">Posting stats</div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">Success rate</span><span class="kv-val" style="color:var(--c-green)">100%</span></div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">Failed postings</span><span class="kv-val">0</span></div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">DLQ events</span><span class="kv-val">0</span></div>
+              <div class="kv" style="border-color:var(--c-border)"><span class="kk">ERP version</span><span class="kv-val">SAP 2024</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ██ AI COCKPIT (INTEGRATOR - DARK) ██ -->
+      <div class="view" id="view-ai">
+        <div class="i-shell" style="grid-template-columns:1fr 220px">
+          <div style="display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--i-border)">
+            <div class="ai-prompt-wrap">
+              <div style="font-size:9px;font-weight:700;color:var(--i-text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px">Describe your workflow scenario</div>
+              <div class="ai-prompt-inp">
+                <i class="ti ti-sparkles"></i>
+                <span>Service agreement, Ontario manufacturer, dual approval above $25k CAD...</span>
+                <div class="i-dbtn primary" style="padding:5px 10px"><i class="ti ti-arrow-right"></i></div>
+              </div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap">
+                <div class="pill on" style="background:rgba(42,127,255,.15);border-color:var(--i-accent);color:#7ab8ff">AP invoice</div>
+                <div class="pill" style="border-color:var(--i-border2);color:var(--i-text3);background:transparent" onclick="this.classList.toggle('on')">Contract</div>
+                <div class="pill" style="border-color:var(--i-border2);color:var(--i-text3);background:transparent" onclick="this.classList.toggle('on')">NDA</div>
+                <div class="pill" style="border-color:var(--i-border2);color:var(--i-text3);background:transparent" onclick="this.classList.toggle('on')">Approbation</div>
+              </div>
+            </div>
+            <div class="cand-row">
+              <div class="cand best" onclick="alert('Loading Service Agreement — Mfg as base template.')">
+                <span class="cand-pct" style="background:rgba(42,127,255,.2);color:#7ab8ff">94%</span>
+                <div class="cand-name">Service Agreement — Mfg</div>
+                <div class="cand-meta">11 states · 14 transitions · used 23×</div>
+              </div>
+              <div class="cand" onclick="alert('Loading AP Invoice — Dual Approval.')">
+                <span class="cand-pct" style="background:rgba(255,255,255,.05);color:var(--i-text3)">81%</span>
+                <div class="cand-name">AP Invoice — Dual Approval</div>
+                <div class="cand-meta">9 states · 11 transitions · used 41×</div>
+              </div>
+              <div class="cand" onclick="alert('Loading Contract Lifecycle — SMB.')">
+                <span class="cand-pct" style="background:rgba(255,255,255,.05);color:var(--i-text3)">73%</span>
+                <div class="cand-name">Contract Lifecycle — SMB</div>
+                <div class="cand-meta">8 states · 10 transitions · used 18×</div>
+              </div>
+            </div>
+            <div class="diff-wrap">
+              <div class="diff-hdr">
+                AI customization diff
+                <div class="i-dbtn" style="padding:2px 8px;font-size:10px;color:var(--i-green);border-color:var(--i-green);margin-left:auto" onclick="alert('All changes accepted.')"><i class="ti ti-checks"></i> Accept all</div>
+                <div class="i-dbtn" style="padding:2px 8px;font-size:10px;color:var(--i-red);border-color:var(--i-red)" onclick="alert('All changes rejected.')"><i class="ti ti-x"></i> Reject all</div>
+              </div>
+              <div class="diff-r diff-add">
+                <i class="ti ti-plus"></i>
+                <span>State added: <strong>VP Operations</strong> — $25k–$100k approval tier</span>
+                <div class="diff-btns">
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px;color:var(--i-green);border-color:var(--i-green)" onclick="this.closest('.diff-r').style.opacity='.4'">Accept</div>
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-r').remove()">Remove</div>
+                </div>
+              </div>
+              <div class="diff-r diff-chg">
+                <i class="ti ti-edit"></i>
+                <span>Threshold changed: Manager approval <strong>$10k → $25k CAD</strong></span>
+                <div class="diff-btns">
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-r').style.opacity='.4'">Accept</div>
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px;color:var(--i-red);border-color:var(--i-red)">Keep $10k</div>
+                </div>
+              </div>
+              <div class="diff-r diff-del">
+                <i class="ti ti-minus"></i>
+                <span>State removed: <strong>Signed Internally</strong> — not applicable for this scenario</span>
+                <div class="diff-btns">
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px;color:var(--i-red);border-color:var(--i-red)" onclick="this.closest('.diff-r').style.opacity='.4'">Accept</div>
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-r').remove()">Restore</div>
+                </div>
+              </div>
+              <div class="diff-r diff-add">
+                <i class="ti ti-plus"></i>
+                <span>Transition added: <strong>PDF Lock</strong> on execution — post Approved state</span>
+                <div class="diff-btns">
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px;color:var(--i-green);border-color:var(--i-green)" onclick="this.closest('.diff-r').style.opacity='.4'">Accept</div>
+                  <div class="i-dbtn" style="padding:2px 7px;font-size:10px" onclick="this.closest('.diff-r').remove()">Remove</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;overflow:hidden;background:var(--i-surface)">
+            <div class="i-ph"><div class="i-ph-kicker">Dataset</div><div class="i-ph-title">142 workflows</div></div>
+            <div class="i-scroll">
+              <div class="i-sec" style="padding:10px 12px">
+                <div style="font-size:22px;font-weight:700;color:var(--i-text);line-height:1">142</div>
+                <div style="font-size:10px;color:var(--i-text3);margin-top:2px">Total workflows</div>
+              </div>
+              <div class="i-sec" style="padding:10px 12px">
+                <div style="font-size:22px;font-weight:700;color:var(--i-green);line-height:1">89%</div>
+                <div style="font-size:10px;color:var(--i-text3);margin-top:2px">Avg reuse rate</div>
+              </div>
+              <div style="font-size:9px;font-weight:700;color:var(--i-text3);letter-spacing:.8px;text-transform:uppercase;margin:4px 2px 6px">By type</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div><div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--i-text2);margin-bottom:3px"><span>AP Invoice</span><span>64</span></div><div style="height:3px;background:var(--i-border);border-radius:2px"><div style="height:100%;width:45%;background:var(--i-accent);border-radius:2px"></div></div></div>
+                <div><div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--i-text2);margin-bottom:3px"><span>Contract</span><span>41</span></div><div style="height:3px;background:var(--i-border);border-radius:2px"><div style="height:100%;width:29%;background:var(--i-green);border-radius:2px"></div></div></div>
+                <div><div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--i-text2);margin-bottom:3px"><span>NDA</span><span>22</span></div><div style="height:3px;background:var(--i-border);border-radius:2px"><div style="height:100%;width:15%;background:var(--i-amber);border-radius:2px"></div></div></div>
+                <div><div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--i-text2);margin-bottom:3px"><span>Other</span><span>15</span></div><div style="height:3px;background:var(--i-border);border-radius:2px"><div style="height:100%;width:10%;background:var(--i-text3);border-radius:2px"></div></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">
+                <div class="i-dbtn primary" style="justify-content:center" onclick="alert('Dataset browser: 142 workflows.')"><i class="ti ti-database"></i> Browse dataset</div>
+                <div class="i-dbtn" style="justify-content:center" onclick="alert('Import M-Files XML or JSON.')"><i class="ti ti-upload"></i> Import workflow</div>
+                <div class="i-dbtn" style="justify-content:center" onclick="alert('Sanitization report.')"><i class="ti ti-shield"></i> Sanitization report</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ██ RUNTIME VIEW (INTEGRATOR - DARK) ██ -->
+      <div class="view" id="view-runtime">
+        <div class="i-shell" style="grid-template-columns:280px 1fr 320px">
+          <div class="i-panel">
+            <div class="i-ph">
+              <div class="i-ph-kicker">Runtime Source</div>
+              <div class="i-ph-title">Business Intent</div>
+              <div class="i-ph-sub">What the integrator configured on the canvas</div>
+            </div>
+            <div class="i-scroll" id="runtime-source-body">
+            </div>
+          </div>
+          <div class="i-panel" style="display:flex;flex-direction:column">
+            <div class="i-ph">
+              <div class="i-ph-kicker">Compiled Runtime</div>
+              <div class="i-ph-title">Canvas → XState → PostgreSQL → n8n</div>
+              <div class="i-ph-sub">Controlled diagnostic view for consultants and support only</div>
+            </div>
+            <div class="i-scroll" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+              <div id="runtime-compiled-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
+              <div class="i-sec" style="overflow:hidden">
+                <div class="i-sec-head"><strong>Runtime trace</strong><span>Latest event</span></div>
+                <div id="runtime-trace"></div>
+              </div>
+              <div class="i-sec" style="overflow:hidden">
+                <div class="i-sec-head"><strong>Persisted records</strong><span>Authoritative</span></div>
+                <div id="runtime-persisted"></div>
+              </div>
+            </div>
+          </div>
+          <div class="i-panel right">
+            <div class="i-ph">
+              <div class="i-ph-kicker">Diagnostics</div>
+              <div class="i-ph-title">Support controls</div>
+              <div class="i-ph-sub">Visible only in controlled diagnostic mode</div>
+            </div>
+            <div class="i-scroll">
+              <div id="runtime-diagnostics"></div>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+                <div class="i-dbtn primary" style="justify-content:center" onclick="alert('Replay event from persisted snapshot.')"><i class="ti ti-refresh"></i> Replay event</div>
+                <div class="i-dbtn" style="justify-content:center" onclick="alert('Open persisted snapshot diff.')"><i class="ti ti-arrows-diff"></i> Compare snapshot</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+
+    <!-- FOOTER -->
+    <div class="footer" id="footer">
+      <div class="footer-dot"></div>
+      <span>All systems operational</span>
+      <span class="footer-sep">·</span>
+      <span>PostgreSQL connected</span>
+      <span class="footer-sep">·</span>
+      <span>Redis connected</span>
+      <span class="footer-sep">·</span>
+      <span>n8n event spine live · 9/9 webhooks</span>
+      <span class="footer-sep">·</span>
+      <span>Ollama phi4-mini ready</span>
+      <div style="margin-left:auto;font-size:10px;color:var(--text3)" id="footer-mode">Client Workspace</div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* ── DATA ── */
+const FALLBACK_INV=[
+  {id:'INV-2026-0441',vendor:'Acme Corporation',vi:'AC',vc:'#dbeafe',vt:'#1459ba',amt:'$12,450.00',date:'2026-05-25',status:'pending',conf:0.94,assignee:'Sarah M.',sla:'2h 14m',slaWarn:true},
+  {id:'INV-2026-0440',vendor:'Global Tech Solutions',vi:'GT',vc:'#dcfce7',vt:'#166038',amt:'$74,200.00',date:'2026-05-25',status:'pending',conf:0.91,assignee:'David C.',sla:'4h 50m',slaWarn:false},
+  {id:'INV-2026-0439',vendor:'Northern Supplies Ltd',vi:'NS',vc:'#fef9c3',vt:'#8f4700',amt:'$3,800.00',date:'2026-05-24',status:'exception',conf:0.88,assignee:'James O.',sla:'0h 45m',slaWarn:true},
+  {id:'INV-2026-0438',vendor:'Pacific Logistics Inc',vi:'PL',vc:'#fce7f3',vt:'#9d174d',amt:'$28,100.00',date:'2026-05-24',status:'extracted',conf:0.97,assignee:'System',sla:'6h 30m',slaWarn:false},
+  {id:'INV-2026-0437',vendor:'Summit Engineering',vi:'SE',vc:'#f3f0ff',vt:'#5b35b5',amt:'$9,850.00',date:'2026-05-24',status:'approved',conf:0.99,assignee:'Sarah M.',sla:'—',slaWarn:false},
+  {id:'INV-2026-0436',vendor:'Apex Consulting Group',vi:'AG',vc:'#fff4e6',vt:'#8f4700',amt:'$145,000.00',date:'2026-05-23',status:'approved',conf:0.96,assignee:'Michael R.',sla:'—',slaWarn:false},
+  {id:'INV-2026-0435',vendor:'Downtown Office Supply',vi:'DO',vc:'#e8faf2',vt:'#166038',amt:'$1,240.00',date:'2026-05-23',status:'exception',conf:0.51,assignee:'James O.',sla:'BREACH',slaWarn:true},
+  {id:'INV-2026-0434',vendor:'Eastside Manufacturing',vi:'EM',vc:'#fdf2f8',vt:'#701a75',amt:'$33,600.00',date:'2026-05-22',status:'pending',conf:0.93,assignee:'David C.',sla:'7h 10m',slaWarn:false},
+  {id:'INV-2026-0433',vendor:'Horizon Cloud Services',vi:'HC',vc:'#e8f2ff',vt:'#1459ba',amt:'$8,400.00',date:'2026-05-22',status:'posted',conf:0.98,assignee:'System',sla:'—',slaWarn:false},
+];
+let INV=[...FALLBACK_INV];
+let visibleInvoices=[];
+let selectedInvoiceId='';
+let chipF='all', curMode='client';
+let runtimeViewSource='fallback';
+let selectedRuntimeInvoiceId='';
+let runtimeInvoiceOptions=[];
+function createDefaultRuntimeViewData(){
+  return {
+    workflow:{name:'Invoice Approval Flow',version:'v2.1',status:'Active'},
+    stateIntent:{title:'Pending Approval',rows:[['Assignee role','AP Manager','blue'],['Email approval','Enabled','green'],['Comments','All parties','blue'],['SLA target','4 hours','amber']]},
+    transitionIntent:{title:'APPROVE_CFO',rows:[['amount > 25000','CFO','amber'],['GL suggestion','Run first','blue'],['Anomaly check','Flag continue','blue']]},
+    compiled:[
+      {title:'Canvas',copy:'Business rule: if amount is over $25k route to CFO and send approval email.'},
+      {title:'XState',copy:'Guard selects cfo_approval. Entry actions include token generation and SLA start.'},
+      {title:'PostgreSQL',copy:'Snapshot, transition history, timer record, and audit event commit in one transaction.'},
+      {title:'n8n',copy:'Receives the committed event and sends email, Teams, Slack, or ERP callbacks after commit.'},
+    ],
+    trace:[
+      ['1. Event received','APPROVE','blue'],
+      ['2. Snapshot loaded','workflow_state v18','dim'],
+      ['3. Guard evaluated','amount > 25000','amber'],
+      ['4. Transaction committed','state + history + audit','green'],
+      ['5. Post-commit dispatch','n8n webhook fired','blue'],
+    ],
+    persisted:[
+      ['workflow_state','current = cfo_approval','green'],
+      ['workflow_state_history','pending_approval → cfo_approval','blue'],
+      ['workflow_timers','sla_breach pending','amber'],
+      ['audit_events','immutable append','dim'],
+    ],
+    diagnostics:[
+      {title:'Current snapshot',copy:'state: cfo_approval<br>version: 18<br>entered_at: 14:32:01Z',mono:true},
+      {title:'Queue health',copy:'workflow-timers queue healthy. 1 pending SLA job. 0 DLQ items.'},
+      {title:'n8n delivery',copy:'invoice.approved webhook acknowledged. Approval email template queued for CFO.'},
+      {title:'Guard preview',copy:'invoice.total = 74200<br>amountOver25k = true<br>vendorRiskHigh = false',mono:true},
+      {title:'API status',copy:'Fallback payload active. Runtime API unavailable.'},
+    ],
+  };
+}
+let runtimeViewData=createDefaultRuntimeViewData();
+
+/* ── STATUS BADGE ── */
+function stBadge(s){
+  const m={pending:'st-pending',received:'st-pending',matched:'st-extracted',extracted:'st-extracted',approved:'st-approved',exception:'st-exception st-review',posted:'st-posted',review:'st-review',rejected:'st-exception st-review',reconciled:'st-posted'};
+  const lbl={pending:'Pending',received:'Received',matched:'Matched',extracted:'Extracted',approved:'Approved',exception:'Exception',posted:'Posted',review:'Review',rejected:'Rejected',reconciled:'Reconciled'};
+  return `<span class="st ${m[s]||'st-pending'}">${lbl[s]||s}</span>`;
+}
+/* ── CONFIDENCE BAR ── */
+function cfBar(v){
+  const c=v>=0.9?'cf-hi':v>=0.7?'cf-mid':'cf-lo';
+  const t=v>=0.9?'cf-hi-t':v>=0.7?'cf-mid-t':'cf-lo-t';
+  return `<div class="cf"><div class="cf-track"><div class="cf-fill ${c}" style="width:${Math.round(v*100)}%"></div></div><span class="cf-num ${t}">${Math.round(v*100)}%</span></div>`;
+}
+
+function initialsForVendor(name){
+  return (name || 'NA')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0,2)
+    .map(part=>part[0]?.toUpperCase() || '')
+    .join('') || 'NA';
+}
+
+function hashColor(seed){
+  let hash=0;
+  for(let i=0;i<seed.length;i+=1){ hash = seed.charCodeAt(i) + ((hash << 5) - hash); }
+  const hue=Math.abs(hash)%360;
+  return {
+    bg:`hsl(${hue} 75% 92%)`,
+    fg:`hsl(${hue} 68% 32%)`
+  };
+}
+
+function amountToCurrency(value){
+  const numeric=typeof value==='number'?value:Number(value||0);
+  return new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(numeric || 0);
+}
+
+function toSurfaceInvoice(item){
+  const palette=hashColor(item.vendor || item.invoiceNumber || item.id || 'invoice');
+  const rawStatus=item.status || 'pending';
+  const displayStatus=rawStatus==='pending_approval' ? 'pending' : rawStatus;
+  return {
+    id:item.id,
+    invoiceNumber:item.invoiceNumber || item.id,
+    vendor:item.vendor || 'Unknown vendor',
+    vi:initialsForVendor(item.vendor || item.invoiceNumber || item.id),
+    vc:palette.bg,
+    vt:palette.fg,
+    amt:amountToCurrency(item.amount),
+    amountRaw:Number(item.amount || 0),
+    date:item.date || 'n/a',
+    status:displayStatus,
+    conf:Number(item.confidence || 0),
+    assignee:item.assignee || 'AP Team',
+    sla:item.sla || '—',
+    slaWarn:String(item.sla || '').toLowerCase().includes('breach'),
+    po:item.po || 'Missing',
+    queue:item.queue || 'Approvals',
+    fieldConfidence:item.fieldConfidence || {}
+  };
+}
+
+async function loadInvoices(){
+  try{
+    const params=new URLSearchParams();
+    if(chipF && chipF !== 'all') params.set('status', chipF);
+    const searchTerm=(document.getElementById('srch')?.value || '').trim();
+    if(searchTerm) params.set('search', searchTerm);
+    const suffix=params.toString()?`?${params}`:'';
+    const resp=await fetch(`${invoicesApiUrl()}${suffix}`,{headers:{'Content-Type':'application/json'},cache:'no-store'});
+    if(!resp.ok) throw new Error(`Invoices API failed: ${resp.status}`);
+    const payload=await resp.json();
+    INV=(payload.items || []).map(toSurfaceInvoice);
+    if(!selectedInvoiceId && INV.length){
+      selectedInvoiceId=INV[0].id;
+    }
+    renderInv(searchTerm);
+  }catch(_err){
+    INV=[...FALLBACK_INV];
+    if(!selectedInvoiceId && INV.length){
+      selectedInvoiceId=INV[0].id;
+    }
+    renderInv(document.getElementById('srch')?.value || '');
+  }
+}
+/* ── RENDER TABLE ── */
+function renderInv(q){
+  q=q||'';
+  visibleInvoices=INV.filter(r=>{
+    const ms=!q||r.vendor.toLowerCase().includes(q.toLowerCase())||r.invoiceNumber.toLowerCase().includes(q.toLowerCase())||r.id.toLowerCase().includes(q.toLowerCase())||r.amt.includes(q);
+    const mf=chipF==='all'||r.status===chipF;
+    return ms&&mf;
+  });
+  document.getElementById('inv-body').innerHTML=visibleInvoices.map((r)=>`
+    <tr class="${selectedInvoiceId===r.id?'sel':''}" onclick="selInv('${r.id}')">
+      <td style="padding-left:16px"><div class="ck ${selectedInvoiceId===r.id?'on':''}" onclick="event.stopPropagation();this.classList.toggle('on')"><i class="ti ti-check"></i></div></td>
+      <td><div style="display:flex;align-items:center;gap:9px"><div class="av" style="background:${r.vc};color:${r.vt}">${r.vi}</div><span style="font-size:13px">${r.vendor}</span></div></td>
+      <td class="mono">${r.invoiceNumber}</td>
+      <td style="font-size:12px;color:var(--c-text2)">${r.date}</td>
+      <td style="font-family:var(--mono);font-size:13px;font-weight:600">${r.amt}</td>
+      <td>${stBadge(r.status)}</td>
+      <td>${cfBar(r.conf)}</td>
+      <td style="font-size:11px;color:var(--c-text2)">${r.assignee}</td>
+      <td style="font-size:11px;${r.slaWarn?'color:var(--c-red);font-weight:700':'color:var(--c-text3)'}">${r.sla}</td>
+      <td><div class="xb" style="padding:3px 7px;border:none;background:transparent;color:var(--c-text3)" onclick="event.stopPropagation();selInv('${r.id}')"><i class="ti ti-eye"></i></div></td>
+    </tr>`).join('');
+}
+/* ── SELECT INVOICE ── */
+function selInv(invoiceId){
+  selectedInvoiceId=invoiceId;
+  renderInv(document.getElementById('srch').value);
+  const r=INV.find(item=>item.id===invoiceId) || visibleInvoices[0];
+  if(!r){ return; }
+  document.getElementById('d-head').style.display='block';
+  document.getElementById('d-id').textContent=r.invoiceNumber;
+  document.getElementById('d-vendor').textContent=r.vendor+' · '+r.amt;
+  document.getElementById('d-actions').style.display='flex';
+  document.getElementById('d-body').innerHTML=`
+    <div class="d-card">
+      <div class="d-card-title">Invoice fields</div>
+      <div class="kv"><span class="kk">Vendor</span><span class="kv-val">${r.vendor}</span></div>
+      <div class="kv"><span class="kk">Invoice #</span><span class="kv-val" style="font-family:var(--mono);font-size:10.5px">${r.invoiceNumber}</span></div>
+      <div class="kv"><span class="kk">Amount</span><span class="kv-val">${r.amt}</span></div>
+      <div class="kv"><span class="kk">Date</span><span class="kv-val">${r.date}</span></div>
+      <div class="kv"><span class="kk">Status</span><span class="kv-val">${stBadge(r.status)}</span></div>
+      <div class="kv"><span class="kk">Assigned</span><span class="kv-val">${r.assignee}</span></div>
+      <div class="kv"><span class="kk">Queue</span><span class="kv-val">${r.queue}</span></div>
+      <div class="kv"><span class="kk">PO</span><span class="kv-val">${r.po}</span></div>
+      <div class="kv"><span class="kk">SLA</span><span class="kv-val" style="${r.slaWarn?'color:var(--c-red);font-weight:700':''}">${r.sla}</span></div>
+    </div>
+    <div class="d-card">
+      <div class="d-card-title">AI confidence scores</div>
+      <div class="cf-row"><span class="cf-lbl">Vendor name</span>${cfBar(Number(r.fieldConfidence.vendor_name || r.conf || 0))}</div>
+      <div class="cf-row"><span class="cf-lbl">Invoice number</span>${cfBar(Number(r.fieldConfidence.invoice_number || r.conf || 0))}</div>
+      <div class="cf-row"><span class="cf-lbl">Total amount</span>${cfBar(r.conf)}</div>
+      <div class="cf-row"><span class="cf-lbl">Due date</span>${cfBar(Number(r.fieldConfidence.invoice_date || r.conf || 0))}</div>
+      <div class="cf-row"><span class="cf-lbl">PO number</span>${cfBar(Number(r.fieldConfidence.po_number || r.conf || 0))}</div>
+      <div class="cf-row"><span class="cf-lbl">Currency</span>${cfBar(Number(r.fieldConfidence.currency || 0.99))}</div>
+    </div>
+    <div class="d-card">
+      <div class="d-card-title">Lifecycle</div>
+      <div class="tl">
+        <div class="tl-item"><div class="tl-dot tl-done"><i class="ti ti-check" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">Received</div><div class="tl-meta">Email · 14:18</div></div></div>
+        <div class="tl-item"><div class="tl-dot tl-done"><i class="ti ti-check" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">AI extracted</div><div class="tl-meta">PaddleOCR · 6.2s · ${Math.round(r.conf*100)}%</div></div></div>
+        <div class="tl-item"><div class="tl-dot ${r.status==='exception'?'tl-curr':'tl-done'}"><i class="ti ti-check" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">PO matched</div><div class="tl-meta">${r.status==='exception'?'Exception raised':'2-way · within tolerance'}</div></div></div>
+        <div class="tl-item"><div class="tl-dot ${r.status==='pending'?'tl-curr':r.status==='approved'||r.status==='posted'?'tl-done':'tl-pend'}"><i class="ti ti-${r.status==='approved'||r.status==='posted'?'check':'clock'}" style="font-size:9px"></i></div><div class="tl-line"></div><div class="tl-body"><div class="tl-name">Approval</div><div class="tl-meta">${r.assignee}</div></div></div>
+        <div class="tl-item"><div class="tl-dot ${r.status==='posted'?'tl-done':'tl-pend'}"><i class="ti ti-send" style="font-size:9px"></i></div><div class="tl-body"><div class="tl-name">Post to ERP</div><div class="tl-meta">${r.status==='posted'?'SAP FI posted':'Awaiting approval'}</div></div></div>
+      </div>
+    </div>`;
+  if(!selectedRuntimeInvoiceId){
+    selectedRuntimeInvoiceId=r.id;
+  }
+  selectedRuntimeInvoiceId=r.id;
+  if(document.getElementById('view-runtime')?.classList.contains('active')){
+    loadRuntimeView(r.id);
+  }
+}
+async function approveInv(){
+  if(!selectedInvoiceId) return;
+  try{
+    const resp=await fetch(`${invoicesApiUrl()}/${selectedInvoiceId}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({}),cache:'no-store'});
+    if(!resp.ok) throw new Error(`Approve failed: ${resp.status}`);
+    await loadInvoices();
+    selInv(selectedInvoiceId);
+    await loadRuntimeView(selectedInvoiceId);
+  }catch(_err){
+    const fallback=INV.find(item=>item.id===selectedInvoiceId);
+    if(!fallback) return;
+    fallback.status='approved';
+    fallback.sla='—';
+    fallback.slaWarn=false;
+    renderInv(document.getElementById('srch').value);
+    selInv(selectedInvoiceId);
+  }
+}
+async function rejectInv(){
+  if(!selectedInvoiceId) return;
+  try{
+    const resp=await fetch(`${invoicesApiUrl()}/${selectedInvoiceId}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({}),cache:'no-store'});
+    if(!resp.ok) throw new Error(`Review failed: ${resp.status}`);
+    await loadInvoices();
+    selInv(selectedInvoiceId);
+    await loadRuntimeView(selectedInvoiceId);
+  }catch(_err){
+    const fallback=INV.find(item=>item.id===selectedInvoiceId);
+    if(!fallback) return;
+    fallback.status='review';
+    renderInv(document.getElementById('srch').value);
+    selInv(selectedInvoiceId);
+  }
+}
+function setChip(el,f){chipF=f;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');loadInvoices()}
+function setCtxTab(el,f){document.querySelectorAll('.ctx-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');chipF=f;loadInvoices()}
+
+/* ── MODE TOGGLE ── */
+const INTEGRATOR_VIEWS=['wf','erp','ai'];
+const CLIENT_VIEWS=['ap','exc','audit'];
+function setMode(mode){
+  curMode=mode;
+  const shell=document.getElementById('shell');
+  const main=document.getElementById('main');
+  const topbar=document.getElementById('topbar');
+  const ctxbar=document.getElementById('ctxbar');
+  const metricsEl=document.getElementById('metrics');
+  const footer=document.getElementById('footer');
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.mode-btn.'+mode).classList.add('active');
+  document.getElementById('footer-mode').textContent=mode==='client'?'Client Workspace':'Integrator Workspace';
+  if(mode==='integrator'){
+    shell.classList.add('integrator-mode');
+    document.body.style.background='var(--i-bg)';
+    // Switch to workflow designer
+    navClick('wf',document.getElementById('nav-wf'));
+    document.getElementById('metrics').innerHTML=`
+      <div class="metric"><div class="m-val">4</div><div class="m-lbl">Active workflows</div><div class="m-delta m-up">2 ready to publish</div></div>
+      <div class="metric"><div class="m-val blue">12</div><div class="m-lbl">Transitions</div><div class="m-delta" style="color:var(--i-text3)">Schema aligned</div></div>
+      <div class="metric"><div class="m-val amber">3</div><div class="m-lbl">Pending diffs</div><div class="m-delta m-warn">Awaiting review</div></div>
+      <div class="metric"><div class="m-val green">98%</div><div class="m-lbl">Simulation pass rate</div><div class="m-delta m-up">Last 25 runs</div></div>
+      <div class="metric"><div class="m-val red">2</div><div class="m-lbl">Connector gaps</div><div class="m-delta m-dn">SAP + NetSuite</div></div>`;
+    document.getElementById('ctx-title').textContent='Integrator Workspace';
+    document.getElementById('ctx-sub').textContent='Workflow design & ERP mapping';
+    document.getElementById('filterbar').style.display='none';
+  } else {
+    shell.classList.remove('integrator-mode');
+    document.body.style.background='var(--c-bg)';
+    navClick('ap',document.getElementById('nav-ap'));
+    document.getElementById('metrics').innerHTML=`
+      <div class="metric"><div class="m-val">247</div><div class="m-lbl">Invoices today</div><div class="m-delta m-up">↑ 12% vs yesterday</div></div>
+      <div class="metric"><div class="m-val green">84%</div><div class="m-lbl">Touchless rate</div><div class="m-delta m-up">↑ 6% this week</div></div>
+      <div class="metric"><div class="m-val amber">18</div><div class="m-lbl">Pending approval</div><div class="m-delta m-warn">3 near SLA</div></div>
+      <div class="metric"><div class="m-val red">5</div><div class="m-lbl">Open exceptions</div><div class="m-delta m-dn">2 critical</div></div>
+      <div class="metric"><div class="m-val blue">$1.4M</div><div class="m-lbl">Volume processed</div><div class="m-delta m-up">↑ 23% this month</div></div>`;
+    document.getElementById('ctx-title').textContent='AP Workbench';
+    document.getElementById('ctx-sub').textContent='Invoice processing queue';
+    document.getElementById('filterbar').style.display='flex';
+  }
+}
+
+/* ── NAV ── */
+const viewMeta={
+  ap:{title:'AP Workbench',sub:'Invoice processing queue'},
+  exc:{title:'Exceptions',sub:'5 open · 2 critical'},
+  audit:{title:'Audit Trail',sub:'Immutable · append-only'},
+  wf:{title:'Workflow Designer',sub:'State machine canvas'},
+  erp:{title:'ERP Mapping',sub:'SAP S/4HANA · confidence 0.94'},
+  ai:{title:'AI Cockpit',sub:'RAG workflow generation · 142 datasets'},
+  runtime:{title:'Runtime View',sub:'Canvas → XState → PostgreSQL → n8n'},
+};
+function navClick(id,el){
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  const meta=viewMeta[id];
+  if(meta){document.getElementById('ctx-title').textContent=meta.title;document.getElementById('ctx-sub').textContent=meta.sub}
+  document.getElementById('filterbar').style.display=(id==='ap'&&curMode==='client')?'flex':'none';
+  document.getElementById('ctx-tabs').style.display=(id==='ap'&&curMode==='client')?'flex':'none';
+  if(id==='runtime'){loadRuntimeView();}
+}
+
+/* ── WORKFLOW NODE / TRANSITION INSPECTOR ── */
+let activeWfSelection=null;
+let activeTransitionSelection=null;
+const wfConfig={
+  'Received':{
+    type:'Technical',assignee:'System intake service',fallback:'Compliance queue',sla:'0',unit:'minutes',
+    description:'Entry point. Intake accepted and canonical envelope created.',comments:'Disabled',vendor:'Disabled',editing:'Locked on entry',missingPo:'Continue',
+    entry:['Stamp intake metadata','Queue OCR extraction'],exit:['None'],
+    transitions:[['EXTRACTED','Auto route to extraction','System']]
+  },
+  'Extracted':{
+    type:'Normal',assignee:'AI extraction pipeline',fallback:'AP Data Validation Team',sla:'1',unit:'hours',
+    description:'Structured fields extracted and scored.',comments:'Internal only',vendor:'Disabled',editing:'Review only',missingPo:'Route to exception',
+    entry:['Persist extraction evidence','Write confidence payload'],exit:['None'],
+    transitions:[['MATCHED','PO match success','Auto'],['EXCEPTION','Low confidence route','Guard']]
+  },
+  'Matched':{
+    type:'Normal',assignee:'AP Data Validation Team',fallback:'AP Manager',sla:'2',unit:'hours',
+    description:'Tolerance rules and policy checks passed.',comments:'Enabled',vendor:'Disabled',editing:'Allowed before submit',missingPo:'Route to exception',
+    entry:['Prepare approval packet','Preload coding hints'],exit:['Lock matched evidence'],
+    transitions:[['PENDING_APPROVAL','Move to human approval','Auto'],['EXCEPTION','Policy exception','Guard']]
+  },
+  'Pending Approval':{
+    type:'Approval',assignee:'AP Manager',fallback:'Controller',sla:'4',unit:'hours',
+    description:'Awaiting human decision with approval matrix applied.',comments:'Enabled — all parties',vendor:'Disabled',editing:'Locked on entry',missingPo:'Route to exception',
+    entry:['Send approval notification email','Generate one-tap approval token','Start SLA timer','Lock invoice fields'],exit:['Cancel active SLA timer','Expire approval token'],
+    transitions:[['APPROVE_MANAGER','Amount ≤ $25k → Manager','Guard'],['APPROVE_CFO','Amount > $25k → CFO','Guard'],['REJECT','Reject invoice','Manual'],['SLA_BREACH','Escalate after 4h','Timer']]
+  },
+  'Manager Approval':{
+    type:'Approval',assignee:'AP Manager',fallback:'Controller',sla:'4',unit:'hours',
+    description:'Tier 1 approval for lower-value invoices.',comments:'Enabled — internal only',vendor:'Disabled',editing:'Locked',missingPo:'Route to exception',
+    entry:['Notify assignee','Generate approval token'],exit:['Expire approval token'],
+    transitions:[['APPROVED','Approval granted','Manual'],['REJECT','Rejected by manager','Manual']]
+  },
+  'CFO Approval':{
+    type:'Approval',assignee:'CFO',fallback:'VP Operations',sla:'8',unit:'hours',
+    description:'Tier 2 approval for higher-value invoices.',comments:'Enabled — internal only',vendor:'Disabled',editing:'Locked',missingPo:'Route to exception',
+    entry:['Send CFO approval email','Generate one-tap approval token','Start escalation timer'],exit:['Expire approval token','Cancel escalation timer'],
+    transitions:[['APPROVED','Approval granted','Manual'],['REJECT','Rejected by CFO','Manual'],['SLA_BREACH','Escalate to controller','Timer']]
+  },
+  'Approved':{
+    type:'Terminal',assignee:'System posting service',fallback:'AP Compliance Lead',sla:'0',unit:'minutes',
+    description:'Terminal approval state. Triggers ERP posting and immutable audit seal.',comments:'Read-only',vendor:'Disabled',editing:'No edits',missingPo:'Not applicable',
+    entry:['Queue ERP posting','Write audit seal'],exit:['None'],
+    transitions:[['POSTED','ERP confirms posting','System']]
+  }
+};
+
+function renderTransitionButton(transition, idx){
+  return `<div class="i-row" onclick="selTransition('${transition[0]}','${transition[1]}','${transition[2]}','list')"><span class="i-row-name" style="font-family:var(--mono);font-size:10px">→ ${transition[0]}</span><span class="i-chip ${idx===0?'i-chip-blue':'i-chip-amber'}">${transition[2]}</span></div>`;
+}
+
+function chipClass(tone){
+  return `i-chip i-chip-${tone || 'blue'}`;
+}
+
+function runtimeApiUrl(invoiceId){
+  const base='http://localhost:5000/api/runtime-view';
+  const url=new URL(base);
+  if(invoiceId){url.searchParams.set('invoice_id',invoiceId)}
+  return url.toString();
+}
+
+function invoicesApiUrl(){
+  return 'http://localhost:5000/api/invoices';
+}
+
+function runtimeInvoiceFallbackOptions(){
+  const label=runtimeViewData?.stateIntent?.rows?.[0]?.[1] || 'Fallback invoice';
+  return [{id:selectedRuntimeInvoiceId || 'fallback-runtime',label}];
+}
+
+async function loadRuntimeInvoiceOptions(){
+  try{
+    const resp=await fetch(invoicesApiUrl(),{headers:{'Content-Type':'application/json'},cache:'no-store'});
+    if(!resp.ok) throw new Error(`Invoices API failed: ${resp.status}`);
+    const payload=await resp.json();
+    runtimeInvoiceOptions=(payload.items||[]).map(item=>({
+      id:item.id,
+      label:`${item.invoiceNumber || item.id} · ${item.vendor || 'Unknown vendor'}`,
+    }));
+    if(!selectedRuntimeInvoiceId && runtimeInvoiceOptions.length){
+      selectedRuntimeInvoiceId=runtimeInvoiceOptions[0].id;
+    }
+  }catch(_err){
+    runtimeInvoiceOptions=runtimeInvoiceFallbackOptions();
+    if(!selectedRuntimeInvoiceId && runtimeInvoiceOptions.length){
+      selectedRuntimeInvoiceId=runtimeInvoiceOptions[0].id;
+    }
+  }
+}
+
+function renderRuntimeInvoiceSelector(){
+  const options=(runtimeInvoiceOptions.length?runtimeInvoiceOptions:runtimeInvoiceFallbackOptions())
+    .map(option=>`<option value="${option.id}" ${option.id===selectedRuntimeInvoiceId?'selected':''}>${option.label}</option>`)
+    .join('');
+  return `
+    <div class="i-sec">
+      <div class="i-sec-head"><strong>Runtime instance</strong><span>Invoice-bound</span></div>
+      <label class="i-lbl">Invoice or workflow instance</label>
+      <select class="i-inp" style="padding:8px 9px" onchange="changeRuntimeInvoice(this.value)">${options}</select>
+    </div>`;
+}
+
+async function changeRuntimeInvoice(invoiceId){
+  selectedRuntimeInvoiceId=invoiceId;
+  await loadRuntimeView(invoiceId);
+}
+
+async function loadRuntimeView(invoiceId){
+  const targetInvoiceId=invoiceId || selectedRuntimeInvoiceId || '';
+  try{
+    const resp=await fetch(runtimeApiUrl(targetInvoiceId),{headers:{'Content-Type':'application/json'},cache:'no-store'});
+    if(!resp.ok) throw new Error(`Runtime API failed: ${resp.status}`);
+    const payload=await resp.json();
+    runtimeViewSource=payload.source||'database';
+    selectedRuntimeInvoiceId=payload.invoice_id || targetInvoiceId || selectedRuntimeInvoiceId;
+    runtimeViewData=payload.data||createDefaultRuntimeViewData();
+    renderRuntimeView(runtimeViewData);
+  }catch(err){
+    runtimeViewSource='fallback';
+    runtimeViewData=createDefaultRuntimeViewData();
+    runtimeViewData.diagnostics=[
+      ...runtimeViewData.diagnostics.filter(item=>item.title!=='API status'),
+      {title:'API status',copy:`Fallback payload active. ${err.message||'Runtime API unavailable.'}`},
+    ];
+    renderRuntimeView(runtimeViewData);
+  }
+}
+
+function renderRuntimeRows(rows, mono){
+  return rows.map(([label,value,tone])=>`<div class="i-row"><span class="i-row-name"${mono?' style="font-family:var(--mono);font-size:10px"':''}>${label}</span><span class="${chipClass(tone)}">${value}</span></div>`).join('');
+}
+
+function renderRuntimeView(data){
+  document.getElementById('runtime-source-body').innerHTML=`
+    ${renderRuntimeInvoiceSelector()}
+    <div class="i-sec">
+      <div class="i-sec-head"><strong>Selected workflow</strong><span>${data.workflow.version}</span></div>
+      <div class="i-row sel"><span class="i-row-name">${data.workflow.name}</span><span class="${chipClass('green')}">${data.workflow.status}</span></div>
+    </div>
+    <div class="i-sec">
+      <div class="i-sec-head"><strong>State intent</strong><span>${data.stateIntent.title}</span></div>
+      ${renderRuntimeRows(data.stateIntent.rows)}
+    </div>
+    <div class="i-sec">
+      <div class="i-sec-head"><strong>Transition intent</strong><span>${data.transitionIntent.title}</span></div>
+      ${renderRuntimeRows(data.transitionIntent.rows, true)}
+    </div>`;
+
+  document.getElementById('runtime-compiled-grid').innerHTML=data.compiled.map(card=>`<div class="i-insp-box"><h4>${card.title}</h4><p>${card.copy}</p></div>`).join('');
+  document.getElementById('runtime-trace').innerHTML=renderRuntimeRows(data.trace);
+  document.getElementById('runtime-persisted').innerHTML=renderRuntimeRows(data.persisted);
+  document.getElementById('runtime-diagnostics').innerHTML=data.diagnostics.map(item=>`<div class="i-insp-box"><h4>${item.title}</h4><p${item.mono?' style="font-family:var(--mono);font-size:10px"':''}>${item.copy}</p></div>`).join('');
+}
+
+function syncRuntimeTransition(eventType,label,mode){
+  runtimeViewData.transitionIntent.title=eventType;
+  runtimeViewData.transitionIntent.rows=[
+    [label,mode,'amber'],
+    ['Runtime source',runtimeViewSource==='database'?'Canvas selection + live API':'Canvas selection + fallback','blue'],
+    ['Persistence binding',runtimeViewSource==='database'?'Live runtime endpoint':'Fallback payload','green'],
+  ];
+  renderRuntimeView(runtimeViewData);
+}
+
+function selWfNode(el,name,desc){
+  document.querySelectorAll('.wf-node-d').forEach(n=>n.classList.remove('sel'));
+  document.querySelectorAll('.wf-edge').forEach(n=>n.classList.remove('sel'));
+  el.classList.add('sel');
+  activeWfSelection={el,name,desc};
+  activeTransitionSelection=null;
+  const cfg=wfConfig[name] || wfConfig['Pending Approval'];
+  runtimeViewData.stateIntent.title=name;
+  runtimeViewData.stateIntent.rows=[
+    ['Description',desc,'blue'],
+    ['Assign to',cfg.assignee,'blue'],
+    ['SLA target',`${cfg.sla} ${cfg.unit}`,'amber'],
+    ['Comments',cfg.comments,'blue'],
+  ];
+  renderRuntimeView(runtimeViewData);
+  document.getElementById('insp-title').textContent=name;
+  document.getElementById('insp-sub').textContent=desc;
+  document.getElementById('insp-body').innerHTML=`
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>State Type</h4><p>${cfg.type} state. ${cfg.description}</p></div>
+      <div class="i-insp-box"><h4>Access Model</h4><p>Business-language first. Runtime details remain hidden unless diagnostic mode is opened.</p></div>
+    </div>
+    <div><label class="i-lbl">State name</label><input class="i-inp" value="${name}"></div>
+    <div><label class="i-lbl">Description</label><input class="i-inp" value="${cfg.description}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div><label class="i-lbl">Assign to</label><input class="i-inp" value="${cfg.assignee}"></div>
+      <div><label class="i-lbl">Fallback</label><input class="i-inp" value="${cfg.fallback}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:6px">
+      <div><label class="i-lbl">SLA duration</label><input class="i-inp" type="number" value="${cfg.sla}"></div>
+      <div><label class="i-lbl">Unit</label><select class="i-inp" style="padding:6px 5px"><option ${cfg.unit==='hours'?'selected':''}>hours</option><option ${cfg.unit==='days'?'selected':''}>days</option><option ${cfg.unit==='minutes'?'selected':''}>minutes</option></select></div>
+    </div>
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>On Entry</h4><p>${cfg.entry.join('<br>')}</p></div>
+      <div class="i-insp-box"><h4>On Exit</h4><p>${cfg.exit.join('<br>')}</p></div>
+    </div>
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>Comments</h4><p>${cfg.comments}</p></div>
+      <div class="i-insp-box"><h4>Vendor Reply</h4><p>${cfg.vendor}</p></div>
+    </div>
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>Field Editing</h4><p>${cfg.editing}</p></div>
+      <div class="i-insp-box"><h4>On Missing PO</h4><p>${cfg.missingPo}</p></div>
+    </div>
+    <div class="i-sec" style="overflow:hidden">
+      <div class="i-sec-head"><strong>Outgoing transitions</strong><span>${cfg.transitions.length}</span></div>
+      ${cfg.transitions.map((t,idx)=>renderTransitionButton(t,idx)).join('')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-top:2px">
+      <div class="i-dbtn primary" style="justify-content:center" onclick="alert('State saved.')"><i class="ti ti-device-floppy"></i> Save state</div>
+      <div class="i-dbtn" style="justify-content:center;color:var(--i-red);border-color:var(--i-red)" onclick="alert('State deleted.')"><i class="ti ti-trash"></i> Delete state</div>
+    </div>`;
+}
+
+function selTransition(eventType,label,mode,source='list'){
+  document.querySelectorAll('.wf-edge').forEach(n=>n.classList.remove('sel'));
+  if(source==='canvas' && activeTransitionSelection && activeTransitionSelection.el){
+    activeTransitionSelection.el.classList.add('sel');
+  } else {
+    activeTransitionSelection={eventType,label,mode,source};
+  }
+  const crumb=source==='canvas' ? `<div class="i-crumb"><i class="ti ti-route-square-2"></i><span>Selected from canvas path: <strong style="color:var(--i-text)">${label}</strong></span></div>` : '';
+  document.getElementById('insp-title').textContent='Transition Inspector';
+  document.getElementById('insp-sub').textContent=`${eventType} · ${label}`;
+  document.getElementById('insp-body').innerHTML=`
+    ${crumb}
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>Trigger</h4><p>${eventType}</p></div>
+      <div class="i-insp-box"><h4>Evaluation Mode</h4><p>${mode} transition resolved by business rules before commit.</p></div>
+    </div>
+    <div><label class="i-lbl">Canvas label</label><input class="i-inp" value="${label}"></div>
+    <div><label class="i-lbl">Guard condition</label><input class="i-inp" value="invoice.total > 25000"></div>
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>Pre-transition actions</h4><p>Run GL suggestion<br>Run anomaly detection<br>Validate approval policy</p></div>
+      <div class="i-insp-box"><h4>Post-commit notifications</h4><p>Email notification to new assignee<br>Optional Teams or Slack alert<br>ERP callback when configured</p></div>
+    </div>
+    <div class="i-insp-grid">
+      <div class="i-insp-box"><h4>Vendor contact</h4><p>Disabled by default. Tokenized reply can be enabled on vendor-facing transitions only.</p></div>
+      <div class="i-insp-box"><h4>Runtime ownership</h4><p>XState evaluates the transition. PostgreSQL commits the result. n8n dispatches only after commit.</p></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-top:2px">
+      <div class="i-dbtn primary" style="justify-content:center" onclick="alert('Transition saved.')"><i class="ti ti-device-floppy"></i> Save transition</div>
+      <div class="i-dbtn" style="justify-content:center" onclick="restoreWfSelection()"><i class="ti ti-arrow-left"></i> Back to state</div>
+    </div>`;
+  syncRuntimeTransition(eventType,label,mode);
+}
+
+function restoreWfSelection(){
+  if(activeWfSelection){
+    selWfNode(activeWfSelection.el,activeWfSelection.name,activeWfSelection.desc);
+  }
+}
+
+function selSvgTransition(el,eventType,label,mode){
+  document.querySelectorAll('.wf-edge').forEach(n=>n.classList.remove('sel'));
+  document.querySelectorAll('.wf-node-d').forEach(n=>n.classList.remove('sel'));
+  el.classList.add('sel');
+  activeTransitionSelection={el,eventType,label,mode,source:'canvas'};
+  selTransition(eventType,label,mode,'canvas');
+}
+
+/* ── INIT ── */
+loadInvoices();
+renderRuntimeView(runtimeViewData);
+loadRuntimeInvoiceOptions().then(()=>loadRuntimeView(selectedRuntimeInvoiceId));
+</script>
+</body>
+</html>
