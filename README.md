@@ -82,6 +82,29 @@ The product is designed as one React application with role-based views. Consulta
 - Backend (current Phase I): includes a temporary single Flask sandbox service for rapid validation.
 - Backend (target architecture): modular multi-service backend (backend-api, workflow-engine, OCR worker, n8n, and supporting services), not a long-term monolithic backend.
 
+Current architecture, as documented:
+
+- Frontend: one SPA with RBAC-based feature visibility.
+- Backend: containerized multi-service platform (not intended to stay monolithic).
+- Local runtime baseline: Docker Compose.
+- Cloud enterprise scale path: Kubernetes.
+
+Backend structure now:
+
+- API layer: temporary Flask sandbox in `backend/app.py` for Phase I validation, with target gateway direction in docs.
+- Workflow runtime: dedicated workflow-engine service in `workflow-engine/server.mjs`.
+- Data authority: PostgreSQL is the master source of truth for workflow state, audit, and AP data.
+- Cache and async transport: Redis plus queue patterns.
+- Integration and notifications: n8n workflows under `config/n8n/workflows`.
+- OCR pipeline: isolated worker service in `ocr-worker/worker.py`.
+- Infrastructure entrypoint: `docker-compose.yml`.
+
+Correct label:
+
+- Same SPA for all users via RBAC.
+- Backend is transitioning from a Phase I single-service validation path to a service-oriented container architecture.
+- Deployment model is Docker locally and Kubernetes for enterprise scalability.
+
 ## Stack Layers
 
 | Layer | Technology | Purpose |
@@ -159,6 +182,61 @@ Because AI is the backbone, implement in this order:
 3. Mode 2 (reuses backbone for inline copilot behavior).
 4. Mode 3 (full generation after guardrails and review UX are mature).
 
+## Official Workflow Designer Feature Catalog
+
+This section defines the official feature offer for the workflow designer surface.
+
+| Feature Area | Official Feature | Status |
+| :--- | :--- | :--- |
+| Canvas Core | React Flow Pro foundation (`@xyflow/react` v12) | Official |
+| Canvas Core | Drag/drop node creation from palette | Official |
+| Canvas Core | Double-click quick node creation | Official |
+| Canvas Core | Zoom, pan, minimap, controls | Official |
+| Canvas Core | Snap-to-grid and guided alignment | Official |
+| Nodes | AP domain node cards (kind-based visual system) | Official |
+| Nodes | Node toolbar and node resizer support | Official |
+| Edges | Custom transition edges with semantic color routing | Official |
+| Edges | Editable edge labels and transition metadata editing | Official |
+| Edges | Delayed-transition dash animation and marker semantics | Official |
+| Layout | ELK auto-layout for AP topological flows | Official |
+| State | Zustand store with undo/redo history | Official |
+| Inspector | Live property inspector for node/edge mutation | Official |
+| AI Authoring | Mode 1: AI customization from validated dataset base | Official |
+| AI Authoring | Mode 2: AI-assisted authoring on blank canvas | Official |
+| AI Authoring | Mode 3: Full AI generation from plain-language scenario | Official |
+| Safety | Diff review gate before activation (mode-dependent policy) | Official |
+| Overlays | Business / Runtime / Target semantic view modes | Official |
+| Collaboration | Multi-user collaboration capability (Pro pattern) | Official Enterprise Capability |
+| Collaboration | Live collaborative editing path (Liveblocks-style integration) | Official Enterprise Capability |
+| Governance | Role-based access control (same SPA, permission-scoped actions) | Official |
+| Deployment | Docker local baseline and Kubernetes enterprise scale path | Official |
+
+Collaboration note:
+
+- Collaboration is now part of the official product capability set.
+- Enterprise rollout may be staged by tenant policy, infrastructure readiness, and data-governance controls.
+
+### Canonical Workflow Designer Stack (Normalized)
+
+To prevent package naming drift and duplicate stack labels, the workflow designer stack is standardized as follows:
+
+| Layer | Standard | Notes |
+| :--- | :--- | :--- |
+| UI Framework | React + Tailwind CSS | Tailwind is the official styling system for designer surfaces |
+| Canvas Engine | `@xyflow/react` v12 (React Flow Pro baseline) | Single canonical React Flow package reference |
+| Edge Utilities | `getBezierPath`, `EdgeLabelRenderer` from `@xyflow/react` | No separate legacy `react-flow` naming in stack lists |
+| Layout | `elkjs` | Auto-layout on demand |
+| State Store | `useWorkflowStore` (Zustand) | All workflow mutations route through one store |
+| History | `@zustand/temporal` | Undo/redo history (target 50 states) |
+| Runtime Compiler | XState | Compiles validated definition at runtime |
+
+Component map:
+
+- `WorkflowStateNode`: kind-coded cards and inline editing.
+- `WorkflowTransitionEdge`: kind-colored curves and pill labels.
+- `FloatingPill`: context-sensitive action affordances.
+- `CanvasInspector`: live property editing.
+
 ### Custom React Designer & Semantic Lenses
 
 Proviso decouples workflow design from runtime scaffolding execution. The UI surface in `CommandCenter.jsx` supports semantic overlays so integration mechanics can be inspected cleanly without degrading the default operator experience.
@@ -209,8 +287,10 @@ Users should be able to get productive quickly because complexity is hidden behi
 Active product blueprint:
 
 - Proviso_PRD_v10.md
+- workflowDesignerFeature.md (official workflow designer feature catalog)
+- workflow_implementation_plan.md (execution sequence for workflow designer delivery)
 
-The v10 PRD is the current build direction and should be treated as the canonical implementation reference.
+PRD v10 remains the full platform architecture blueprint. `workflowDesignerFeature.md` is the official workflow designer feature-catalog companion document. The workflow designer build order follows `workflow_implementation_plan.md`.
 
 ## Model Development Policy
 
