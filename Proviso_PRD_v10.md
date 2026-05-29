@@ -16,7 +16,7 @@
 | **Demo Target** | 12-Week Michel LeBrun Pilot (Phase I Working Vertical Slice) |
 | **Phase I Timeline** | 8 Weeks to Working Demo · 16 Weeks Production Hardening |
 | **Architecture** | 9-Module Contract-First Isolation · Docker Compose · XState Workflow Engine · n8n Event Spine |
-| **AI Stack** | Ollama · Flowise (Config-as-Code) · PaddleOCR · PP-Structure · react-flow |
+| **AI Stack** | Ollama · Flowise (Config-as-Code) · PaddleOCR · PP-Structure · @xyflow/react v12 (React Flow Pro baseline) |
 | **Data Layer** | PostgreSQL 16 (Platform Master) + SQLite (Local Workspace Client Cache) |
 
 ---
@@ -90,6 +90,32 @@ This pattern preserves the product rule of **default clean, detail on selection,
 | **Exception Mgmt** | Passive pending states | Named queues + SLA timers + escalation chains |
 | **Deployment** | Heavyweight server installation | Docker Compose — runs on a developer's laptop |
 | **Cross-Project Learning** | None — every deployment starts from zero | Dataset flywheel — every deployment improves the next |
+
+### 1.2.1 Workflow Designer Platform Decision (React Flow Pro + Tailwind)
+
+AI Proviso adopts **React Flow Pro** as the workflow designer foundation and consolidates all new designer work on the Pro workflow-builder baseline.
+
+Why this is the right move for product goals:
+
+- It maximizes visual quality and interaction polish quickly, which is critical for consultant-led demos and enterprise buying confidence.
+- It reduces technical risk by reusing proven canvas patterns (palette drag-drop, minimap, resizer, toolbars, properties panel behavior).
+- It preserves domain differentiation: the team invests in AP semantics, policy intelligence, and generated workflow logic rather than canvas infrastructure plumbing.
+- It aligns with Tailwind-led UI control for premium branded surfaces without sacrificing stability.
+
+Competitive framing (including M-Files):
+
+| Vendor / Class | Designer Strength | Limitation vs AI Proviso React Flow Pro Direction |
+| :--- | :--- | :--- |
+| **M-Files (legacy AP implementation style)** | Strong repository/governance model, established enterprise footprint | Workflow authoring UX is comparatively rigid and consultant-heavy; less fluid node-level visual interaction and lower perceived modernity in design-time experience |
+| **Traditional BPM suites (Camunda/Nintex class)** | Mature process semantics and governance controls | Heavier implementation overhead for AP-focused, rapid consultant deployment; visual experience often optimized for process engineers over AP operations users |
+| **Template OCR platforms (ABBYY/FlexiCapture class)** | Strong extraction and classification heritage | Workflow design is not the primary differentiator; less emphasis on modern, highly interactive canvas authoring surface |
+| **AI Proviso (target)** | Pro-grade visual workflow UX + AP domain overlays + business-language authoring + runtime/target lenses | Requires disciplined productization of Pro baseline and controlled feature scope to avoid custom divergence |
+
+Execution policy:
+
+- Business-language authoring remains canonical.
+- Runtime and Target remain overlays only.
+- Pro baseline is extended; custom canvas primitives are minimized unless AP domain requirements justify them.
 
 ---
 
@@ -282,12 +308,12 @@ To support deterministic debugging and semantic overlays, the workflow runtime m
 | **OCR — Fallback** | Tesseract | 5 | Clean, standard, high-contrast document parsing |
 | **Backend API** | Fastify | 4 | API gateway — production service gateway |
 | **Frontend** | React + Vite | 18/6 | Electron desktop client UI |
-| **Workflow Canvas** | react-flow | 11 | Drag-and-drop workflow designer |
+| **Workflow Canvas** | @xyflow/react (React Flow Pro) | 12.x | Pro workflow-builder baseline with AP-domain customization |
 | **Vector Search** | pgvector | 0.7+ | RAG embeddings stored in PostgreSQL master database |
 
 ### 4.3 Semantic Lens & Canvas View Modes (The Shiny Stars Pattern)
 
-The custom React designer in `CommandCenter.jsx` operates as a polymorphic visual surface. It retains one underlying workflow definition from `useWorkflowStore.js` while projecting different operational depths according to the active lens.
+The React Flow Pro-based designer surface in `src/modules/workflow-designer/` operates as a polymorphic visual surface. It retains one underlying workflow definition from `useWorkflowStore.js` while projecting different operational depths according to the active lens.
 
 | Mode | Purpose | Rendering Behavior |
 | :--- | :--- | :--- |
@@ -301,6 +327,71 @@ The Engine / Runtime Overlay must support the following runtime projections:
 - **Runtime-owned authority fields:** `rule_id`, `guard_name`, route history, failed-step markers, and execution ticker events sourced from persisted backend state rather than UI inference.
 
 These overlays are non-destructive. They do not create a second workflow authoring system. The business-language model remains canonical, while the runtime and target layers are revealed as contextual stars pinned over the same Proviso-native geometry.
+
+### 4.3.1 Workflow Designer Consolidation Plan (React Flow Pro)
+
+Implementation sequence is milestone-based, not date-bound. The delivery team may complete in one intensive day or across multiple days.
+
+1. Foundation Gate: Enable React Flow Pro and clone the Pro workflow-builder example as baseline.
+2. Visual Language Gate: Replace base node cards with `WorkflowStateNode`; apply Tailwind theme system and AP kind accents.
+3. Transition Semantics Gate: Replace default edges with `WorkflowTransitionEdge` (Bezier curvature 0.4, semantic color inheritance, delayed-transition dash animation, pill labels).
+4. Interaction Gate: Implement left palette with Dataset, Scratch, and AI Gen tabs, including drag ghost preview.
+5. Inspector Gate: Wire `CanvasInspector` sliding panels for node and transition properties with live mutation behavior.
+6. State Integrity Gate: Connect Zustand store with `@zustand/temporal` undo/redo and PostgreSQL definition loading.
+7. Layout Reliability Gate: Integrate ELK auto-layout, AP topological ordering, and post-layout `fitView`.
+
+Fast-track policy:
+
+- One-day execution is acceptable when each gate passes minimum stability checks before merge.
+- Quality gates are mandatory regardless of timeline compression.
+
+Scope constraints:
+
+- Avoid rebuilding capabilities already provided by Pro.
+- Keep node/edge customization AP-domain specific.
+- Maintain deterministic state and history boundaries with PostgreSQL as authority.
+
+### 4.3.2 Workflow 2 Consolidation — Three AI Authoring Modes
+
+All workflow authoring modes are AI-powered. The distinction is the starting point, not whether AI is used.
+
+| Mode | Start Point | AI Responsibility | Human Responsibility | Typical Time | Risk Profile |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Mode 1 — AI Customizes from Dataset** | Closest validated deployment record | Compare new client requirements to base record, apply minimum required changes, produce explainable diff | Approve/reject each change in diff gate | 5–15 min | Lowest |
+| **Mode 2 — AI Assist While Drawing** | Blank canvas | Suggest next states/transitions, warn on gaps, suggest SLAs/guards from dataset patterns | Own topology and accept/reject inline suggestions | 30–60 min | Medium |
+| **Mode 3 — Full AI Generation** | Plain English scenario | Parse scenario and generate complete workflow definition + explanation | Review and refine generated flow | 2–5 min draft | Highest |
+
+Corrected Mode 1 statement:
+
+- Mode 1 is not template lookup. It is AI customization from a proven base.
+- AI loads the best matching dataset record, computes required modifications, and presents an explicit change set with reasoning.
+- Activation is blocked until the Integrator approves the resulting diff.
+
+Mode 1 operational contract:
+
+1. Integrator enters new client requirements.
+2. Retrieval layer returns top dataset match (pgvector + model ranking).
+3. AI generates:
+  - `modified_definition` (full proposed workflow definition)
+  - `diff[]` where each item contains `type`, `target`, `field`, `from`, `to`, `reason`.
+4. Canvas loads proposed definition and opens a diff panel.
+5. Integrator accepts/rejects globally or per item.
+6. Final approved definition is persisted to PostgreSQL.
+
+Diff gate policy by mode:
+
+- **Mode 1:** targeted diff from known base (mandatory approval gate).
+- **Mode 2:** suggestion acceptance happens inline during authoring (no post-generation bulk diff).
+- **Mode 3:** full generated-flow walkthrough is mandatory before activation.
+
+Recommended implementation order (AI is the backbone):
+
+1. Build shared AI backbone first: retrieval, prompt-chain runtime, schema validator, explanation formatter, and approval gate APIs.
+2. Implement **Mode 1** next: highest production value, fastest safe deployment path, strongest compounding advantage from dataset quality.
+3. Implement **Mode 2** after Mode 1: reuse the same AI backbone for inline suggestions.
+4. Implement **Mode 3** last: full generation is high leverage but needs strongest guardrails and review UX.
+
+This sequence optimizes for business reliability first while preserving rapid innovation velocity.
 
 ### 4.2 Docker Compose Service Topology
 

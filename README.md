@@ -113,6 +113,39 @@ AI Proviso keeps one canonical workflow model in the product shell and projects 
 - n8n is the orchestration target for webhooks, notifications, and connector side effects.
 - Runtime identifiers such as `rule_id`, `guard_name`, route history, and execution ticker events round-trip back into the Integrator cockpit for deterministic debugging.
 
+## Workflow 2 — Three AI Authoring Modes
+
+All three workflow authoring modes are AI-powered. The difference is where the authoring starts.
+
+- Mode 1: AI customizes from a validated dataset record.
+- Mode 2: AI assists while integrator draws from scratch.
+- Mode 3: AI generates from a blank scenario description.
+
+### Mode 1 (Corrected)
+
+Mode 1 is not template lookup. It is AI customization from a proven deployment record.
+
+- AI finds the closest validated record using retrieval.
+- AI compares new client requirements to that base.
+- AI proposes minimal required changes.
+- AI explains each change in a structured diff.
+- Integrator accepts/rejects each change before activation.
+
+### Diff Review Gate Policy
+
+- Mode 1: targeted diff approval from known base (mandatory).
+- Mode 2: suggestions accepted/rejected inline during build.
+- Mode 3: full generated workflow walkthrough before activation.
+
+### Recommended Implementation Order
+
+Because AI is the backbone, implement in this order:
+
+1. Shared AI backbone (retrieval, prompt chain, schema validation, explanation formatting, approval gate APIs).
+2. Mode 1 (highest quality path and lowest production risk).
+3. Mode 2 (reuses backbone for inline copilot behavior).
+4. Mode 3 (full generation after guardrails and review UX are mature).
+
 ### Custom React Designer & Semantic Lenses
 
 Proviso decouples workflow design from runtime scaffolding execution. The UI surface in `CommandCenter.jsx` supports semantic overlays so integration mechanics can be inspected cleanly without degrading the default operator experience.
