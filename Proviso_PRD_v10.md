@@ -15,7 +15,7 @@
 | **Primary Stakeholder** | Michel LeBrun — Director, Software Pre-sales & Solution Design |
 | **Demo Target** | 12-Week Michel LeBrun Pilot (Phase I Working Vertical Slice) |
 | **Phase I Timeline** | 8 Weeks to Working Demo · 16 Weeks Production Hardening |
-| **Architecture** | 9-Module Contract-First Isolation · Docker Compose · XState Workflow Engine · n8n Event Spine |
+| **Architecture** | 9-Module Contract-First Isolation · Docker Compose (local baseline) · Kubernetes (enterprise scale path) · XState Workflow Engine · n8n Event Spine |
 | **AI Stack** | Ollama · Flowise (Config-as-Code) · PaddleOCR · PP-Structure · @xyflow/react v12 (React Flow Pro baseline) |
 | **Data Layer** | PostgreSQL 16 (Platform Master) + SQLite (Local Workspace Client Cache) |
 
@@ -231,6 +231,26 @@ This model intentionally separates product authoring from engine primitives:
 | **MOD-08** | Unified UI Layer | Phase II | One React codebase with role-based views, contract-first mocks, and staged API hookup |
 
 *\* MOD-07 is wired from day one — audit is never retrofitted.*
+
+### 3.2.1 Deployment Topology — Local and Cloud
+
+AI Proviso supports two deployment topologies with one contract model:
+
+- Local and integration environments: Docker Compose is the canonical development and validation baseline.
+- Cloud and enterprise environments: the same service boundaries are containerized and deployed on Kubernetes.
+
+Enterprise scalability posture:
+
+- Horizontal scale for stateless services (backend-api, workflow-engine, OCR workers, async workers).
+- Independent scaling of OCR and queue consumers based on workload depth.
+- Managed data-plane services recommended for production PostgreSQL and Redis.
+- Preferred managed Kubernetes target: AKS (or equivalent managed Kubernetes platform).
+
+### 3.2.2 Architecture Classification — SPA vs Backend Shape
+
+- Frontend is a SPA: one React browser interface with role-filtered experiences.
+- Phase I backend includes a temporary Flask sandbox route layer for rapid contract validation.
+- Target backend is not monolithic: it is a modular service architecture with clear runtime boundaries (backend-api gateway, workflow-engine evaluator, OCR workers, n8n integration spine, and platform data services).
 
 ### 3.3 Canonical Event Schema
 

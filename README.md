@@ -69,6 +69,19 @@ The product is designed as one React application with role-based views. Consulta
 - Flowise orchestration
 - Ollama API endpoint (external by default, optional local profile)
 
+### Deployment Modes
+
+- Local development: Docker Compose is the default baseline for all platform services.
+- Cloud production: the same service boundaries are containerized and deployed to Kubernetes.
+- Enterprise scale: Kubernetes horizontal scaling is the primary growth path for API, OCR workers, workflow-engine, and async workers.
+- Suggested enterprise target: managed Kubernetes such as AKS, with PostgreSQL/Redis provided as managed services.
+
+### Architecture Classification
+
+- Frontend experience: SPA (Single Page Application) using one React browser interface.
+- Backend (current Phase I): includes a temporary single Flask sandbox service for rapid validation.
+- Backend (target architecture): modular multi-service backend (backend-api, workflow-engine, OCR worker, n8n, and supporting services), not a long-term monolithic backend.
+
 ## Stack Layers
 
 | Layer | Technology | Purpose |
@@ -234,6 +247,10 @@ Canonical development data path:
 Optional local Ollama profile:
 
 - docker compose --profile local-ai up -d
+
+Enterprise cloud deployment note:
+
+- Docker Compose is the local truth path; Kubernetes is the enterprise deployment path for scalable production operations.
 
 ## Repository References
 
