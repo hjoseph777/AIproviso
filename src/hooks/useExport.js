@@ -1,4 +1,4 @@
-import { useWorkflowStore } from '../store/useWorkflowStore';
+import { useWorkflowStore } from '../modules/workflow-designer/store/useWorkflowStore';
 
 // ── useExport ─────────────────────────────────────────────────
 // Returns a function that serializes the full store into a

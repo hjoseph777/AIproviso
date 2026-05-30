@@ -1,12 +1,29 @@
 'use strict';
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 const { spawn }     = require('child_process');
 const { writeFile } = require('fs/promises');
 const http  = require('http');
+const https = require('https');
 
 const isDev  = !app.isPackaged;
-const DEV_URL = 'http://localhost:3000';
+const DEV_URL = process.env.PROVISO_DEV_URL || 'http://127.0.0.1:3000';
+
+if (isDev) {
+  const runId = `${process.pid}-${Date.now().toString(36)}`;
+  const devRoot = path.join(os.tmpdir(), 'proviso-electron-dev', runId);
+  const userDataPath = path.join(devRoot, 'userData');
+  const sessionDataPath = path.join(devRoot, 'sessionData');
+
+  fs.mkdirSync(userDataPath, { recursive: true });
+  fs.mkdirSync(sessionDataPath, { recursive: true });
+
+  app.setPath('userData', userDataPath);
+  app.setPath('sessionData', sessionDataPath);
+  app.commandLine.appendSwitch('disable-http-cache');
+}
 
 // ── Window ───────────────────────────────────────────────────────
 function createWindow () {
@@ -23,6 +40,29 @@ function createWindow () {
     title:           'Proviso — Workflow Ingestion',
     autoHideMenuBar: false,
     menuBarVisible:  true,
+    backgroundColor: '#0b1220',
+  });
+
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[electron] did-fail-load', { errorCode, errorDescription, validatedURL });
+
+    const escapedMessage = String(errorDescription || 'Unknown load failure')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    win.loadURL(`data:text/html,${encodeURIComponent(`
+      <html>
+        <body style="margin:0;background:#0b1220;color:#d7e6ff;font-family:monospace;display:grid;place-items:center;min-height:100vh;">
+          <div style="max-width:680px;padding:24px;line-height:1.6;">
+            <h2 style="margin:0 0 8px;">Renderer failed to load</h2>
+            <p style="margin:0 0 8px;opacity:0.85;">Tried URL: ${validatedURL || DEV_URL}</p>
+            <p style="margin:0 0 16px;opacity:0.85;">Error: ${escapedMessage}</p>
+            <p style="margin:0;opacity:0.7;">Ensure Vite is running, then restart <code>npm run electron:dev</code>.</p>
+          </div>
+        </body>
+      </html>
+    `)}`);
   });
 
   if (isDev) {

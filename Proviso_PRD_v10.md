@@ -252,6 +252,29 @@ Enterprise scalability posture:
 - Phase I backend includes a temporary Flask sandbox route layer for rapid contract validation.
 - Target backend is not monolithic: it is a modular service architecture with clear runtime boundaries (backend-api gateway, workflow-engine evaluator, OCR workers, n8n integration spine, and platform data services).
 
+Current architecture summary:
+
+- Frontend: one SPA with RBAC-based feature visibility.
+- Backend: containerized multi-service platform (not intended to remain monolithic).
+- Local runtime baseline: Docker Compose.
+- Cloud enterprise scale path: Kubernetes.
+
+Backend structure in the current implementation:
+
+- API layer: temporary Flask sandbox in `backend/app.py` for Phase I validation.
+- Workflow runtime: dedicated workflow-engine service in `workflow-engine/server.mjs`.
+- Data authority: PostgreSQL is the authoritative source for workflow state, audit, and AP data.
+- Cache and async transport: Redis with queue patterns.
+- Integration and notifications: n8n workflows under `config/n8n/workflows`.
+- OCR pipeline: isolated worker service in `ocr-worker/worker.py`.
+- Infrastructure entrypoint: `docker-compose.yml`.
+
+Official architecture label:
+
+- Same SPA for all users via RBAC.
+- Backend transition path: Phase I single-service validation route to service-oriented container architecture.
+- Deployment posture: Docker local baseline, Kubernetes enterprise scalability.
+
 ### 3.3 Canonical Event Schema
 
 Every event crossing module boundaries must conform to the canonical envelope defined in **MOD-00**:
@@ -1400,6 +1423,12 @@ AI Proviso's model strategy is deterministic-first extraction with operational l
 ---
 
 ## 13. Implementation Plan
+
+Execution reference for workflow designer rollout:
+
+- `workflow_implementation_plan.md` is the operational sequence for standalone build, validation, and integration.
+- `workflowDesignerFeature.md` is the official workflow designer feature catalog companion to this PRD.
+- This PRD defines product architecture and acceptance gates; delivery ordering for the workflow designer follows the companion implementation plan.
 
 ### Phase I — Vertical Slice (Weeks 1–8)
 

@@ -1,4 +1,5 @@
 import hashlib
+import html
 import hmac
 import json
 import logging
@@ -1041,6 +1042,70 @@ def has_valid_workflow_signature(req, raw_body: str) -> bool:
     return hmac.compare_digest(signature, expected)
 
 
+def _render_workflow_svg(nodes: list, edges: list) -> str:
+        safe_nodes = [node for node in (nodes or []) if isinstance(node, dict)]
+        safe_edges = [edge for edge in (edges or []) if isinstance(edge, dict)]
+
+        if not safe_nodes:
+                return """<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1200\" height=\"700\"><rect width=\"100%\" height=\"100%\" fill=\"#0a1525\"/><text x=\"30\" y=\"48\" fill=\"#dbeafe\" font-size=\"18\" font-family=\"Segoe UI,Arial,sans-serif\">No nodes to render</text></svg>"""
+
+        min_x = min((float(node.get("position", {}).get("x", 0)) for node in safe_nodes), default=0)
+        min_y = min((float(node.get("position", {}).get("y", 0)) for node in safe_nodes), default=0)
+        max_x = max((float(node.get("position", {}).get("x", 0)) + 220 for node in safe_nodes), default=1200)
+        max_y = max((float(node.get("position", {}).get("y", 0)) + 120 for node in safe_nodes), default=700)
+
+        width = int(max(1200, (max_x - min_x) + 180))
+        height = int(max(700, (max_y - min_y) + 180))
+        offset_x = 80 - min_x
+        offset_y = 80 - min_y
+
+        node_centers = {}
+        node_markup = []
+        for node in safe_nodes:
+                node_id = str(node.get("id", ""))
+                position = node.get("position", {}) or {}
+                x = float(position.get("x", 0)) + offset_x
+                y = float(position.get("y", 0)) + offset_y
+                label = html.escape(str((node.get("data") or {}).get("label") or (node.get("data") or {}).get("name") or node_id))
+
+                node_centers[node_id] = (x + 110, y + 55)
+                node_markup.append(f"""
+<g>
+    <rect x=\"{x:.2f}\" y=\"{y:.2f}\" rx=\"12\" ry=\"12\" width=\"220\" height=\"110\" fill=\"#0b1f35\" stroke=\"#4A9FFF99\" stroke-width=\"1.4\"/>
+    <text x=\"{x + 14:.2f}\" y=\"{y + 38:.2f}\" fill=\"#dbeafe\" font-size=\"13\" font-family=\"Segoe UI,Arial,sans-serif\">{label}</text>
+</g>
+""")
+
+        edge_markup = []
+        for edge in safe_edges:
+                source = str(edge.get("source", ""))
+                target = str(edge.get("target", ""))
+                if source not in node_centers or target not in node_centers:
+                        continue
+                sx, sy = node_centers[source]
+                tx, ty = node_centers[target]
+                label = html.escape(str((edge.get("data") or {}).get("label") or edge.get("label") or ""))
+                mx = (sx + tx) / 2
+                my = (sy + ty) / 2
+                edge_markup.append(f"""
+<g>
+    <line x1=\"{sx:.2f}\" y1=\"{sy:.2f}\" x2=\"{tx:.2f}\" y2=\"{ty:.2f}\" stroke=\"#38bdf8\" stroke-width=\"2\" marker-end=\"url(#arrow)\" />
+    <text x=\"{mx + 4:.2f}\" y=\"{my - 6:.2f}\" fill=\"#7dd3fc\" font-size=\"11\" font-family=\"Segoe UI,Arial,sans-serif\">{label}</text>
+</g>
+""")
+
+        return f"""<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">
+<defs>
+    <marker id=\"arrow\" markerWidth=\"10\" markerHeight=\"8\" refX=\"9\" refY=\"4\" orient=\"auto\">
+        <path d=\"M0,0 L10,4 L0,8 z\" fill=\"#38bdf8\" />
+    </marker>
+</defs>
+<rect width=\"100%\" height=\"100%\" fill=\"#0a1525\" />
+{''.join(edge_markup)}
+{''.join(node_markup)}
+</svg>"""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AP WORKBENCH READ / MUTATION ENDPOINTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1362,6 +1427,276 @@ def mark_workflow_timer_webhook():
 
     return jsonify({"ok": True, "count": len(results), "results": results}), 200
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# WORKFLOW DESIGNER — Persistence API
+# Stores WorkflowDefinition JSON objects created in the designer canvas.
+# Falls back to an in-process dict when no DB is available.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# In-memory fallback store (single-process dev mode)
+_wf_memory: dict = {}
+
+
+def _wf_table_ready() -> bool:
+    """Return True if the workflow_definitions table exists in Postgres."""
+    conn = get_db_conn()
+    if conn is None:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_name = 'workflow_definitions'
+                LIMIT 1
+            """)
+            return cur.fetchone() is not None
+    except Exception:
+        return False
+
+
+def _ensure_wf_table():
+    """Create workflow_definitions table if it doesn't exist."""
+    conn = get_db_conn()
+    if conn is None:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS workflow_definitions (
+                    id            TEXT PRIMARY KEY,
+                    tenant_id     TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+                    name          TEXT NOT NULL,
+                    status        TEXT NOT NULL DEFAULT 'draft',
+                    version       INTEGER NOT NULL DEFAULT 1,
+                    definition    JSONB NOT NULL,
+                    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+        conn.commit()
+    except Exception as exc:
+        log.warning("workflow_definitions table init failed: %s", exc)
+        conn.rollback()
+
+
+@app.route("/api/workflows", methods=["GET"])
+def list_workflows():
+    """List all workflow definitions for the tenant."""
+    tenant_id = request.args.get("tenant_id", DEV_TENANT_ID)
+
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, name, status, version, updated_at
+                    FROM workflow_definitions
+                    WHERE tenant_id = %s
+                    ORDER BY updated_at DESC
+                """, (tenant_id,))
+                rows = cur.fetchall()
+            return jsonify({"ok": True, "workflows": [dict(r) for r in rows]}), 200
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+    else:
+        wfs = [
+            {"id": k, "name": v.get("name", "Untitled"), "status": v.get("status", "draft"),
+             "version": v.get("version", 1), "updated_at": v.get("updated_at")}
+            for k, v in _wf_memory.items()
+            if v.get("tenant_id", DEV_TENANT_ID) == tenant_id
+        ]
+        return jsonify({"ok": True, "workflows": wfs}), 200
+
+
+@app.route("/api/workflows/<workflow_id>", methods=["GET"])
+def get_workflow(workflow_id):
+    """Return the full WorkflowDefinition JSON for a specific workflow."""
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT * FROM workflow_definitions WHERE id = %s",
+                    (workflow_id,)
+                )
+                row = cur.fetchone()
+            if not row:
+                return jsonify({"error": "not found"}), 404
+            payload = dict(row)
+            payload["definition"] = payload.get("definition") or {}
+            return jsonify({"ok": True, "workflow": payload}), 200
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+    else:
+        wf = _wf_memory.get(workflow_id)
+        if not wf:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"ok": True, "workflow": wf}), 200
+
+
+@app.route("/api/workflows", methods=["POST"])
+def create_workflow():
+    """Create a new workflow definition (status: draft)."""
+    _ensure_wf_table()
+    body = request.get_json(silent=True) or {}
+    wf_id      = body.get("id") or str(uuid.uuid4())
+    tenant_id  = body.get("tenant_id", DEV_TENANT_ID)
+    name       = body.get("name", "Untitled Workflow")
+    definition = body.get("definition", {})
+    now        = datetime.now(timezone.utc).isoformat()
+
+    record = {
+        "id":         wf_id,
+        "tenant_id":  tenant_id,
+        "name":       name,
+        "status":     "draft",
+        "version":    1,
+        "definition": definition,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO workflow_definitions
+                        (id, tenant_id, name, status, version, definition, created_at, updated_at)
+                    VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s,%s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        definition = EXCLUDED.definition,
+                        updated_at = EXCLUDED.updated_at
+                """, (wf_id, tenant_id, name, "draft", 1,
+                      json.dumps(definition), now, now))
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        _wf_memory[wf_id] = record
+
+    return jsonify({"ok": True, "workflow": record}), 201
+
+
+@app.route("/api/workflows/<workflow_id>", methods=["PUT"])
+def save_workflow(workflow_id):
+    """Save (upsert) a workflow definition — called by auto-save every 2 s when isDirty."""
+    _ensure_wf_table()
+    body       = request.get_json(silent=True) or {}
+    tenant_id  = body.get("tenant_id", DEV_TENANT_ID)
+    name       = body.get("name", "Untitled Workflow")
+    definition = body.get("definition", {})
+    version    = int(body.get("version", 1))
+    now        = datetime.now(timezone.utc).isoformat()
+
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO workflow_definitions
+                        (id, tenant_id, name, status, version, definition, created_at, updated_at)
+                    VALUES (%s,%s,%s,'draft',%s,%s::jsonb,NOW(),%s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        name       = EXCLUDED.name,
+                        definition = EXCLUDED.definition,
+                        version    = EXCLUDED.version,
+                        updated_at = EXCLUDED.updated_at
+                    RETURNING id, name, status, version, updated_at
+                """, (workflow_id, tenant_id, name, version, json.dumps(definition), now))
+                row = cur.fetchone()
+            conn.commit()
+            return jsonify({"ok": True, "workflow": dict(row)}), 200
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        existing = _wf_memory.get(workflow_id, {})
+        record = {**existing,
+                  "id": workflow_id, "tenant_id": tenant_id,
+                  "name": name, "definition": definition,
+                  "version": version, "status": existing.get("status", "draft"),
+                  "updated_at": now}
+        _wf_memory[workflow_id] = record
+        return jsonify({"ok": True, "workflow": {"id": workflow_id, "name": name,
+                                                  "status": record["status"],
+                                                  "version": version, "updated_at": now}}), 200
+
+
+@app.route("/api/workflows/<workflow_id>/publish", methods=["POST"])
+def publish_workflow(workflow_id):
+    """Transition a workflow from draft → published and increment its version."""
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    UPDATE workflow_definitions
+                    SET status = 'published', version = version + 1, updated_at = NOW()
+                    WHERE id = %s
+                    RETURNING id, name, status, version, updated_at
+                """, (workflow_id,))
+                row = cur.fetchone()
+            conn.commit()
+            if not row:
+                return jsonify({"error": "not found"}), 404
+            return jsonify({"ok": True, "workflow": dict(row)}), 200
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        wf = _wf_memory.get(workflow_id)
+        if not wf:
+            return jsonify({"error": "not found"}), 404
+        wf["status"]  = "published"
+        wf["version"] = wf.get("version", 1) + 1
+        wf["updated_at"] = datetime.now(timezone.utc).isoformat()
+        return jsonify({"ok": True, "workflow": {
+            "id": workflow_id, "name": wf["name"],
+            "status": "published", "version": wf["version"],
+            "updated_at": wf["updated_at"]}}), 200
+
+
+@app.route("/api/workflows/<workflow_id>", methods=["DELETE"])
+def delete_workflow(workflow_id):
+    """Soft-delete (retire) a workflow definition."""
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE workflow_definitions SET status='retired', updated_at=NOW() WHERE id=%s",
+                    (workflow_id,)
+                )
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        if workflow_id in _wf_memory:
+            _wf_memory[workflow_id]["status"] = "retired"
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/api/workflows/export-svg", methods=["POST"])
+def export_workflow_svg():
+    body = request.get_json(silent=True) or {}
+    nodes = body.get("nodes") if isinstance(body.get("nodes"), list) else []
+    edges = body.get("edges") if isinstance(body.get("edges"), list) else []
+
+    if len(nodes) > 2000 or len(edges) > 4000:
+        return jsonify({"error": "payload_too_large"}), 413
+
+    svg = _render_workflow_svg(nodes, edges)
+    response = app.response_class(svg, mimetype="image/svg+xml")
+    response.headers["Content-Disposition"] = "attachment; filename=workflow-export.svg"
+    return response
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/debug/queue-depth", methods=["GET"])
 def queue_depth():

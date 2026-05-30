@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useWorkflowStore } from '../store/useWorkflowStore';
+import { useWorkflowStore } from '../modules/workflow-designer/store/useWorkflowStore';
+import { useExport } from '../hooks/useExport';
 
 export default function CommandPalette() {
+  const { exportJSON } = useExport();
   const { 
     workflows, activeId, setActive, 
-    cmdPaletteOpen, setCmdPaletteOpen,
-    exportJSON
+    cmdPaletteOpen, setCmdPaletteOpen
   } = useWorkflowStore();
   
   const [query, setQuery] = useState('');

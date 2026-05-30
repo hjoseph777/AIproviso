@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import CommandCenter from './components/CommandCenter';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import CommandPalette from './components/CommandPalette';
+import RuntimeErrorBoundary from './components/RuntimeErrorBoundary';
 import { approveInvoice, getDashboardSummary, getInvoices, getRuntimeView, sendInvoiceToReview } from './lib/api';
+
+const CommandCenter = lazy(() => import('./modules/workflow-designer/WorkflowDesignerShell'));
 
 // ── CSS ───────────────────────────────────────────────────────────
 const CSS = `
@@ -20,21 +22,23 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 
 /* ── Command Center shell ── */
 .cc-shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.cc-topbar{height:48px;flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px}
-.cc-logo{font-family:var(--display);font-size:20px;font-weight:700;color:#fff;letter-spacing:-.5px;flex-shrink:0;user-select:none}
-.cc-logo em{color:var(--a3);font-style:normal}
+.cc-topbar{display:none}
 .cc-mode-tabs{display:flex;gap:2px;flex:1;padding:0 10px}
 .cc-mode-tab{font-size:9.5px;font-family:var(--mono);padding:5px 12px;border-radius:4px;border:1px solid transparent;background:transparent;color:var(--mid);cursor:pointer;transition:all .15s}
 .cc-mode-tab:hover{color:var(--text);border-color:var(--border)}
 .cc-mode-tab.active-manual{color:var(--a3);background:rgba(74,159,255,.1);border-color:rgba(74,159,255,.3)}
 .cc-mode-tab.active-nlp{color:var(--accent);background:rgba(21,101,216,.1);border-color:rgba(21,101,216,.3)}
 .cc-mode-tab.active-ai{color:#A78BFA;background:rgba(124,92,252,.1);border-color:rgba(124,92,252,.3)}
-.cc-body{flex:1;display:grid;grid-template-columns:35% 45% 20%;overflow:hidden;transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
-.cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:rgba(7,17,31,0.85);backdrop-filter:blur(12px);transition:opacity .22s ease,border-color .28s ease;position:relative;z-index:2}
+.cc-body{flex:1;display:grid;overflow:hidden;transition:grid-template-columns .26s cubic-bezier(.4,0,.2,1)}
+.cc-left{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:rgba(7,17,31,0.85);backdrop-filter:blur(12px);transition:opacity .22s ease,border-color .26s ease;position:relative;z-index:2;min-width:0}
 .cc-left.left-collapsed{opacity:0;pointer-events:none;border-right-color:transparent}
 .cc-center{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);background:radial-gradient(circle at top, rgba(39,88,160,.14), transparent 34%),linear-gradient(180deg,#06111f 0%,#040c16 100%);min-width:0;position:relative}
-.cc-right{display:flex;flex-direction:column;overflow:hidden;background:rgba(7,17,31,0.85);backdrop-filter:blur(12px);transition:opacity .22s ease;z-index:2}
+.cc-right{display:flex;flex-direction:column;overflow:hidden;background:rgba(7,17,31,0.85);backdrop-filter:blur(12px);transition:opacity .22s ease;z-index:2;min-width:0}
 .cc-right.right-collapsed{opacity:0;pointer-events:none}
+.cc-panel-toggle{position:absolute;top:50%;transform:translateY(-50%);z-index:20;width:16px;height:52px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(9,20,38,0.94);border:1px solid rgba(255,255,255,0.09);color:rgba(100,116,139,.8);font-size:10px;transition:all .16s;padding:0;line-height:1;user-select:none}
+.cc-panel-toggle:hover{color:#94a3b8;background:rgba(14,30,56,1);border-color:rgba(74,159,255,0.4);box-shadow:0 0 0 1px rgba(74,159,255,0.12)}
+.cc-panel-toggle-left{left:0;border-left:none;border-radius:0 6px 6px 0}
+.cc-panel-toggle-right{right:0;border-right:none;border-radius:6px 0 0 6px}
 .cc-col-head{padding:7px 12px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:36px}
 .cc-col-lbl{font-size:9px;font-weight:600;color:var(--mid);letter-spacing:.8px;text-transform:uppercase}
 .cc-col-body{flex:1;overflow-y:auto}
@@ -172,6 +176,121 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .zoom-badge span{color:var(--a3);letter-spacing:.5px}
 .zoom-badge button{background:none;border:none;cursor:pointer;color:var(--mid);font-size:13px;padding:0;line-height:1;transition:color .15s}
 .zoom-badge button:hover{color:var(--text)}
+.canvas-panel{padding:0 !important;position:relative;overflow:hidden;height:100%;display:flex;flex-direction:column;min-height:0}
+.canvas-surface{height:100%;min-height:300px;width:100%;min-width:100px;position:relative;background:
+  radial-gradient(circle at 18% 16%, rgba(74,159,255,.09), transparent 0 22%),
+  radial-gradient(circle at 82% 74%, rgba(74,159,255,.05), transparent 0 20%),
+  linear-gradient(180deg, rgba(12,25,42,.98) 0%, rgba(5,12,23,1) 100%)}
+.canvas-toolbar-shell{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:10;display:flex;align-items:center;justify-content:center;width:min(860px, calc(100% - 80px))}
+.canvas-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;padding:6px 8px;border:1px solid rgba(255,255,255,.06);background:rgba(7,17,31,.72);border-radius:18px;box-shadow:0 10px 22px rgba(0,0,0,.18);backdrop-filter:blur(12px)}
+.canvas-toolbar-brand{display:flex;flex-direction:column;gap:1px;padding:0 8px 0 4px;min-width:176px}
+.canvas-toolbar-kicker{font-size:8px;letter-spacing:1.2px;text-transform:uppercase;color:rgba(164,191,230,.56);font-family:var(--mono)}
+.canvas-toolbar-title{font-size:11px;color:#f4f8ff;font-weight:600}
+.canvas-toolbar-meta{position:absolute;top:18px;right:18px;z-index:9;display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;max-width:420px}
+.canvas-toolbar-btn{border:1px solid rgba(255,255,255,.06);background:rgba(15,28,46,.76);color:var(--text);padding:9px 11px;border-radius:999px;font-family:var(--mono);font-size:9.5px;cursor:pointer;transition:all .15s;box-shadow:none}
+.canvas-toolbar-btn:hover:not(:disabled){border-color:var(--a2);color:#fff;background:rgba(10,24,40,.98)}
+.canvas-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
+.canvas-toolbar-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;min-height:32px;padding:7px 12px;border:1px solid rgba(255,255,255,.05);background:rgba(7,17,31,.56);border-radius:999px;color:rgba(177,197,225,.72);font-family:var(--mono);font-size:8.5px;letter-spacing:.12px;backdrop-filter:blur(8px);justify-content:center;text-align:center;max-width:min(720px, calc(100% - 32px))}
+.canvas-drop-indicator{position:absolute;inset:86px 18px 60px;z-index:8;display:flex;align-items:center;justify-content:center;border:1px dashed rgba(74,159,255,.36);border-radius:20px;background:rgba(74,159,255,.08);color:#dcecff;font-family:var(--mono);font-size:10px;letter-spacing:.9px;text-transform:uppercase;pointer-events:none;backdrop-filter:blur(4px)}
+.canvas-stat-pill{display:flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid rgba(255,255,255,.05);background:rgba(8,18,30,.68);border-radius:999px;color:var(--text);min-height:32px}
+.canvas-stat-pill.selection{min-width:min(320px, 100%)}
+.canvas-stat-label{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:rgba(164,191,230,.56);font-family:var(--mono)}
+.canvas-stat-value{font-size:9px;color:#fff;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.canvas-surface.drop-active .canvas-toolbar-hint{border-color:rgba(74,159,255,.22);background:rgba(10,24,40,.76);color:#e8f2ff}
+.canvas-surface .react-flow{background:transparent}
+.canvas-surface .react-flow__attribution{display:none}
+.canvas-surface .react-flow__controls,.canvas-surface .react-flow__minimap{background:rgba(7,17,31,.86);border:1px solid rgba(255,255,255,.09);border-radius:10px;box-shadow:0 8px 16px rgba(0,0,0,.22)}
+.canvas-surface .react-flow__controls button{background:transparent;border-bottom:1px solid rgba(255,255,255,.05);color:var(--mid)}
+.canvas-surface .react-flow__controls button:hover{background:var(--s3);color:var(--text)}
+.canvas-surface .react-flow__minimap-mask{fill:rgba(2,7,14,.72)}
+.canvas-surface .react-flow__minimap-node{rx:4;ry:4}
+.canvas-surface .react-flow__controls{left:14px;bottom:68px;z-index:30 !important}
+/* Minimap must sit above the fallback SVG overlay (z-19) and node layer (z-25) */
+.canvas-surface .react-flow__minimap{
+  right:14px;bottom:14px;
+  transform:scale(.9);transform-origin:bottom right;
+  opacity:.92;
+  z-index:30 !important;
+  border:1px solid rgba(74,159,255,.22) !important;
+  box-shadow:0 0 0 1px rgba(74,159,255,.08),0 8px 24px rgba(0,0,0,.38) !important;
+}
+.wf-node-card{min-width:248px;max-width:290px;border-radius:18px;border:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg, rgba(10,24,40,.96), rgba(8,18,30,.98));padding:16px 18px 18px;box-shadow:0 16px 28px rgba(0,0,0,.24);color:var(--text);position:relative;overflow:hidden}
+.wf-node-card.selected{border-color:var(--a3);box-shadow:0 0 0 1px rgba(74,159,255,.32),0 22px 40px rgba(0,0,0,.38)}
+.wf-node-card.has-errors{border-color:rgba(255,61,90,.45)}
+.wf-node-accent{position:absolute;left:0;top:0;bottom:0;width:4px;background:#4A9FFF;opacity:.9}
+.wf-node-card.kind-initial .wf-node-accent{background:#00c870}
+.wf-node-card.kind-approval .wf-node-accent{background:#f0a500}
+.wf-node-card.kind-exception .wf-node-accent{background:#ff3d5a}
+.wf-node-card.kind-terminal .wf-node-accent{background:#8b7dff}
+.wf-node-card.kind-technical .wf-node-accent{background:#20c3d8}
+.wf-node-kind-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.wf-node-kind{font-size:9px;letter-spacing:1.1px;text-transform:uppercase;color:var(--a3)}
+.wf-node-badge{font-size:8px;letter-spacing:.7px;text-transform:uppercase;color:rgba(229,242,255,.75);padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07)}
+.wf-node-name{font-family:var(--display);font-size:22px;line-height:1.05;color:#fff;margin-bottom:10px}
+.wf-node-meta{display:flex;justify-content:space-between;gap:8px;font-size:9.5px;color:var(--mid)}
+.wf-node-caption{margin-top:12px;font-size:8.5px;color:rgba(200,220,255,.42);text-transform:uppercase;letter-spacing:.6px}
+.wf-node-handle{width:18px !important;height:18px !important;border:3px solid rgba(3,9,16,.88) !important;background:var(--a3) !important;box-shadow:0 0 0 4px rgba(74,159,255,.18)}
+.wf-edge-path{stroke:#4A9FFF;stroke-width:2.5;opacity:.9}
+.wf-edge-path.selected{stroke:#F0A500;stroke-width:3}
+.wf-edge-label{position:absolute;padding:6px 10px;border-radius:999px;background:rgba(6,14,24,.92);border:1px solid rgba(255,255,255,.08);font-size:9px;color:var(--text);pointer-events:auto;cursor:pointer;white-space:nowrap;box-shadow:0 6px 14px rgba(0,0,0,.16)}
+.wf-edge-label.selected{border-color:rgba(240,165,0,.35);color:#fff}
+.wf-edge-label.has-errors{border-color:rgba(255,61,90,.45)}
+.canvas-empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;text-align:center;padding:24px}
+.canvas-empty-title{font-family:var(--display);font-size:22px;color:#fff}
+.canvas-empty-copy{font-size:10px;color:var(--mid);max-width:260px;line-height:1.7}
+.cell-pill{display:block;padding:6px 8px;font-size:10px;color:var(--text)}
+.cell-flag{display:inline-flex;align-items:center;justify-content:center;min-width:34px;margin:0 auto;padding:3px 6px;border-radius:999px;border:1px solid var(--border);font-size:8px;color:var(--mid);text-transform:uppercase}
+.cell-flag.on{border-color:rgba(74,159,255,.35);color:var(--a3);background:rgba(74,159,255,.1)}
+.cell-icon{display:flex;align-items:center;justify-content:center;color:var(--mid);font-size:10px;height:100%}
+.navigator-list{display:flex;flex-direction:column;gap:6px;padding:8px}
+.workflow-palette{display:flex;flex-direction:column;gap:10px;padding:10px 10px 2px}
+.workflow-palette-head{display:flex;flex-direction:column;gap:2px;padding:0 2px}
+.workflow-palette-kicker{font-size:8px;color:var(--mid);letter-spacing:1px;text-transform:uppercase}
+.workflow-palette-copy{font-size:9px;color:rgba(177,197,225,.72);line-height:1.5}
+.workflow-palette-list{display:flex;flex-direction:column;gap:7px}
+.workflow-palette-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(7,17,31,.62);text-align:left;cursor:grab;transition:border-color .15s,background .15s,box-shadow .15s;overflow:hidden}
+.workflow-palette-item:hover,.workflow-palette-item:focus-visible{border-color:rgba(74,159,255,.4);background:rgba(10,24,40,.86);box-shadow:0 0 0 1px rgba(74,159,255,.15)}
+.workflow-palette-item:active{cursor:grabbing;transform:scale(.98)}
+.workflow-palette-item.kind-approval{border-color:rgba(240,165,0,.25)}
+.workflow-palette-item.kind-exception{border-color:rgba(255,61,90,.25)}
+.workflow-palette-item.kind-technical{border-color:rgba(32,195,216,.25)}
+.workflow-palette-item.kind-terminal{border-color:rgba(139,125,255,.25)}
+.workflow-palette-icon-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0}
+/* Labels always visible — no collapsed icon-only mode */
+.workflow-palette-label{font-size:10px;color:var(--text);font-weight:700;white-space:nowrap;opacity:1;flex:1;transition:color .15s}
+.workflow-palette-meta{font-size:8px;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0.85;max-width:140px}
+.workflow-palette-item:hover .workflow-palette-label{color:#e8f4ff}
+.workflow-palette-drag-ghost{position:fixed;top:-9999px;left:-9999px;z-index:-1;display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:rgba(6,16,30,.95);border:1px solid color-mix(in srgb,var(--ghost-color,#4A9FFF) 45%,rgba(255,255,255,.1));color:#d8ebff;font:600 11px 'JetBrains Mono',monospace;box-shadow:0 10px 24px rgba(0,0,0,.42)}
+.workflow-palette-drag-ghost .ghost-dot{width:8px;height:8px;border-radius:50%;background:var(--ghost-color,#4A9FFF)}
+.navigator-item{display:flex;flex-direction:column;gap:6px;width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,.05);border-radius:10px;background:rgba(7,17,31,.5);text-align:left;cursor:pointer;transition:all .15s}
+.navigator-item:hover{border-color:rgba(74,159,255,.25);background:rgba(10,24,40,.74)}
+.navigator-item.selected{border-color:rgba(74,159,255,.35);background:rgba(21,101,216,.12)}
+.navigator-title{font-size:10px;color:var(--text);font-weight:600;line-height:1.4}
+.navigator-meta{display:flex;align-items:center;gap:8px;font-size:8.5px;color:var(--mid);min-width:0}
+.navigator-meta span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.navigator-footer{padding:6px 4px 2px;font-size:8.5px;color:var(--mid);text-align:center}
+.inspector-shell,.inspector-empty{padding:12px;display:flex;flex-direction:column;gap:10px}
+.inspector-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.inspector-title{font-size:9px;color:var(--mid);letter-spacing:1px;text-transform:uppercase}
+.inspector-copy{font-size:10px;color:var(--mid);line-height:1.7}
+.inspector-tabs{display:flex;gap:4px;padding:4px;background:rgba(5,14,24,.5);border:1px solid rgba(255,255,255,.05);border-radius:10px}
+.inspector-tab{flex:1;border:1px solid transparent;background:transparent;color:var(--mid);padding:8px 10px;border-radius:8px;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.6px;cursor:pointer;transition:all .15s}
+.inspector-tab:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.inspector-tab.active{color:#fff;background:rgba(74,159,255,.14);border-color:rgba(74,159,255,.24)}
+.inspector-section{display:flex;flex-direction:column;gap:10px}
+.inspector-grid{display:grid;gap:10px}
+.inspector-grid.two-col{grid-template-columns:1fr 1fr}
+.inspector-danger{border:1px solid rgba(255,61,90,.35);background:rgba(255,61,90,.1);color:#ffd6dc;padding:7px 10px;border-radius:8px;font-family:var(--mono);font-size:9px;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.5px}
+.inspector-danger:hover{border-color:rgba(255,61,90,.55);background:rgba(255,61,90,.18);color:#fff}
+.inspector-field{display:flex;flex-direction:column;gap:6px;font-size:9px;color:var(--mid);letter-spacing:.5px;text-transform:uppercase}
+.inspector-field input,.inspector-field select,.inspector-field textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--text);outline:none;text-transform:none}
+.inspector-field input:focus,.inspector-field select:focus,.inspector-field textarea:focus{border-color:var(--a2)}
+.inspector-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--s2);font-size:9px;color:var(--text);text-transform:uppercase;letter-spacing:.5px}
+.inspector-toggle input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent)}
+.inspector-toggle-stack{padding-top:2px}
+.inspector-readout{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border:1px solid rgba(255,255,255,.05);border-radius:8px;background:rgba(5,14,24,.42)}
+.inspector-readout span{font-size:8px;color:var(--mid);letter-spacing:1px;text-transform:uppercase}
+.inspector-readout strong{font-size:10px;color:var(--text);font-family:var(--mono);word-break:break-word}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px}
 .stat-card{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:14px;text-align:center;transition:all .15s;cursor:default}
 .stat-card:hover{border-color:var(--bdr2);background:var(--s3)}
@@ -216,55 +335,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .status-pulse.blue  { background: var(--a3); animation: pulse-blue 2.5s infinite; }
 .status-pulse.dim   { background: var(--dim); }
 
-/* Mermaid Highlights */
-.node.highlight rect, .node.highlight polygon, .node.highlight circle {
-  stroke: var(--green) !important; stroke-width: 3px !important; filter: drop-shadow(0 0 6px rgba(0,200,112,0.6));
-}
-.edgePath.highlight path {
-  stroke: var(--green) !important; stroke-width: 3px !important; filter: drop-shadow(0 0 4px rgba(0,200,112,0.5));
-}
-.node.route-dim, .edgePath.route-dim { opacity: .22; transition: opacity .18s ease; }
-.node.route-active rect, .node.route-active polygon, .node.route-active circle {
-  stroke: #4A9FFF !important; stroke-width: 3px !important; filter: drop-shadow(0 0 6px rgba(74,159,255,.55));
-}
-.edgePath.route-active path {
-  stroke: #4A9FFF !important; stroke-width: 3px !important; filter: drop-shadow(0 0 6px rgba(74,159,255,.5));
-}
-.node.route-failed rect, .node.route-failed polygon, .node.route-failed circle {
-  stroke: #F0A500 !important; stroke-width: 3px !important; filter: drop-shadow(0 0 8px rgba(240,165,0,.7));
-}
-
-/* Floating Toolbar */
-.cc-toolbar {
-  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 8px; padding: 6px 12px; border-radius: 8px;
-  background: rgba(10, 24, 40, 0.85); backdrop-filter: blur(10px);
-  border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 100;
-}
-.cc-edge-search{
-  position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:110;
-  display:flex;align-items:center;gap:6px;padding:6px 6px 6px 8px;
-  background:rgba(10,24,40,.88);backdrop-filter:blur(10px);
-  border:1px solid var(--border);border-right:none;border-radius:8px 0 0 8px;
-  box-shadow:0 4px 12px rgba(0,0,0,.45);transition:all .2s ease;
-}
-.cc-edge-search.closed{padding:4px;border-radius:8px 0 0 8px}
-.cc-edge-toggle{
-  width:18px;height:18px;border-radius:4px;border:1px solid var(--border);
-  background:var(--s2);color:var(--mid);cursor:pointer;font-size:11px;line-height:1;
-  display:flex;align-items:center;justify-content:center;transition:all .15s;
-}
-.cc-edge-toggle:hover{color:var(--a3);border-color:var(--a2);background:var(--s3)}
-
-/* Empty Blueprint */
-.blueprint-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; color: var(--dim); font-family: var(--display); text-align: center;
-}
-.blueprint-empty svg { opacity: 0.15; width: 120px; height: 120px; margin-bottom: 20px; }
-.blueprint-title { font-size: 24px; font-weight: 700; color: var(--mid); margin-bottom: 8px; }
-.blueprint-sub { font-size: 13px; font-family: var(--mono); color: var(--dim); max-width: 300px; line-height: 1.5; }
-
 /* Command Palette */
 .cmd-overlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -308,26 +378,44 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .surface-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1a6bdb,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
 
 .surface-main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--surface-bg,#f0f4f9);color:var(--surface-text,#0d1b2e)}
+.surface-main.workflow-focus{background:#0a1525}
 .surface-topbar{height:58px;display:flex;align-items:center;gap:12px;padding:0 20px;background:var(--surface-panel,#fff);border-bottom:1px solid var(--surface-border,#e2e8f2);flex-shrink:0}
+.surface-topbar.compact{height:46px;padding:0 16px;gap:10px}
 .surface-logo{font-size:18px;font-weight:700;letter-spacing:-.4px}
 .surface-logo span{color:var(--surface-accent,#1a6bdb)}
 .surface-badge{font-size:10px;font-weight:700;color:var(--surface-subtle,#8a97a8);background:var(--surface-muted,#edf1f7);border:1px solid var(--surface-border,#e2e8f2);padding:2px 7px;border-radius:999px}
+.surface-divider{width:1px;height:16px;background:var(--surface-border,#e2e8f2);flex-shrink:0}
+.surface-titlelock{display:flex;align-items:center;gap:8px;min-width:0}
+.surface-titleblock{display:flex;flex-direction:column;gap:1px;min-width:0}
+.surface-title{font-size:12px;font-weight:700;color:var(--surface-text,#0d1b2e);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.surface-titlecopy{font-size:10px;color:var(--surface-subtle,#8a97a8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .surface-spacer{flex:1}
 .surface-mode{display:flex;gap:3px;padding:3px;border-radius:999px;background:var(--surface-muted,#edf1f7);border:1px solid var(--surface-border,#e2e8f2)}
 .surface-modebtn{border:none;background:transparent;color:var(--surface-mid,#4a5568);padding:6px 13px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;transition:all .18s}
+.surface-topbar.compact .surface-modebtn{padding:5px 10px;font-size:11px}
 .surface-modebtn.active.client{background:#fff;color:#1459ba;box-shadow:0 2px 8px rgba(13,27,46,.08)}
 .surface-modebtn.active.integrator{background:#2a7fff;color:#fff;box-shadow:0 4px 12px rgba(42,127,255,.3)}
 .surface-modebtn.active.operation{background:#123a63;color:#d4e6ff;box-shadow:0 4px 12px rgba(12,30,54,.35)}
 .surface-action{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--surface-border2,#cdd5e3);background:var(--surface-panel,#fff);color:var(--surface-mid,#4a5568);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+.surface-topbar.compact .surface-action{padding:6px 10px;font-size:11px}
 .surface-action:hover{border-color:var(--surface-accent,#1a6bdb);color:var(--surface-accent,#1a6bdb)}
 .surface-action.primary{background:var(--surface-accent,#1a6bdb);border-color:var(--surface-accent,#1a6bdb);color:#fff}
 
 .surface-ctxbar{height:42px;display:flex;align-items:center;gap:10px;padding:0 20px;background:var(--surface-panel,#fff);border-bottom:1px solid var(--surface-border,#e2e8f2);flex-shrink:0}
+.surface-ctxbar.designer{height:36px;padding:0 16px;justify-content:space-between;gap:14px}
 .surface-ctxtitle{font-size:13px;font-weight:700}
 .surface-ctxsep{color:var(--surface-border2,#cdd5e3)}
 .surface-ctxsub{font-size:12px;color:var(--surface-subtle,#8a97a8)}
+.surface-designer-meta{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
+.surface-designer-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.surface-statusitem{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--surface-subtle,#8a97a8);font-family:var(--mono)}
+.surface-statusdot{width:6px;height:6px;border-radius:50%;background:#8aa4c6;flex-shrink:0}
+.surface-statusdot.green{background:#00C870}
+.surface-statusdot.amber{background:#F0A500}
+.surface-statusdot.blue{background:#4A9FFF}
 
 .surface-metrics{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface-panel,#fff);border-bottom:1px solid var(--surface-border,#e2e8f2);flex-shrink:0}
+.surface-metrics.hidden{display:none}
 .surface-metric{padding:14px 18px;border-right:1px solid var(--surface-border,#e2e8f2)}
 .surface-metric:last-child{border-right:none}
 .surface-metricval{font-size:24px;font-weight:700;line-height:1.05;letter-spacing:-.5px}
@@ -392,8 +480,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .integrator-shell{display:flex;flex:1;min-width:0;min-height:0;background:var(--surface-panel,#fff)}
 .integrator-shell.full .integrator-queue{display:none}
 .integrator-queue{width:48%;min-width:380px;display:flex;flex-direction:column;border-right:1px solid var(--surface-border,#e2e8f2);background:var(--surface-panel,#fff)}
-.integrator-canvas{flex:1;min-width:0;display:flex;flex-direction:column;background:#0a1525}
-.integrator-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--surface-border,#1e3452);background:var(--surface-panel,#fff)}
+.integrator-canvas{flex:1;min-width:0;display:flex;flex-direction:column;background:#080f1c}
+.integrator-toolbar{display:flex;align-items:center;gap:6px;padding:4px 12px;border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(6,12,22,0.96);flex-shrink:0;height:34px}
 .integrator-debug{padding:12px 16px;border-bottom:1px solid var(--surface-border,#1e3452);background:var(--surface-panel,#fff);display:flex;flex-direction:column;gap:10px}
 .integrator-debug-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .integrator-debug-card{border:1px solid var(--surface-border,#e2e8f2);border-radius:12px;background:var(--surface-muted,#f5f8fc);padding:10px 11px;display:flex;flex-direction:column;gap:4px}
@@ -405,19 +493,29 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .integrator-rule-chip{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}.integrator-rule-chip.red{background:#fff0f0;color:#9e2020}.integrator-rule-chip.amber{background:#fff4e0;color:#8f4700}.integrator-rule-chip.blue{background:#e8f2ff;color:#1459ba}.integrator-rule-chip.green{background:#e8f8ef;color:#176038}.integrator-rule-chip.dim{background:#edf2f7;color:#4a5568}
 .integrator-rule-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.integrator-rule-box{border:1px solid var(--surface-border,#e2e8f2);border-radius:10px;background:var(--surface-muted,#f5f8fc);padding:9px 10px}.integrator-rule-box strong{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--surface-subtle,#8a97a8);margin-bottom:4px}.integrator-rule-box span{font-size:11px;line-height:1.5;color:var(--surface-text,#0d1b2e)}
 .integrator-rule-remediation{border-top:1px solid var(--surface-border,#e2e8f2);padding-top:10px}.integrator-rule-remediation strong{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--surface-subtle,#8a97a8);margin-bottom:4px}.integrator-rule-remediation span{font-size:11px;line-height:1.55;color:var(--surface-text,#0d1b2e)}
-.surface-dark .integrator-toolbar{background:#0f1e34}
+.surface-dark .integrator-toolbar{background:rgba(6,12,22,0.98)}
 .integrator-meta{display:flex;flex-direction:column;gap:2px}
 .integrator-meta strong{font-size:12px;color:var(--surface-text,#0d1b2e)}
 .integrator-meta span{font-size:11px;color:var(--surface-subtle,#8a97a8)}
 .integrator-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1;flex-wrap:wrap}
-.integrator-subtabs{display:flex;gap:6px;align-items:center}
-.integrator-subtabs button{border:1px solid var(--surface-border2,#cdd5e3);background:var(--surface-panel,#fff);color:var(--surface-mid,#4a5568);border-radius:999px;padding:6px 11px;font-size:10px;font-weight:700;cursor:pointer}
-.integrator-subtabs button.active{background:var(--surface-accent-soft,#e8f2ff);border-color:var(--surface-accent,#1a6bdb);color:var(--surface-accent-strong,#1459ba)}
-.integrator-toggle{display:flex;gap:6px}
-.integrator-toggle button{border:1px solid var(--surface-border2,#cdd5e3);background:var(--surface-panel,#fff);color:var(--surface-mid,#4a5568);border-radius:999px;padding:6px 11px;font-size:10px;font-weight:700;cursor:pointer}
-.integrator-toggle button.active{background:var(--surface-accent-soft,#e8f2ff);border-color:var(--surface-accent,#1a6bdb);color:var(--surface-accent-strong,#1459ba)}
-.surface-dark .integrator-subtabs button{background:#142540;border-color:#274468;color:#7da8d4}
-.surface-dark .integrator-subtabs button.active{background:rgba(42,127,255,.15);border-color:#2a7fff;color:#7ab8ff}
+.integrator-subtabs{display:flex;gap:3px;align-items:center}
+.integrator-subtabs button{border:1px solid rgba(255,255,255,0.07);background:transparent;color:rgba(100,116,139,.6);border-radius:5px;padding:2px 10px;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;letter-spacing:.2px}
+.integrator-subtabs button:hover{color:#94a3b8;border-color:rgba(255,255,255,0.12);background:rgba(255,255,255,0.04)}
+.integrator-subtabs button.active{background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.32);color:#4ade80}
+/* ── Workflow col-head professional styles ── */
+.wf-col-head{background:rgba(5,11,20,0.98)!important;border-bottom-color:rgba(255,255,255,0.06)!important;padding:0 12px!important;min-height:36px!important}
+.wf-active-name{font-size:12px;font-weight:700;color:#c8d8ec;letter-spacing:-.1px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.wf-status-badge{font-size:8.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:99px;flex-shrink:0}
+.wf-status-badge.published{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80}
+.wf-status-badge.draft{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);color:#fbbf24}
+.wf-tab-group{display:flex;align-items:center;gap:2px;padding:2px;border-radius:7px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.05)}
+.wf-tab-sep{width:1px;height:16px;background:rgba(255,255,255,0.07);margin:0 4px;flex-shrink:0}
+.wf-vtab{font-size:9.5px;font-weight:600;padding:3px 8px;border-radius:5px;border:none;background:transparent;color:rgba(100,116,139,.7);cursor:pointer;transition:all .14s;white-space:nowrap}
+.wf-vtab:hover{color:#94a3b8;background:rgba(255,255,255,0.06)}
+.wf-vtab.on{background:rgba(34,197,94,0.13);color:#4ade80}
+/* ── Dev buttons ── */
+.dev-btn{height:20px;padding:0 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:rgba(255,255,255,0.15);font-size:9px;cursor:pointer;transition:all .14s;font-family:var(--mono);line-height:1}
+.dev-btn:hover{color:rgba(255,255,255,0.45);border-color:rgba(255,255,255,0.12);background:rgba(255,255,255,0.05)}
 .surface-dark .integrator-toggle button{background:#142540;border-color:#274468;color:#7da8d4}
 .surface-dark .integrator-toggle button.active{background:rgba(42,127,255,.15);border-color:#2a7fff;color:#7ab8ff}
 
@@ -430,7 +528,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 
 .design-host{flex:1;min-width:0;min-height:0;overflow:hidden;background:#0a1525}
 .design-host .cc-shell{height:100%;min-height:0;background:#0a1525}
-.design-host .cc-topbar{display:none}
 
 .surface-footer{height:34px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--surface-panel,#fff);border-top:1px solid var(--surface-border,#e2e8f2);font-size:10px;color:var(--surface-subtle,#8a97a8)}
 .surface-footer-ticker{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow:auto}.surface-footer-ticker::-webkit-scrollbar{height:0}
@@ -442,9 +539,636 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .surface-footer-infra{display:flex;align-items:center;gap:12px;flex-shrink:0;white-space:nowrap}
 .surface-dot{width:6px;height:6px;border-radius:50%;background:#2ecc71;animation:pulse 2s infinite}
 
-@media (max-width: 1280px){.surface-metrics{grid-template-columns:repeat(3,1fr)}.ap-detail{width:280px}.integrator-queue{min-width:320px}}
+@media (max-width: 1280px){.surface-metrics{grid-template-columns:repeat(3,1fr)}.ap-detail{width:280px}.integrator-queue{min-width:300px}}
+@media (max-width: 1280px){.surface-designer-status{display:none}}
 @media (max-width: 1480px){.ap-runtime-grid{grid-template-columns:1fr}}
+
+/* ── Integrator canvas layout — give the canvas more room ── */
+.integrator-queue{width:360px;min-width:300px;flex-shrink:0}
+.integrator-queue.integrator-queue{width:360px}
+
+/* ── Embedded CommandCenter — when hosted inside App shell ── */
+.cc-shell.cc-embedded{height:100%}
+.cc-embedded .cc-topbar{height:38px;padding:0 10px;background:var(--surface-panel,#0f1e34);border-bottom-color:var(--surface-border,#1e3452)}
+.cc-embedded .cc-logo{display:none}
+.cc-embedded .cc-mode-tabs{padding-left:0}
+.cc-embedded .cc-mode-tab{font-size:9px;padding:4px 9px}
+.cc-embedded .cc-sec-hd{padding:5px 10px;min-height:30px}
+.cc-embedded .cc-wf-tabs-wrap{background:var(--surface-panel,#0f1e34);border-bottom-color:var(--surface-border,#1e3452)}
+.cc-embedded .cc-wf-bar{background:var(--surface-panel,#0f1e34);border-bottom-color:var(--surface-border,#1e3452)}
+.cc-embedded .workflow-palette{padding:8px 8px 0}
+.cc-embedded .workflow-palette-item{padding:8px 10px;border-radius:8px}
+.cc-embedded .navigator-item{padding:7px 10px;border-radius:8px}
+.cc-embedded .navigator-title{font-size:10px}
+
+/* ── Workflow node card polish ── */
+.wf-node-card{padding:13px 15px 15px}
+.wf-node-name{font-size:19px;letter-spacing:-.3px}
+.wf-node-kind{font-size:8.5px;letter-spacing:1.3px}
+.wf-node-badge{font-size:7.5px}
+.wf-node-handle{width:14px !important;height:14px !important;border-width:2px !important}
+
+/* ── Canvas command pill ── */
+.canvas-cmd-pill{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:20;display:flex;align-items:center;background:rgba(7,17,31,.9);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:3px 4px;box-shadow:0 4px 20px rgba(0,0,0,.35);backdrop-filter:blur(14px);white-space:nowrap}
+.cpill-btn{display:flex;align-items:center;gap:3px;padding:5px 11px;border-radius:14px;font-size:10px;font-weight:500;font-family:var(--mono);cursor:pointer;border:none;background:transparent;color:var(--mid);transition:all .12s;letter-spacing:.15px}
+.cpill-btn:hover{background:rgba(74,159,255,.1);color:var(--text)}
+.cpill-btn:disabled{opacity:.3;cursor:not-allowed}
+.cpill-btn:disabled:hover{background:transparent;color:var(--mid)}
+.cpill-sep{width:1px;height:14px;background:rgba(255,255,255,.07);margin:0 1px;flex-shrink:0;align-self:center}
+.cpill-stat{font-size:9px;font-family:var(--mono);color:var(--dim);padding:5px 9px;letter-spacing:.2px}
+.cpill-sel{font-size:9px;font-family:var(--mono);color:var(--a3);padding:0 8px 0 0;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+
+/* ════════════════════════════════════════════════════════════════
+   WF2 — Premium Canvas Workflow Designer
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── wf2 canvas container ── */
+.wf2-canvas{position:relative;background:linear-gradient(180deg,rgba(22,37,60,.96),rgba(14,24,42,.98))}
+.wf2-canvas .react-flow__viewport{z-index:4}
+.wf2-canvas .react-flow__edges{z-index:18 !important; opacity:1 !important}
+.wf2-canvas .react-flow__nodes{z-index:24 !important}
+/* Edge label container must be above edges but below nodes */
+.wf2-canvas .react-flow__edgelabels{z-index:22 !important}
+
+/* ── Context menu ── */
+.wf2-ctx-menu{
+  min-width:190px;
+  background:rgba(5,12,28,.97);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  padding:6px;
+  box-shadow:0 16px 48px rgba(0,0,0,.58),0 1px 0 rgba(255,255,255,.04) inset;
+  backdrop-filter:blur(22px);
+  display:flex;flex-direction:column;gap:2px;
+}
+.wf2-ctx-header{
+  font-size:8px;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(120,160,210,.55);
+  padding:4px 10px 2px;
+}
+.wf2-ctx-item{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;border-radius:9px;
+  border:none;background:transparent;cursor:pointer;
+  text-align:left;width:100%;
+  font-size:11px;font-family:var(--mono);
+  color:rgba(192,220,255,.88);
+  transition:background .1s;
+}
+.wf2-ctx-item:hover{background:rgba(74,159,255,.12);color:#d8edff}
+.wf2-ctx-item.danger{color:rgba(255,100,115,.75)}
+.wf2-ctx-item.danger:hover{background:rgba(255,61,90,.12);color:#ff8095}
+.wf2-ctx-icon{font-size:13px;width:18px;text-align:center;flex-shrink:0;opacity:.8}
+.wf2-ctx-sep{height:1px;background:rgba(255,255,255,.06);margin:4px 6px}
+
+/* ── Bézier edge pill label ── */
+.wf2-bezier-pill{
+  display:inline-flex;align-items:center;
+  padding:3px 9px;
+  border-radius:6px;
+  font-size:10px;font-weight:600;letter-spacing:.18px;
+  font-family:var(--mono,'JetBrains Mono',monospace);
+  background:#071426;           /* solid dark — hides the edge line behind it */
+  color:#d6ecff;
+  border:1px solid color-mix(in srgb, var(--pill-color,#7EA7D4) 55%, transparent);
+  box-shadow:0 2px 8px rgba(0,0,0,.5);
+  white-space:nowrap;
+  cursor:pointer;
+  user-select:none;
+  transition:border-color .14s, box-shadow .14s;
+  min-height:20px;
+}
+.wf2-bezier-pill:hover{
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--pill-color,#7EA7D4) 20%, transparent), 0 2px 8px rgba(0,0,0,.5);
+}
+.wf2-bezier-pill-input{
+  background:transparent;
+  border:none;
+  outline:none;
+  font:600 10px var(--mono,'JetBrains Mono',monospace);
+  color:#d6ecff;
+  letter-spacing:.18px;
+  min-width:56px;
+  max-width:180px;
+}
+/* Edge labels above nodes */
+.wf2-canvas .react-flow__edgelabels{z-index:22 !important}
+
+/* ── Linter badges ── */
+.wf2-badge.lint{
+  background:rgba(245,158,11,.14);
+  border:1px solid rgba(245,158,11,.38);
+  color:#f0b429;
+  font-size:8px;font-weight:700;padding:2px 6px;border-radius:999px;
+  letter-spacing:.3px;text-transform:uppercase;
+}
+.wf2-node.has-lint{border-color:rgba(245,158,11,.38) !important}
+.wf2-canvas .react-flow__node{
+  z-index:25 !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  filter:none !important;
+}
+.wf2-canvas .react-flow__node.selected{z-index:30 !important}
+.wf2-canvas::before,
+.wf2-canvas::after{
+  content:'';
+  position:absolute;
+  inset:10px;
+  border-radius:14px;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .16s ease, box-shadow .2s ease, border-color .2s ease;
+  z-index:11;
+}
+.wf2-canvas::before{
+  border:1px solid rgba(156,198,255,.2);
+}
+.wf2-canvas::after{
+  inset:6px;
+  border:1px dashed rgba(156,198,255,.24);
+}
+.wf2-canvas.drop-active::before{
+  opacity:1;
+  border-color:rgba(156,198,255,.42);
+  box-shadow:0 0 0 1px rgba(156,198,255,.18),0 0 20px rgba(79,152,255,.18),inset 0 0 24px rgba(79,152,255,.08);
+}
+.wf2-canvas.drop-active::after{
+  opacity:1;
+  border-color:rgba(156,198,255,.3);
+  animation:wf2-drop-pulse 1.2s ease-in-out infinite;
+}
+@keyframes wf2-drop-pulse{
+  0%,100%{opacity:.72}
+  50%{opacity:1}
+}
+
+/* ── State node card ── */
+.wf2-node{
+  min-width:200px;max-width:250px;
+  border-radius:16px;
+  border:1.5px solid rgba(255,255,255,.08);
+  background:linear-gradient(155deg,rgba(20,42,76,.99) 0%,rgba(11,24,45,.99) 100%);
+  padding:0 0 10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.04);
+  position:relative;overflow:hidden;
+  cursor:default;user-select:none;
+  transition:border-color .18s,box-shadow .2s,transform .13s;
+  font-family:var(--sans,'Inter',sans-serif);
+}
+.wf2-node:hover{
+  border-color:var(--kind-color);
+  box-shadow:0 0 0 3px var(--kind-glow),0 14px 44px rgba(0,0,0,.38);
+  transform:none;
+}
+.wf2-node.selected{
+  border-color:var(--kind-color);
+  box-shadow:0 0 0 2px var(--kind-glow),0 0 0 5px color-mix(in srgb,var(--kind-color) 10%,transparent),0 18px 52px rgba(0,0,0,.42);
+}
+.wf2-node.recent{
+  border-color:rgba(74,159,255,.9);
+  box-shadow:0 0 0 2px rgba(74,159,255,.28),0 0 0 8px rgba(74,159,255,.08),0 0 28px rgba(74,159,255,.22),0 20px 52px rgba(0,0,0,.44);
+  animation:wf2-recent-flash 1.3s ease-in-out 1;
+}
+@keyframes wf2-recent-flash{
+  0%{transform:translateY(0) scale(.98)}
+  35%{transform:translateY(-2px) scale(1.01)}
+  100%{transform:translateY(0) scale(1)}
+}
+.wf2-node.has-errors{border-color:#FF3D5A;box-shadow:0 0 0 3px rgba(255,61,90,.18)}
+
+.wf2-node-drag-handle{
+  position:absolute;
+  top:6px;
+  right:8px;
+  z-index:4;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid rgba(145,182,228,.26);
+  background:rgba(8,19,34,.75);
+  color:rgba(180,208,242,.88);
+  font:700 8px var(--mono,'JetBrains Mono',monospace);
+  letter-spacing:.18px;
+  cursor:grab;
+  user-select:none;
+}
+.wf2-node-drag-handle:active{cursor:grabbing}
+.wf2-node-drag-dots{font-size:10px;line-height:1;opacity:.9}
+.wf2-node-drag-text{font-size:8px;text-transform:uppercase}
+
+.wf2-canvas.mode-select .wf2-node{cursor:grab}
+.wf2-canvas.mode-select .wf2-node:active{cursor:grabbing}
+/* In select mode, the drag-handle badge is a hint, not the only drag target */
+.wf2-canvas.mode-select .wf2-node-drag-handle{cursor:grab}
+/* In connect mode, whole node is a crosshair — drag from handles to wire */
+.wf2-canvas.mode-connect .wf2-node{cursor:crosshair}
+
+/* Left accent bar */
+.wf2-accent{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--kind-color);border-radius:16px 0 0 16px;opacity:.85}
+
+/* Header row */
+.wf2-header{display:flex;align-items:center;gap:6px;padding:12px 14px 6px 18px}
+.wf2-icon{font-size:10px;opacity:.9;flex-shrink:0;line-height:1}
+.wf2-kind-label{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--kind-color);flex:1;min-width:0}
+.wf2-initial-pulse{width:7px;height:7px;border-radius:50%;background:var(--kind-color);flex-shrink:0;animation:wf2-pulse 2s ease-in-out infinite}
+@keyframes wf2-pulse{0%,100%{box-shadow:0 0 0 0 var(--kind-glow)}50%{box-shadow:0 0 0 5px rgba(0,200,112,0)}}
+.wf2-badge{font-size:8px;font-weight:700;padding:2px 6px;border-radius:999px;letter-spacing:.4px;text-transform:uppercase}
+.wf2-badge.error{background:rgba(255,61,90,.15);color:#FF3D5A;border:1px solid rgba(255,61,90,.3)}
+
+/* State name */
+.wf2-name{
+  font-size:15px;font-weight:700;letter-spacing:-.18px;
+  color:#e0eeff;line-height:1.3;
+  padding:2px 14px 6px 18px;
+  min-height:26px;
+  cursor:text;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.wf2-name:hover{color:#fff}
+.wf2-name-input{
+  display:block;width:calc(100% - 32px);margin:2px 14px 6px 18px;
+  background:rgba(74,159,255,.1);border:1px solid rgba(74,159,255,.4);
+  border-radius:8px;padding:4px 8px;
+  color:#e0eeff;font-size:15px;font-weight:700;letter-spacing:-.25px;
+  outline:none;box-sizing:border-box;
+}
+
+/* Footer meta chips */
+.wf2-footer{display:flex;align-items:center;gap:5px;padding:0 12px 0 16px;flex-wrap:wrap;min-height:24px}
+.wf2-meta-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);font-size:8.4px;color:rgba(180,205,240,.65);max-width:112px;overflow:hidden;white-space:nowrap}
+.wf2-meta-chip.assignee{border-color:rgba(74,159,255,.2);color:rgba(170,214,255,.82)}
+.wf2-meta-chip.sla{border-color:rgba(240,165,0,.2);color:rgba(240,200,80,.8)}
+.wf2-meta-chip.tags{border-color:rgba(155,126,255,.2);color:rgba(188,172,255,.82)}
+.wf2-meta-icon{font-size:9px;flex-shrink:0}
+.wf2-meta-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── 4-direction connection handles ── */
+.wf2-handle{transition:opacity .14s,transform .14s,box-shadow .14s,background .14s,border-color .14s !important}
+.wf2-handle.wf2-src{
+  width:11px !important;height:11px !important;
+  background:var(--kind-color) !important;
+  border:2px solid rgba(3,9,16,.95) !important;
+  border-radius:50% !important;
+  opacity:0;
+  z-index:5 !important;
+  cursor:crosshair !important;
+}
+/* Source handles appear on hover/select */
+.wf2-node:hover .wf2-handle.wf2-src,
+.wf2-node.selected .wf2-handle.wf2-src{
+  opacity:1;
+  transform:scale(1.3);
+  box-shadow:0 0 0 5px var(--kind-glow),0 0 12px color-mix(in srgb,var(--kind-color) 55%,transparent) !important;
+}
+/* Grow handles on direct hover to make them easier to grab */
+.wf2-handle.wf2-src:hover{
+  opacity:1 !important;
+  transform:scale(1.65) !important;
+  box-shadow:0 0 0 7px var(--kind-glow),0 0 18px color-mix(in srgb,var(--kind-color) 70%,transparent) !important;
+}
+/* Target handles — large hit areas; show as soft ring on hover so users know where to land */
+.wf2-handle.wf2-tgt{
+  width:18px !important;height:18px !important;
+  background:transparent !important;
+  border:2px dashed transparent !important;
+  border-radius:50% !important;
+  opacity:0 !important;
+  z-index:4 !important;
+  cursor:crosshair !important;
+  pointer-events:all !important;
+}
+/* Show target handles when hovering any node so user knows where to drop */
+.wf2-node:hover .wf2-handle.wf2-tgt{
+  opacity:0.6 !important;
+  background:rgba(74,159,255,.1) !important;
+  border-color:rgba(74,159,255,.45) !important;
+  width:18px !important;height:18px !important;
+}
+/* RF v12: valid target handles during active connection drag */
+.react-flow__handle-connecting.wf2-tgt,
+.react-flow__handle-valid.wf2-tgt,
+.wf2-handle.wf2-tgt.react-flow__handle-connecting,
+.wf2-handle.wf2-tgt.react-flow__handle-valid{
+  opacity:1 !important;
+  width:28px !important;height:28px !important;
+  background:rgba(74,222,128,.18) !important;
+  border:2px solid rgba(74,222,128,.7) !important;
+  box-shadow:0 0 0 6px rgba(74,222,128,.12),0 0 18px rgba(74,222,128,.3) !important;
+}
+.wf2-handle.wf2-fallback-handle{
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+/* Connect mode: show a subtle crosshair ring around each node to signal "drag from edge to connect" */
+.wf2-canvas.mode-connect .wf2-node:hover .wf2-handle.wf2-src{
+  opacity:1;
+  transform:scale(1.5);
+}
+.wf2-canvas.mode-connect .wf2-node{cursor:crosshair}
+
+/* Node glows green when it's a valid connection drop target */
+.react-flow__node.react-flow__node-workflowState.connecting{
+  outline:2px solid rgba(74,222,128,.55) !important;
+  outline-offset:3px;
+  border-radius:14px;
+  box-shadow:0 0 0 6px rgba(74,222,128,.1),0 0 20px rgba(74,222,128,.2) !important;
+}
+.wf2-connection-line{filter:drop-shadow(0 0 5px rgba(74,159,255,.42))}
+.wf2-connection-line.kind-approval{filter:drop-shadow(0 0 5px rgba(240,165,0,.42))}
+.wf2-connection-line.kind-exception{filter:drop-shadow(0 0 5px rgba(255,61,90,.42))}
+.wf2-connection-line.kind-technical{filter:drop-shadow(0 0 5px rgba(32,195,216,.42))}
+.wf2-connection-line.kind-terminal{filter:drop-shadow(0 0 5px rgba(155,126,255,.42))}
+
+.wf2-drop-ghost{position:absolute;z-index:35;pointer-events:none;transform:translate(12px,-18px);display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid rgba(74,159,255,.35);background:rgba(7,17,31,.94);color:#d4e6ff;font:600 10px var(--mono,'JetBrains Mono',monospace);box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.wf2-drop-ghost-dot{width:7px;height:7px;border-radius:50%;background:var(--a3)}
+.wf2-drop-ghost-snap{font-size:8px;letter-spacing:.45px;padding:2px 5px;border-radius:999px;border:1px solid rgba(120,210,160,.35);background:rgba(32,120,72,.26);color:#84e8ae}
+.wf2-drop-ghost.kind-approval{border-color:rgba(240,165,0,.4)}
+.wf2-drop-ghost.kind-approval .wf2-drop-ghost-dot{background:#F0A500}
+.wf2-drop-ghost.kind-exception{border-color:rgba(255,61,90,.4)}
+.wf2-drop-ghost.kind-exception .wf2-drop-ghost-dot{background:#FF3D5A}
+.wf2-drop-ghost.kind-technical{border-color:rgba(32,195,216,.4)}
+.wf2-drop-ghost.kind-technical .wf2-drop-ghost-dot{background:#20C3D8}
+.wf2-drop-ghost.kind-terminal{border-color:rgba(155,126,255,.4)}
+.wf2-drop-ghost.kind-terminal .wf2-drop-ghost-dot{background:#9B7EFF}
+
+
+/* ── Canvas drop indicator ── */
+.wf2-drop-indicator{
+  position:absolute;inset:0;z-index:15;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 58px, rgba(110,177,255,.14), rgba(96,166,255,.05) 32%, rgba(96,166,255,.025) 58%, transparent 72%);
+  border:2px dashed rgba(156,198,255,.4);
+  border-radius:12px;pointer-events:none;
+  font-size:14px;font-weight:600;color:rgba(223,235,249,.98);
+  text-shadow:0 2px 10px rgba(12,38,72,.52);
+}
+
+.wf2-drop-snap-target{
+  position:absolute;
+  z-index:36;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid rgba(132,230,176,.58);
+  background:rgba(8,30,22,.9);
+  color:#9af3bf;
+  font:600 9px var(--mono,'JetBrains Mono',monospace);
+  letter-spacing:.28px;
+  box-shadow:0 0 0 1px rgba(132,230,176,.26),0 0 24px rgba(58,180,112,.35);
+}
+.wf2-drop-snap-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#6ce29d;
+  box-shadow:0 0 0 5px rgba(108,226,157,.2),0 0 12px rgba(108,226,157,.62);
+}
+
+/* ── Canvas empty state ── */
+.wf2-empty-state{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:5;text-align:center;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.wf2-empty-icon{font-size:42px;opacity:.2;line-height:1}
+.wf2-empty-title{font-size:17px;font-weight:700;color:rgba(180,205,240,.35);letter-spacing:-.3px}
+.wf2-empty-copy{font-size:12px;color:rgba(140,170,210,.4);max-width:320px;line-height:1.55}
+.wf2-empty-hints{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.wf2-empty-hints span{font-size:10px;color:rgba(100,140,190,.35)}
+
+/* ── Floating pill ── */
+.fp-wrap{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:25;pointer-events:none}
+.fp-pill{
+  display:inline-flex;align-items:center;gap:2px;
+  background:rgba(5,12,28,.92);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:24px;padding:4px 6px;
+  box-shadow:0 6px 28px rgba(0,0,0,.42),0 1px 0 rgba(255,255,255,.04) inset;
+  backdrop-filter:blur(18px);
+  white-space:nowrap;pointer-events:all;
+}
+.fp-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 12px;border-radius:18px;
+  border:none;background:transparent;
+  color:rgba(160,195,240,.75);
+  font-size:12px;font-weight:700;letter-spacing:.1px;
+  cursor:pointer;transition:all .12s;
+}
+.fp-btn:hover{background:rgba(74,159,255,.12);color:#d0e8ff}
+.fp-btn:disabled{opacity:.3;cursor:not-allowed}
+.fp-btn:disabled:hover{background:transparent}
+.fp-btn.primary{background:rgba(74,159,255,.14);color:#7ab8ff;border:1px solid rgba(74,159,255,.22)}
+.fp-btn.primary:hover{background:rgba(74,159,255,.24);color:#a0d0ff;border-color:rgba(74,159,255,.45)}
+.fp-btn.danger:hover{background:rgba(255,61,90,.12);color:#ff8098}
+.fp-btn.dim{color:rgba(120,155,200,.55)}
+.fp-btn.dim:hover{color:rgba(180,210,250,.8);background:rgba(74,159,255,.08)}
+.fp-sep{width:1px;height:16px;background:rgba(255,255,255,.07);margin:0 2px;flex-shrink:0;align-self:center}
+.fp-sel-label{font-size:10px;font-weight:700;padding:5px 10px;letter-spacing:.1px;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.fp-count-group{display:flex;gap:6px;align-items:center;padding:0 4px}
+.fp-count{font-size:9px;font-weight:700;color:rgba(120,155,200,.55);display:inline-flex;align-items:center;gap:3px}
+.fp-caret{font-size:8px;margin-left:2px;opacity:.6}
+
+/* ── Integrator builder toolbar ── */
+.wf2-builder-tabbar{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:10px;background:rgba(8,18,33,.72);border:1px solid rgba(140,182,232,.12)}
+.wf2-builder-tabgroup{display:flex;align-items:center;padding:3px;border-radius:8px;background:rgba(5,13,24,.75);border:1px solid rgba(125,165,214,.12)}
+/* Mode tabs: Select / Connect */
+.wf2-builder-tab{height:26px;min-width:58px;padding:0 10px;border-radius:6px;border:none;background:transparent;color:rgba(156,186,224,.72);font-family:var(--mono);font-size:10px;letter-spacing:.25px;cursor:pointer;transition:all .14s}
+.wf2-builder-tab:hover:not(:disabled){background:rgba(74,159,255,.14);color:#d5e9ff}
+.wf2-builder-tab.is-active{background:linear-gradient(180deg,rgba(56,128,220,.35),rgba(31,97,182,.32));color:#e7f3ff;border:1px solid rgba(95,162,244,.44)}
+/* Connect mode active: teal accent to distinguish from select */
+.wf2-builder-tab.is-active[title*="Connect"]{background:linear-gradient(180deg,rgba(32,195,216,.22),rgba(18,140,158,.18));color:#9af0ff;border:1px solid rgba(32,195,216,.38)}
+/* Action buttons: Layout / Fit — green accent to distinguish from mode tabs */
+.wf2-builder-tab.wf2-action-btn{color:rgba(120,200,155,.85)}
+.wf2-builder-tab.wf2-action-btn:hover{background:rgba(0,200,112,.14);color:#72f0aa;border:none}
+/* Undo / Redo */
+.wf2-builder-tab[title="Undo"]:not(:disabled):hover,
+.wf2-builder-tab[title="Redo"]:not(:disabled):hover{background:rgba(155,126,255,.14);color:#c8b4ff}
+.wf2-builder-tab:disabled{opacity:.35;cursor:not-allowed}
+/* Separator between tabgroups */
+.wf2-builder-tabbar .wf2-builder-tabgroup + .wf2-builder-tabgroup::before{content:'';display:block;width:1px;height:14px;background:rgba(255,255,255,.07);margin-right:4px}
+
+/* Add menu dropdown */
+.fp-add-wrap{position:relative}
+.fp-add-menu{
+  position:absolute;top:calc(100% + 8px);left:0;
+  min-width:210px;
+  background:rgba(5,12,28,.97);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;
+  padding:6px;
+  box-shadow:0 16px 48px rgba(0,0,0,.55);
+  backdrop-filter:blur(20px);
+  z-index:99;
+  display:flex;flex-direction:column;gap:2px;
+}
+.fp-add-option{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:10px;
+  border:none;background:transparent;cursor:pointer;
+  text-align:left;width:100%;
+  transition:background .12s;
+}
+.fp-add-option:hover{background:rgba(74,159,255,.1)}
+.fp-add-icon{font-size:14px;flex-shrink:0;line-height:1}
+.fp-add-label{font-size:11px;font-weight:700;color:rgba(200,225,255,.9);flex-shrink:0}
+.fp-add-desc{font-size:9px;color:rgba(120,155,200,.55);flex:1;text-align:right}
+
+/* ── Canvas Inspector (ci-*) ── */
+.ci-shell{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--surface-panel,#0f1e34);font-family:var(--sans,'Inter',sans-serif)}
+.ci-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--surface-border,#1e3452);flex-shrink:0}
+.ci-header-left{display:flex;align-items:center;gap:10px;min-width:0}
+.ci-header-icon{font-size:20px;flex-shrink:0;line-height:1}
+.ci-header-title{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--surface-subtle,#3d6894)}
+.ci-header-sub{font-size:13px;font-weight:600;color:var(--surface-text,#d4e6ff);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.ci-danger-btn{border:none;background:rgba(255,61,90,.08);color:rgba(255,100,115,.7);border-radius:8px;padding:6px 8px;cursor:pointer;font-size:13px;flex-shrink:0;transition:all .14s}
+.ci-danger-btn:hover{background:rgba(255,61,90,.18);color:#ff5570}
+
+/* Kind picker pills */
+.ci-kind-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:10px 12px;border-bottom:1px solid var(--surface-border,#1e3452);flex-shrink:0}
+.ci-kind-pill{
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  padding:5px 6px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.03);
+  color:rgba(140,170,210,.65);
+  font-size:9px;font-weight:700;letter-spacing:.3px;
+  cursor:pointer;transition:all .13s;
+}
+.ci-kind-pill span:first-child{font-size:11px}
+.ci-kind-pill:hover{background:rgba(255,255,255,.06);color:rgba(200,225,255,.85);border-color:rgba(255,255,255,.14)}
+.ci-kind-pill.active{background:color-mix(in srgb,var(--kp-color) 14%,transparent);border-color:color-mix(in srgb,var(--kp-color) 45%,transparent);color:var(--kp-color)}
+
+/* Tabs */
+.ci-tabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--surface-border,#1e3452);flex-shrink:0}
+.ci-tab{padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.07);background:transparent;color:rgba(120,155,200,.6);font-size:9px;font-weight:700;cursor:pointer;transition:all .13s;letter-spacing:.2px}
+.ci-tab:hover{background:rgba(74,159,255,.08);color:rgba(160,200,255,.8)}
+.ci-tab.active{background:rgba(74,159,255,.14);border-color:rgba(74,159,255,.35);color:#7ab8ff}
+
+/* Body / scrollable area */
+.ci-body{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.ci-body::-webkit-scrollbar{width:4px}
+.ci-body::-webkit-scrollbar-thumb{background:rgba(74,159,255,.2);border-radius:2px}
+
+/* Route pill (edge inspector) */
+.ci-route-pill{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--surface-border,#1e3452);flex-shrink:0}
+.ci-route-from,.ci-route-to{font-size:11px;font-weight:700;color:var(--surface-text,#d4e6ff);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ci-route-arrow{font-size:14px;color:rgba(74,159,255,.6);flex-shrink:0}
+
+/* Field */
+.ci-field{display:flex;flex-direction:column;gap:4px}
+.ci-field-label{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--surface-subtle,#3d6894)}
+.ci-field-icon{font-size:10px}
+.ci-field input,.ci-field textarea,.ci-field select{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:8px;padding:6px 9px;
+  color:var(--surface-text,#d4e6ff);
+  font-size:11px;font-family:inherit;
+  outline:none;transition:border-color .14s,background .14s;
+  width:100%;box-sizing:border-box;resize:none;
+}
+.ci-field input:focus,.ci-field textarea:focus,.ci-field select:focus{
+  border-color:rgba(74,159,255,.4);
+  background:rgba(74,159,255,.06);
+}
+
+/* Row (2-col) */
+.ci-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* Section label */
+.ci-section-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--surface-subtle,#3d6894);padding-top:4px;border-top:1px solid rgba(255,255,255,.05);margin-top:2px}
+
+/* Toggle */
+.ci-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 2px}
+.ci-toggle-label{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:rgba(140,170,210,.75);cursor:pointer;flex:1}
+.ci-toggle-track{width:30px;height:16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);position:relative;cursor:pointer;transition:background .16s,border-color .16s;flex-shrink:0}
+.ci-toggle-track.on{background:rgba(74,159,255,.3);border-color:rgba(74,159,255,.5)}
+.ci-toggle-thumb{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#8aadcf;transition:transform .16s,background .16s}
+.ci-toggle-track.on .ci-toggle-thumb{transform:translateX(14px);background:#7ab8ff}
+
+/* Readout */
+.ci-readout{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 2px;border-top:1px solid rgba(255,255,255,.04);margin-top:2px}
+.ci-readout-label{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:rgba(80,110,155,.65)}
+.ci-readout-value{font-size:9px;font-family:var(--mono,'JetBrains Mono',monospace);color:rgba(100,145,200,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px}
+
+/* Empty inspector */
+.ci-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;gap:10px}
+.ci-empty-icon{font-size:32px;opacity:.2}
+.ci-empty-title{font-size:13px;font-weight:700;color:rgba(140,170,210,.4);letter-spacing:-.2px}
+.ci-empty-copy{font-size:11px;color:rgba(100,140,190,.35);line-height:1.6;max-width:230px}
+.ci-empty-hints{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.ci-empty-hints span{font-size:9px;color:rgba(80,115,165,.35);background:rgba(74,159,255,.04);padding:4px 10px;border-radius:999px;border:1px solid rgba(74,159,255,.06)}
+
+/* ── Palette items (left panel upgrade) ── */
+.workflow-palette-item .wp-kind-icon{font-size:13px;flex-shrink:0}
+.workflow-palette-item .wp-kind-color{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ══════════════════════════════════════════════════════════════
+   OPERATION VIEW — Live read-only invoice operations monitor
+   ══════════════════════════════════════════════════════════════ */
+.op-view-shell{display:flex;flex-direction:column;height:100%;background:var(--surface-bg,#0a1525);overflow:hidden}
+.op-view-header{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 20px;
+  background:var(--surface-panel,#0f1e34);
+  border-bottom:1px solid var(--surface-border,#1e3452);
+  flex-shrink:0;
+}
+.op-view-kpi{display:flex;flex-direction:column;gap:2px;min-width:90px}
+.op-view-kpi>span{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--surface-subtle,#3d6894)}
+.op-view-kpi>strong{font-size:13px;font-weight:700;color:var(--surface-text,#d4e6ff);white-space:nowrap}
+.op-view-kpi-sep{width:1px;height:32px;background:var(--surface-border,#1e3452);flex-shrink:0;margin:0 4px}
+.op-view-spacer{flex:1}
+.op-view-readonly-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:999px;
+  background:rgba(60,180,120,.1);
+  border:1px solid rgba(60,180,120,.28);
+  color:#5de6a8;
+  font-size:9px;font-weight:700;letter-spacing:.6px;
+}
+.op-view-readonly-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#5de6a8;animation:pulse-green 2s infinite;flex-shrink:0}
+.op-view-body{display:flex;flex:1;min-height:0;overflow:hidden}
+.op-view-queue{
+  width:58%;border-right:1px solid var(--surface-border,#1e3452);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.op-view-pipeline{
+  flex:1;display:flex;flex-direction:column;overflow-y:auto;
+  background:var(--surface-muted,#142540);
+}
+.op-view-section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 14px;
+  background:var(--surface-panel,#0f1e34);
+  border-bottom:1px solid var(--surface-border,#1e3452);
+  font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--surface-subtle,#3d6894);
+  flex-shrink:0;
+}
+.op-view-webhook-dot{width:6px;height:6px;border-radius:50%;background:#00C870;display:inline-block;flex-shrink:0;animation:pulse-green 2.5s infinite}
+.op-view-active-chip{
+  margin-left:auto;
+  font-size:8px;font-weight:700;letter-spacing:.5px;
+  padding:2px 7px;border-radius:999px;
+  background:rgba(0,200,112,.12);
+  border:1px solid rgba(0,200,112,.3);
+  color:#7ee8b6;
+}
 `;
+
+
+
 
 const CLIENT_VIEWS = ['ap', 'exc', 'audit'];
 const INTEGRATOR_VIEWS = ['wf', 'erp', 'ai'];
@@ -619,7 +1343,7 @@ export default function App() {
   const [launcherMessage, setLauncherMessage] = useState('');
   const [inspectionTab, setInspectionTab] = useState('invoice');
   const [showRawRuntime, setShowRawRuntime] = useState(false);
-  const [integratorCanvasMode, setIntegratorCanvasMode] = useState('split');
+  const [integratorCanvasMode, setIntegratorCanvasMode] = useState('full');
   const [integratorSubview, setIntegratorSubview] = useState('data');
 
   const allowedViews = workspaceMode === 'client'
@@ -641,7 +1365,11 @@ export default function App() {
     }
     if (workspaceMode !== 'integrator' || activeView !== 'wf') {
       setIntegratorSubview('data');
+      return;
     }
+    // Entering integrator-wf: clear any 'blueprint' state left over from operation view.
+    // Without this, rapid Operation→Integrator switches leave the canvas invisible.
+    setIntegratorSubview((prev) => (prev === 'blueprint' ? 'data' : prev));
   }, [workspaceMode, activeView]);
 
   useEffect(() => {
@@ -665,6 +1393,12 @@ export default function App() {
       cancelled = true;
     };
   }, [workspaceMode, reloadKey]);
+
+  useEffect(() => {
+    if ((workspaceMode === 'integrator' || workspaceMode === 'operation') && activeView === 'wf' && integratorCanvasMode !== 'full') {
+      setIntegratorCanvasMode('full');
+    }
+  }, [workspaceMode, activeView]);
 
   useEffect(() => {
     const shouldLoadInvoices = activeView === 'ap' || ((workspaceMode === 'integrator' || workspaceMode === 'operation') && activeView === 'wf');
@@ -818,6 +1552,12 @@ export default function App() {
   const clientNavItems = CLIENT_VIEWS.map((view) => ({ id: view, ...NAV_ITEMS[view] }));
   const integratorNavItems = [...INTEGRATOR_VIEWS, 'operation'].map((view) => ({ id: view, ...NAV_ITEMS[view] }));
   const navMeta = NAV_ITEMS[activeView] || NAV_ITEMS.ap;
+  const isWorkflowDesignerView = activeView === 'wf';
+  const workflowHeaderStatus = [
+    { label: 'Validation', value: '2 publish ready', tone: 'green' },
+    { label: 'Diffs', value: '3 pending review', tone: 'amber' },
+    { label: 'Connectors', value: '2 gaps', tone: 'blue' },
+  ];
 
   const selectSidebarItem = (itemId) => {
     if (CLIENT_VIEWS.includes(itemId)) {
@@ -861,29 +1601,62 @@ export default function App() {
           <div className="surface-avatar">HJ</div>
         </aside>
 
-        <main className="surface-main">
-          <div className="surface-topbar">
+        <main className={`surface-main ${isWorkflowDesignerView ? 'workflow-focus' : ''}`}>
+          <div className={`surface-topbar ${isWorkflowDesignerView ? 'compact' : ''}`}>
             <div className="surface-logo">AI Provi<span>so</span></div>
             <div className="surface-badge">v1.0 · Integrated Shell</div>
+            {isWorkflowDesignerView && <div className="surface-divider" />}
+            {isWorkflowDesignerView && (
+              <div className="surface-titlelock">
+                <div className="surface-titleblock">
+                  <span className="surface-title">
+                    {workspaceMode === 'operation' ? 'Operation View' : workspaceMode === 'integrator' ? 'Workflow Designer' : navMeta.title}
+                  </span>
+                  <span className="surface-titlecopy">
+                    {workspaceMode === 'operation' ? 'Live AP invoice monitor · read-only · n8n routing feed' : 'Integrator-facing Proviso design workspace'}
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="surface-spacer" />
             <div className="surface-mode">
               <button className={`surface-modebtn client ${workspaceMode === 'client' ? 'active client' : ''}`} onClick={() => setWorkspaceMode('client')}>Client Workspace</button>
               <button className={`surface-modebtn integrator ${workspaceMode === 'integrator' ? 'active integrator' : ''}`} onClick={() => setWorkspaceMode('integrator')}>Integrator Workspace</button>
               <button className={`surface-modebtn operation ${workspaceMode === 'operation' ? 'active operation' : ''}`} onClick={() => { setWorkspaceMode('operation'); setActiveView('wf'); }}>Operation View</button>
             </div>
-            <button className="surface-action"><i className="ti ti-player-play" /> Guided Tour</button>
+            {!isWorkflowDesignerView && <button className="surface-action"><i className="ti ti-player-play" /> Guided Tour</button>}
             <button className="surface-action primary"><i className="ti ti-upload" /> Upload</button>
           </div>
 
-          <div className="surface-ctxbar">
-            <span className="surface-ctxtitle">{navMeta.title}</span>
-            <span className="surface-ctxsep">›</span>
-            <span className="surface-ctxsub">{navMeta.subtitle}</span>
-            {workspaceMode === 'client' && <span className="surface-ctxsub">• {dataSource === 'database' ? 'Live backend' : dataSource === 'fallback' ? 'Backend fallback' : 'Connecting'}</span>}
-            {!!launcherMessage && (workspaceMode === 'integrator' || workspaceMode === 'operation') && activeView === 'wf' && <span className="surface-ctxsub">• {launcherMessage}</span>}
+          <div className={`surface-ctxbar ${isWorkflowDesignerView ? 'designer' : ''}`}>
+            {isWorkflowDesignerView ? (
+              <>
+                <div className="surface-designer-meta">
+                  <span className="surface-ctxsub">Canvas-first workflow authoring with inspector-driven editing.</span>
+                  {!!launcherMessage && (workspaceMode === 'integrator' || workspaceMode === 'operation') && <span className="surface-ctxsub">• {launcherMessage}</span>}
+                </div>
+                <div className="surface-designer-status">
+                  {workflowHeaderStatus.map((item) => (
+                    <div key={item.label} className="surface-statusitem">
+                      <span className={`surface-statusdot ${item.tone}`} />
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="surface-ctxtitle">{navMeta.title}</span>
+                <span className="surface-ctxsep">›</span>
+                <span className="surface-ctxsub">{navMeta.subtitle}</span>
+                {workspaceMode === 'client' && <span className="surface-ctxsub">• {dataSource === 'database' ? 'Live backend' : dataSource === 'fallback' ? 'Backend fallback' : 'Connecting'}</span>}
+                {!!launcherMessage && (workspaceMode === 'integrator' || workspaceMode === 'operation') && activeView === 'wf' && <span className="surface-ctxsub">• {launcherMessage}</span>}
+              </>
+            )}
           </div>
 
-          <div className="surface-metrics">
+          <div className={`surface-metrics ${isWorkflowDesignerView ? 'hidden' : ''}`}>
             {metrics.map((metric) => (
               <div className="surface-metric" key={metric.label}>
                 <div className={`surface-metricval ${metric.tone}`}>{metric.value}</div>
@@ -1095,18 +1868,124 @@ export default function App() {
 
             <div className={`surface-view ${activeView === 'wf' ? 'active' : ''}`}>
               {workspaceMode === 'operation' ? (
-                <section className="integrator-canvas" style={{ flex: 1 }}>
-                  <div className="integrator-toolbar">
-                    <div className="integrator-meta">
-                      <strong>Operation View</strong>
-                      <span>Dedicated Mockup 3 workflow surface for switching directly between client, integrator, and operations work.</span>
+                /* ── OPERATION VIEW: Read-only live operations monitor ──────────────────
+                   Distinct from Integrator Workspace — no canvas, no editing tools.
+                   Persona: AP Supervisor / Client — tracks live invoice routing.       */
+                <div className="op-view-shell">
+                  {/* KPI header strip */}
+                  <div className="op-view-header">
+                    <div className="op-view-kpi">
+                      <span>Queue Depth</span>
+                      <strong>{invoices.length} invoices</strong>
                     </div>
-                    <button className="surface-action" onClick={openOriginalMockup}><i className="ti ti-layout-board-split" /> Open Standalone Surface</button>
+                    <div className="op-view-kpi-sep" />
+                    <div className="op-view-kpi">
+                      <span>Active Invoice</span>
+                      <strong>{selectedInvoice?.invoiceNumber || '—'}</strong>
+                    </div>
+                    <div className="op-view-kpi-sep" />
+                    <div className="op-view-kpi">
+                      <span>Workflow State</span>
+                      <strong>{integratorDebugContext?.stateName || selectedInvoice?.status || '—'}</strong>
+                    </div>
+                    <div className="op-view-kpi-sep" />
+                    <div className="op-view-kpi">
+                      <span>Confidence</span>
+                      <strong style={{ color: selectedInvoice ? (selectedInvoice.confidence >= 0.7 ? '#00C870' : '#F0A500') : '#3d6894' }}>
+                        {selectedInvoice ? `${(selectedInvoice.confidence * 100).toFixed(0)}%` : '—'}
+                      </strong>
+                    </div>
+                    <div className="op-view-kpi-sep" />
+                    <div className="op-view-kpi">
+                      <span>n8n Webhooks</span>
+                      <strong style={{ color: '#00C870' }}>9 / 9 live</strong>
+                    </div>
+                    <div className="op-view-spacer" />
+                    <span className="op-view-readonly-badge">READ ONLY · Live Monitor</span>
                   </div>
-                  <div className="design-host">
-                    <CommandCenter externalSelection={integratorDebugContext} />
+
+                  <div className="op-view-body">
+                    {/* Left: Invoice queue */}
+                    <section className="op-view-queue">
+                      <div className="op-view-section-head">
+                        <span>Live Invoice Queue</span>
+                        <span>{invoices.length} invoices{filter !== 'all' ? ` · ${filter}` : ''}</span>
+                      </div>
+                      <div className="ap-table-wrap">
+                        <table className="ap-table">
+                          <thead>
+                            <tr><th>Vendor</th><th>Invoice #</th><th>Status</th><th>Confidence</th><th>SLA</th></tr>
+                          </thead>
+                          <tbody>
+                            {loadingInvoices && <tr><td colSpan="5" style={{ padding: '16px', color: '#5878A0' }}>Loading…</td></tr>}
+                            {!loadingInvoices && !filteredInvoices.length && <tr><td colSpan="5" style={{ padding: '16px', color: '#5878A0' }}>No invoices.</td></tr>}
+                            {!loadingInvoices && filteredInvoices.map((inv) => (
+                              <tr key={`op-${inv.id}`} className={selectedInvoiceId === inv.id ? 'sel' : ''} onClick={() => setSelectedInvoiceId(inv.id)}>
+                                <td>{inv.vendor}</td>
+                                <td className="mono">{inv.invoiceNumber}</td>
+                                <td><span className={`ap-status ${statusClass(inv.status)}`}>{inv.status}</span></td>
+                                <td>
+                                  <div className="ap-conf">
+                                    <div className="ap-conftrack">
+                                      <div className={`ap-conffill ${inv.confidence >= 0.7 ? 'green' : inv.confidence >= 0.5 ? 'amber' : 'red'}`} style={{ width: `${inv.confidence * 100}%` }} />
+                                    </div>
+                                    <span className="ap-confnum">{inv.confidence.toFixed(2)}</span>
+                                  </div>
+                                </td>
+                                <td>{inv.sla}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    {/* Right: Pipeline trace + webhook feed */}
+                    <section className="op-view-pipeline">
+                      <div className="op-view-section-head">
+                        <span>Pipeline Trace</span>
+                        {selectedInvoice && <span>{selectedInvoice.invoiceNumber} · {selectedInvoice.vendor}</span>}
+                      </div>
+                      {selectedInvoice ? (
+                        <div className="ap-trace-flow" style={{ padding: '12px 14px' }}>
+                          {buildExecutionTrace(runtimePayload, selectedInvoice).map((step) => (
+                            <div key={step.id} className={`ap-trace-node ${step.id === deriveRuntimeState(runtimePayload, selectedInvoice) ? 'active' : ''}`}>
+                              <div className="ap-trace-dot" />
+                              <div className="ap-trace-copy">
+                                <strong>{step.label}</strong>
+                                <span>{step.meta}</span>
+                              </div>
+                              {step.id === deriveRuntimeState(runtimePayload, selectedInvoice) && (
+                                <span className="op-view-active-chip">ACTIVE</span>
+                              )}
+                            </div>
+                          ))}
+                          {integratorDebugContext?.blockingRule && (
+                            <div style={{ marginTop: 10, padding: '9px 11px', background: 'rgba(240,80,96,.08)', border: '1px solid rgba(240,80,96,.28)', borderRadius: 8, fontSize: 11, color: '#ffa0b0' }}>
+                              <strong style={{ display: 'block', fontSize: 9, textTransform: 'uppercase', letterSpacing: '.5px', color: '#ff6080', marginBottom: 3 }}>Blocking Rule</strong>
+                              {integratorDebugContext.blockingRule}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ padding: '18px 14px', color: '#3d6894', fontSize: 12 }}>Select an invoice to trace its pipeline state.</div>
+                      )}
+
+                      <div className="op-view-section-head" style={{ marginTop: 4 }}>
+                        <span>n8n Webhook Events</span>
+                        <span style={{ color: '#00C870' }}>● 9 active</span>
+                      </div>
+                      <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {['invoice-received','invoice-extracted','invoice-matched','invoice-exception','invoice-resolved','invoice-approved','invoice-posted','invoice-rejected','audit-event'].map((evt) => (
+                          <div key={evt} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10 }}>
+                            <span className="op-view-webhook-dot" />
+                            <span style={{ fontFamily: 'var(--mono)', color: '#7da8d4' }}>{evt}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   </div>
-                </section>
+                </div>
               ) : (
               <div className={`integrator-shell ${integratorCanvasMode === 'full' ? 'full' : ''}`}>
                 <section className="integrator-queue">
@@ -1207,25 +2086,19 @@ export default function App() {
                   </div>
                 </section>
                 <section className="integrator-canvas">
-                  <div className="integrator-toolbar">
-                    <div className="integrator-head">
-                      <div className="integrator-meta">
-                        <strong>Integrator Workspace</strong>
-                        <span>{integratorSubview === 'data' ? 'Queue, runtime context, and workflow canvas in one operating surface.' : 'Blueprint View keeps the dedicated workflow-design page available without crowding the main shell.'}</span>
-                      </div>
-                      <div className="integrator-subtabs">
-                        <button className={integratorSubview === 'data' ? 'active' : ''} onClick={() => setIntegratorSubview('data')}>Data View</button>
-                        <button className={integratorSubview === 'blueprint' ? 'active' : ''} onClick={() => setIntegratorSubview('blueprint')}>Blueprint View</button>
-                      </div>
-                    </div>
-                    <div className="integrator-toggle">
-                      <button className={integratorCanvasMode === 'split' ? 'active' : ''} onClick={() => setIntegratorCanvasMode('split')}>Split View</button>
-                      <button className={integratorCanvasMode === 'full' ? 'active' : ''} onClick={() => setIntegratorCanvasMode('full')}>Full Canvas</button>
+                  <div className="integrator-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderBottom: '1px solid var(--border)', background: 'var(--s2)', flexShrink: 0 }}>
+                    <div className="integrator-subtabs">
+                      <button className={integratorCanvasMode === 'full' ? 'active' : ''} onClick={() => { setIntegratorCanvasMode('full'); setIntegratorSubview('data'); }}>Full Canvas</button>
+                      <button className={integratorCanvasMode === 'split' ? 'active' : ''} onClick={() => { setIntegratorCanvasMode('split'); setIntegratorSubview('data'); }}>Data + Canvas</button>
                     </div>
                   </div>
                   {integratorSubview === 'data' ? (
                     <div className="design-host">
-                      <CommandCenter externalSelection={integratorDebugContext} />
+                      <RuntimeErrorBoundary>
+                        <Suspense fallback={<div className="simple-panel" style={{ display: 'grid', placeItems: 'center', minHeight: '220px' }}>Loading workflow designer…</div>}>
+                          <CommandCenter externalSelection={integratorDebugContext} />
+                        </Suspense>
+                      </RuntimeErrorBoundary>
                     </div>
                   ) : (
                     <div className="simple-panel">

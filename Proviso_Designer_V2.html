@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso — Workflow Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* Restrained palette — nothing competes with the canvas */
+  --bg:#0d1117;
+  --surface:#161b22;
+  --raised:#1c2331;
+  --float:#212938;
+  --rim:#2a3441;
+  --rim2:#344155;
+  --dim:#445566;
+  --mid:#607080;
+  --soft:#8099b0;
+  --body:#aabfcf;
+  --bright:#ccdde8;
+  --pure:#e6f0f7;
+
+  /* Semantic accents — used sparingly as type indicators only */
+  --blue:#4a9eff;
+  --blue-lt:rgba(74,158,255,.08);
+  --blue-med:rgba(74,158,255,.15);
+  --green:#3dd68c;
+  --green-lt:rgba(61,214,140,.08);
+  --amber:#e8a020;
+  --amber-lt:rgba(232,160,32,.08);
+  --red:#f05060;
+  --red-lt:rgba(240,80,96,.08);
+  --purple:#9b72e8;
+  --purple-lt:rgba(155,114,232,.08);
+  --teal:#2ec4d0;
+  --teal-lt:rgba(46,196,208,.08);
+
+  --font:'Geist',system-ui,sans-serif;
+  --mono:'Geist Mono',monospace;
+  --r:6px;--r-lg:10px;
+}
+
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--body);font-family:var(--font);font-size:13px}
+::selection{background:rgba(74,158,255,.25);color:#fff}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--rim2);border-radius:2px}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh}
+
+/* ── NARROW RAIL ── */
+.rail{
+  width:44px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--rim);
+  display:flex;flex-direction:column;align-items:center;
+  padding:10px 0 8px;gap:1px;
+}
+.rail-mark{
+  width:28px;height:28px;border-radius:8px;
+  background:var(--blue);display:flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:12px;
+  font-weight:600;color:#fff;margin-bottom:12px;flex-shrink:0;
+  cursor:pointer;
+}
+.rb{
+  width:32px;height:32px;border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--dim);transition:all .12s;
+  border:1px solid transparent;position:relative;
+}
+.rb:hover{background:var(--raised);color:var(--soft)}
+.rb.on{background:var(--blue-lt);color:var(--blue);border-color:rgba(74,158,255,.2)}
+.rb svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.rb-tip{
+  position:absolute;left:calc(100% + 8px);
+  background:var(--raised);border:1px solid var(--rim2);
+  color:var(--bright);font-size:10px;font-family:var(--mono);
+  padding:4px 8px;border-radius:5px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .12s;z-index:200;
+}
+.rb:hover .rb-tip{opacity:1}
+.rail-gap{flex:1}
+.rail-av{
+  width:26px;height:26px;border-radius:50%;
+  background:var(--blue);display:flex;align-items:center;
+  justify-content:center;font-size:9px;font-weight:600;
+  color:#fff;cursor:pointer;
+}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── DESIGNER HEADER — one compact strip ── */
+.dh{
+  height:44px;flex-shrink:0;
+  background:var(--surface);border-bottom:1px solid var(--rim);
+  display:flex;align-items:center;padding:0 14px;gap:10px;
+}
+.dh-wordmark{font-size:14px;font-weight:600;color:var(--pure);letter-spacing:-.3px}
+.dh-wordmark em{color:var(--blue);font-style:normal}
+.dh-divider{width:1px;height:16px;background:var(--rim);flex-shrink:0}
+.dh-wf{font-size:12px;color:var(--soft);font-family:var(--mono)}
+.dh-ver{
+  font-size:9px;font-family:var(--mono);padding:2px 6px;
+  border-radius:3px;background:var(--raised);
+  color:var(--dim);border:1px solid var(--rim);
+}
+.dh-spacer{flex:1}
+/* compact status — replaces metrics strip */
+.dh-status{
+  display:flex;align-items:center;gap:14px;
+  font-size:10px;color:var(--dim);font-family:var(--mono);
+}
+.ds-item{display:flex;align-items:center;gap:5px}
+.ds-dot{width:5px;height:5px;border-radius:50%}
+.ds-green{background:var(--green)}
+.ds-amber{background:var(--amber)}
+.ds-blue{background:var(--blue)}
+/* header actions */
+.ha{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 10px;border-radius:var(--r);
+  font-size:11px;font-weight:500;font-family:var(--font);
+  cursor:pointer;border:1px solid var(--rim2);
+  background:var(--raised);color:var(--soft);
+  transition:all .12s;white-space:nowrap;
+}
+.ha:hover{border-color:var(--rim);color:var(--bright)}
+.ha svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.5}
+.ha.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.ha.primary:hover{opacity:.9}
+.ha.success{background:rgba(61,214,140,.12);border-color:rgba(61,214,140,.3);color:var(--green)}
+
+/* ── DESIGNER BODY ── */
+.designer{flex:1;display:grid;grid-template-columns:200px 1fr 300px;overflow:hidden;min-height:0}
+
+/* ── OUTLINE PANEL — navigation only ── */
+.outline{
+  background:var(--surface);border-right:1px solid var(--rim);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.op-head{
+  padding:10px 12px 8px;border-bottom:1px solid var(--rim);flex-shrink:0;
+}
+.op-lbl{
+  font-size:9px;font-weight:600;color:var(--dim);
+  letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);
+  margin-bottom:8px;
+}
+.op-search{
+  display:flex;align-items:center;gap:5px;
+  background:var(--raised);border:1px solid var(--rim);
+  border-radius:var(--r);padding:5px 7px;
+}
+.op-search input{
+  border:none;background:transparent;font-size:11px;
+  color:var(--bright);outline:none;flex:1;font-family:var(--mono);
+  width:100%;
+}
+.op-search input::placeholder{color:var(--dim)}
+.op-search svg{width:11px;height:11px;stroke:var(--dim);fill:none;stroke-width:1.5;flex-shrink:0}
+.op-body{flex:1;overflow-y:auto;padding:6px 0}
+
+/* Outline groups */
+.og{border-bottom:1px solid rgba(42,52,65,.5);padding:4px 0}
+.og:last-child{border-bottom:none}
+.og-lbl{
+  font-size:9px;font-weight:600;color:var(--dim);
+  letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);
+  padding:6px 12px 3px;
+  display:flex;align-items:center;gap:5px;cursor:pointer;
+  user-select:none;
+}
+.og-chevron{font-size:8px;transition:transform .15s}
+.og-chevron.open{transform:rotate(90deg)}
+
+/* Outline items — the draggable palette */
+.oi{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 12px;cursor:grab;
+  transition:background .1s;
+  user-select:none;border-left:2px solid transparent;
+}
+.oi:hover{background:var(--raised)}
+.oi:active{cursor:grabbing}
+.oi.oi-sel{background:var(--float);border-left-color:var(--blue)}
+.oi-indicator{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.oi-name{font-size:11.5px;color:var(--bright);flex:1;font-weight:400}
+.oi-tag{
+  font-size:8px;font-family:var(--mono);padding:1px 5px;
+  border-radius:3px;font-weight:500;
+}
+
+/* State type colours — restrained accent system */
+.tc-green{background:var(--green-lt);color:var(--green);border:1px solid rgba(61,214,140,.2)}
+.tc-blue{background:var(--blue-lt);color:var(--blue);border:1px solid rgba(74,158,255,.2)}
+.tc-amber{background:var(--amber-lt);color:var(--amber);border:1px solid rgba(232,160,32,.2)}
+.tc-purple{background:var(--purple-lt);color:var(--purple);border:1px solid rgba(155,114,232,.2)}
+.tc-red{background:var(--red-lt);color:var(--red);border:1px solid rgba(240,80,96,.2)}
+.tc-teal{background:var(--teal-lt);color:var(--teal);border:1px solid rgba(46,196,208,.2)}
+.tc-dim{background:var(--raised);color:var(--dim);border:1px solid var(--rim)}
+
+/* indicator colours */
+.ind-green{background:var(--green)}
+.ind-blue{background:var(--blue)}
+.ind-amber{background:var(--amber)}
+.ind-purple{background:var(--purple)}
+.ind-red{background:var(--red)}
+.ind-teal{background:var(--teal)}
+
+/* ── CANVAS ── */
+.canvas-area{
+  position:relative;overflow:hidden;
+  background:var(--bg);
+  cursor:default;
+}
+/* Quiet grid — barely visible */
+.canvas-area::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(var(--raised) 1px,transparent 1px),
+    linear-gradient(90deg,var(--raised) 1px,transparent 1px);
+  background-size:24px 24px;opacity:.5;pointer-events:none;
+}
+.canvas-area::after{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(42,52,65,.8) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(42,52,65,.8) 1px,transparent 1px);
+  background-size:120px 120px;opacity:.4;pointer-events:none;
+}
+.canvas-inner{
+  position:absolute;width:3000px;height:3000px;
+  transform-origin:0 0;
+}
+/* Single primary command row — not floating, not competing */
+.canvas-cmd{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:2px;z-index:20;
+  background:var(--surface);border:1px solid var(--rim);
+  border-radius:20px;padding:3px;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);
+}
+.cc-btn{
+  display:flex;align-items:center;gap:4px;
+  padding:5px 10px;border-radius:16px;
+  font-size:10px;font-weight:500;font-family:var(--mono);
+  cursor:pointer;border:none;background:transparent;
+  color:var(--dim);transition:all .12s;letter-spacing:.2px;
+}
+.cc-btn:hover{background:var(--raised);color:var(--bright)}
+.cc-btn.on{background:var(--float);color:var(--bright)}
+.cc-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.5}
+.cc-sep{width:1px;height:16px;background:var(--rim);margin:0 2px;align-self:center}
+
+/* Drop indicator */
+.drop-ind{
+  position:absolute;inset:0;z-index:50;
+  background:rgba(74,158,255,.03);
+  border:1.5px dashed rgba(74,158,255,.3);
+  display:none;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.drop-ind.show{display:flex}
+.drop-ind-text{
+  font-size:12px;color:var(--blue);font-family:var(--mono);
+  font-weight:500;letter-spacing:.3px;
+}
+
+/* Zoom — bottom right, peripheral */
+.canvas-zoom{
+  position:absolute;bottom:12px;right:12px;
+  display:flex;gap:2px;z-index:20;
+  background:var(--surface);border:1px solid var(--rim);
+  border-radius:var(--r);padding:2px;
+}
+.zoom-btn{
+  width:24px;height:24px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--dim);font-size:13px;
+  transition:all .12s;
+}
+.zoom-btn:hover{background:var(--raised);color:var(--bright)}
+.zoom-pct{
+  display:flex;align-items:center;padding:0 6px;
+  font-size:9px;font-family:var(--mono);color:var(--dim);
+}
+
+/* Status line — bottom left, peripheral */
+.canvas-status{
+  position:absolute;bottom:12px;left:12px;z-index:20;
+  font-size:9px;color:var(--dim);font-family:var(--mono);
+  background:var(--surface);border:1px solid var(--rim);
+  border-radius:var(--r);padding:4px 8px;
+}
+
+/* ── WORKFLOW NODES — readable, restrained ── */
+.wf-node{
+  position:absolute;
+  border-radius:var(--r-lg);
+  border:1px solid var(--rim);
+  background:var(--surface);
+  cursor:pointer;
+  transition:border-color .15s,box-shadow .15s,transform .1s;
+  min-width:155px;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+  user-select:none;
+}
+/* Left accent stripe — the only colour on the node */
+.wf-node::before{
+  content:'';position:absolute;
+  left:0;top:8px;bottom:8px;
+  width:2px;border-radius:0 2px 2px 0;
+}
+.wf-node:hover{
+  border-color:var(--rim2);
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+  transform:translateY(-1px);
+}
+.wf-node.sel{border-color:var(--blue) !important;box-shadow:0 0 0 2px rgba(74,158,255,.15),0 4px 16px rgba(0,0,0,.3)}
+
+/* Type accent stripes */
+.ns-green::before{background:var(--green)}
+.ns-blue::before{background:var(--blue)}
+.ns-amber::before{background:var(--amber)}
+.ns-purple::before{background:var(--purple)}
+.ns-red::before{background:var(--red)}
+.ns-teal::before{background:var(--teal)}
+
+/* Node hover accents */
+.ns-green:hover,.ns-green.sel{border-color:rgba(61,214,140,.4) !important}
+.ns-amber:hover,.ns-amber.sel{border-color:rgba(232,160,32,.4) !important}
+.ns-purple:hover,.ns-purple.sel{border-color:rgba(155,114,232,.4) !important}
+.ns-red:hover,.ns-red.sel{border-color:rgba(240,80,96,.4) !important}
+.ns-teal:hover,.ns-teal.sel{border-color:rgba(46,196,208,.4) !important}
+
+.node-inner{padding:10px 12px 10px 16px}
+.node-row1{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
+.node-name{font-size:12px;font-weight:600;color:var(--pure);letter-spacing:-.1px;line-height:1.2}
+.node-kind{font-size:9px;color:var(--dim);font-family:var(--mono);margin-top:1px}
+.node-badge{
+  font-size:8px;font-weight:600;font-family:var(--mono);
+  padding:2px 6px;border-radius:3px;letter-spacing:.3px;
+  flex-shrink:0;margin-top:1px;
+}
+.node-meta{
+  font-size:9px;color:var(--dim);font-family:var(--mono);
+  margin-top:5px;line-height:1.4;
+  border-top:1px solid var(--rim);padding-top:5px;
+}
+.node-sla{
+  font-size:9px;color:var(--amber);font-family:var(--mono);
+  margin-top:3px;display:flex;align-items:center;gap:3px;
+}
+
+/* Connection handles */
+.ch-out{
+  position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+  width:8px;height:8px;border-radius:50%;
+  background:var(--rim2);border:1.5px solid var(--surface);
+  cursor:crosshair;opacity:0;transition:all .12s;
+}
+.ch-in{
+  position:absolute;left:-4px;top:50%;transform:translateY(-50%);
+  width:8px;height:8px;border-radius:50%;
+  background:var(--rim);border:1.5px solid var(--surface);
+  opacity:0;
+}
+.wf-node:hover .ch-out{opacity:1;background:var(--blue)}
+.wf-node:hover .ch-in{opacity:.5}
+.ch-out:hover{background:var(--blue);transform:translateY(-50%) scale(1.3);opacity:1 !important}
+
+/* ── SVG EDGES ── */
+svg.edges-svg{
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  pointer-events:none;overflow:visible;
+}
+.ep{fill:none;stroke:var(--rim2);stroke-width:1.5;transition:stroke .15s}
+.ep.sel{stroke:var(--blue);stroke-width:2}
+.ep.ep-amber{stroke:rgba(232,160,32,.45)}
+.ep.ep-purple{stroke:rgba(155,114,232,.35)}
+.ep.ep-red{stroke:rgba(240,80,96,.35)}
+.ep.ep-dashed{stroke:rgba(232,160,32,.3);stroke-dasharray:5,3}
+.eclick{fill:none;stroke:transparent;stroke-width:14;cursor:pointer;pointer-events:all}
+.elbl{font-size:9px;font-family:var(--mono);fill:var(--dim);cursor:pointer}
+.elbl.sel{fill:var(--blue)}
+.elbl:hover{fill:var(--body)}
+.earr{fill:var(--rim2)}
+.earr.sel{fill:var(--blue)}
+
+/* ── INSPECTOR — detail lane ── */
+.inspector{
+  background:var(--surface);border-left:1px solid var(--rim);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.insp-header{
+  padding:12px 14px 10px;border-bottom:1px solid var(--rim);flex-shrink:0;
+}
+.insp-ctx{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.insp-chip{
+  font-size:8px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  font-family:var(--mono);padding:2px 7px;border-radius:3px;
+}
+.ic-state{background:var(--blue-lt);color:var(--blue);border:1px solid rgba(74,158,255,.2)}
+.ic-trans{background:var(--amber-lt);color:var(--amber);border:1px solid rgba(232,160,32,.2)}
+.ic-empty{background:var(--raised);color:var(--dim);border:1px solid var(--rim)}
+.insp-name{font-size:15px;font-weight:600;color:var(--pure);letter-spacing:-.2px}
+.insp-sub{font-size:9px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+
+/* Progressive disclosure tabs */
+.insp-tabs{
+  display:flex;gap:1px;padding:2px;
+  background:var(--raised);border-radius:5px;
+  margin-bottom:0;
+}
+.it{
+  flex:1;padding:5px 4px;border-radius:4px;
+  font-size:9px;font-weight:500;font-family:var(--mono);
+  cursor:pointer;border:none;background:transparent;
+  color:var(--dim);transition:all .12s;letter-spacing:.2px;
+}
+.it.on{background:var(--surface);color:var(--bright);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+
+.insp-body{flex:1;overflow-y:auto}
+.isec{padding:12px 14px;border-bottom:1px solid rgba(42,52,65,.5)}
+.isec:last-child{border-bottom:none}
+.sl{
+  font-size:9px;font-weight:600;color:var(--dim);
+  letter-spacing:.8px;text-transform:uppercase;
+  font-family:var(--mono);margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.sl::after{content:'';flex:1;height:1px;background:rgba(42,52,65,.8)}
+
+/* Form controls */
+.fr{margin-bottom:8px}
+.fl{
+  font-size:9px;font-weight:500;color:var(--dim);
+  letter-spacing:.5px;text-transform:uppercase;
+  font-family:var(--mono);margin-bottom:3px;display:block;
+}
+.fi{
+  width:100%;border:1px solid var(--rim);border-radius:var(--r);
+  padding:6px 8px;font-size:11.5px;font-family:var(--mono);
+  color:var(--bright);background:var(--raised);
+  outline:none;transition:border-color .12s;
+}
+.fi:focus{border-color:var(--blue)}
+.fs{
+  width:100%;border:1px solid var(--rim);border-radius:var(--r);
+  padding:6px 8px;font-size:11.5px;font-family:var(--mono);
+  color:var(--bright);background:var(--raised);
+  outline:none;cursor:pointer;
+}
+.f2{display:grid;grid-template-columns:1fr 80px;gap:6px}
+
+/* Toggle */
+.trow{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 0;border-bottom:1px solid rgba(42,52,65,.3);
+}
+.trow:last-child{border-bottom:none}
+.tl{font-size:11px;color:var(--bright)}
+.td{font-size:9px;color:var(--dim);font-family:var(--mono);margin-top:1px}
+.tog{
+  width:30px;height:16px;border-radius:8px;
+  background:var(--rim2);cursor:pointer;
+  position:relative;transition:background .15s;flex-shrink:0;
+}
+.tog.on{background:var(--blue)}
+.tog::after{
+  content:'';position:absolute;width:10px;height:10px;
+  border-radius:50%;background:#fff;top:2px;left:2px;
+  transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+.tog.on::after{transform:translateX(14px)}
+.tog.on-green{background:var(--green)}
+.tog.on-green::after{transform:translateX(14px)}
+
+/* Action rows */
+.alist{display:flex;flex-direction:column;gap:2px}
+.arow{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:var(--r);
+  background:var(--raised);border:1px solid var(--rim);
+  font-size:11px;color:var(--body);
+  cursor:pointer;transition:border-color .12s;
+}
+.arow:hover,.arow.on{border-color:var(--rim2);color:var(--bright)}
+.arow.on{background:var(--float)}
+.adot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.achk{margin-left:auto;font-size:9px;color:var(--blue)}
+.axbtn{margin-left:auto;font-size:9px;color:var(--dim);cursor:pointer}
+.axbtn:hover{color:var(--red)}
+.add-row{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 8px;border-radius:var(--r);
+  border:1px dashed var(--rim);
+  font-size:10px;color:var(--dim);cursor:pointer;
+  font-family:var(--mono);transition:all .12s;margin-top:4px;
+}
+.add-row:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Guard */
+.guard-box{
+  background:var(--raised);border:1px solid var(--rim);
+  border-radius:var(--r-lg);padding:9px;
+}
+.gfield-row{
+  display:grid;grid-template-columns:1fr 64px 1fr;
+  gap:5px;margin-bottom:5px;
+}
+.gops{display:flex;gap:3px;margin:4px 0}
+.gop{
+  font-size:9px;padding:3px 7px;border-radius:3px;
+  border:1px solid var(--rim);background:transparent;
+  color:var(--dim);cursor:pointer;font-family:var(--mono);
+  transition:all .12s;
+}
+.gop.on{background:var(--blue-lt);border-color:rgba(74,158,255,.3);color:var(--blue)}
+.gprev{
+  font-family:var(--mono);font-size:9px;color:var(--green);
+  background:rgba(61,214,140,.05);border:1px solid rgba(61,214,140,.15);
+  border-radius:var(--r);padding:6px 8px;margin-top:5px;line-height:1.6;
+  word-break:break-all;
+}
+
+/* Escalation */
+.erow{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:var(--r);
+  background:var(--raised);border:1px solid var(--rim);
+  font-size:10px;margin-bottom:3px;font-family:var(--mono);
+}
+.elv{
+  font-size:8px;font-weight:600;padding:1px 5px;
+  border-radius:3px;flex-shrink:0;
+}
+.elv1{background:var(--amber-lt);color:var(--amber)}
+.elv2{background:rgba(240,120,0,.08);color:#f07820}
+.elv3{background:var(--red-lt);color:var(--red)}
+
+/* Transition list */
+.tlist{display:flex;flex-direction:column;gap:2px}
+.titem{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:var(--r);
+  border:1px solid var(--rim);background:var(--raised);
+  font-size:10px;cursor:pointer;transition:border-color .12s;
+  font-family:var(--mono);
+}
+.titem:hover{border-color:var(--rim2)}
+.tarr{color:var(--blue);font-size:11px}
+.tgrd{font-size:9px;color:var(--dim);margin-left:auto}
+
+/* JSON preview */
+.jprev{
+  background:var(--raised);border:1px solid var(--rim);
+  border-radius:var(--r-lg);padding:9px 10px;
+  font-family:var(--mono);font-size:9px;line-height:1.8;
+  max-height:120px;overflow-y:auto;
+}
+.jk{color:var(--blue)}.js{color:var(--green)}
+.jn{color:var(--amber)}.jb{color:var(--purple)}
+
+/* Empty state */
+.insp-empty{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;padding:28px;text-align:center;gap:12px;
+}
+.ie-circle{
+  width:48px;height:48px;border-radius:14px;
+  background:var(--raised);border:1px solid var(--rim);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--dim);
+}
+.ie-circle svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.5}
+.ie-h{font-size:13px;font-weight:500;color:var(--bright)}
+.ie-p{font-size:11px;color:var(--dim);line-height:1.7;max-width:200px}
+.ie-tip{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 10px;border-radius:var(--r);
+  background:var(--raised);border:1px solid var(--rim);
+  font-size:10px;color:var(--body);font-family:var(--mono);
+  width:100%;text-align:left;
+}
+.ie-tip strong{color:var(--blue)}
+
+/* Inspector footer */
+.insp-foot{
+  padding:9px 14px;border-top:1px solid var(--rim);
+  display:flex;gap:5px;flex-shrink:0;
+  background:rgba(13,17,23,.3);
+}
+.ifb{
+  flex:1;padding:7px;border-radius:var(--r);
+  font-size:10px;font-weight:500;font-family:var(--mono);
+  cursor:pointer;border:1px solid var(--rim2);
+  background:var(--raised);color:var(--soft);
+  transition:all .12s;display:flex;align-items:center;
+  justify-content:center;gap:4px;letter-spacing:.2px;
+}
+.ifb:hover{border-color:var(--blue);color:var(--blue)}
+.ifb.save{background:var(--blue);border-color:var(--blue);color:#fff}
+.ifb.save:hover{opacity:.9}
+.ifb.del{border-color:rgba(240,80,96,.3);color:var(--red);background:var(--red-lt)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- RAIL -->
+  <nav class="rail">
+    <div class="rail-mark">P</div>
+    <div class="rb on">
+      <svg viewBox="0 0 16 16"><rect x="1.5" y="1.5" width="5" height="5" rx="1.2"/><rect x="9.5" y="1.5" width="5" height="5" rx="1.2"/><rect x="5.5" y="9.5" width="5" height="5" rx="1.2"/><line x1="4" y1="7" x2="4" y2="9.5"/><line x1="12" y1="7" x2="12" y2="9.5"/><line x1="8" y1="7" x2="8" y2="9.5"/></svg>
+      <span class="rb-tip">Workflow Designer</span>
+    </div>
+    <div class="rb" onclick="alert('Invoice queue')">
+      <svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="2" rx=".8"/><rect x="2" y="7" width="12" height="2" rx=".8"/><rect x="2" y="11" width="8" height="2" rx=".8"/></svg>
+      <span class="rb-tip">Invoice Queue</span>
+    </div>
+    <div class="rb" onclick="alert('Dataset — 142 records')">
+      <svg viewBox="0 0 16 16"><ellipse cx="8" cy="4.5" rx="5" ry="2"/><path d="M3 7.5c0 1.1 2.24 2 5 2s5-.9 5-2"/><path d="M3 10.5c0 1.1 2.24 2 5 2s5-.9 5-2"/><line x1="3" y1="4.5" x2="3" y2="10.5"/><line x1="13" y1="4.5" x2="13" y2="10.5"/></svg>
+      <span class="rb-tip">Dataset</span>
+    </div>
+    <div class="rb" onclick="alert('ERP Mapping')">
+      <svg viewBox="0 0 16 16"><circle cx="3" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/><circle cx="8" cy="4" r="1.5"/><circle cx="8" cy="12" r="1.5"/><line x1="4.5" y1="8" x2="11.5" y2="8"/><line x1="8" y1="5.5" x2="8" y2="10.5"/></svg>
+      <span class="rb-tip">ERP Mapping</span>
+    </div>
+    <div class="rail-gap"></div>
+    <div class="rb" onclick="alert('Settings')">
+      <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2"/><circle cx="8" cy="8" r="5.5"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/></svg>
+      <span class="rb-tip">Settings</span>
+    </div>
+    <div class="rail-av">HJ</div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- DESIGNER HEADER — single compact strip -->
+    <div class="dh">
+      <div class="dh-wordmark">AI Provi<em>so</em></div>
+      <div class="dh-divider"></div>
+      <div class="dh-wf" id="dh-wf-name">Invoice Approval Flow</div>
+      <div class="dh-ver">v2.1</div>
+      <div class="dh-spacer"></div>
+      <!-- Compact status — no metrics strip -->
+      <div class="dh-status">
+        <div class="ds-item"><div class="ds-dot ds-green"></div>9/9 live</div>
+        <div class="ds-item"><div class="ds-dot ds-amber"></div>3 diffs</div>
+        <div class="ds-item"><div class="ds-dot ds-blue"></div>142 dataset</div>
+      </div>
+      <div class="dh-divider"></div>
+      <div class="ha" onclick="runSim()">
+        <svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/><path d="M4.5 4l4 2-4 2V4z" fill="currentColor"/></svg>
+        Simulate
+      </div>
+      <div class="ha" onclick="alert('Workflow saved to dataset as record #143.')">
+        <svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/><line x1="6" y1="3" x2="6" y2="9"/><line x1="3" y1="6" x2="9" y2="6"/></svg>
+        Save to dataset
+      </div>
+      <div class="ha success" onclick="activate()">
+        <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+        Activate
+      </div>
+    </div>
+
+    <!-- DESIGNER BODY -->
+    <div class="designer">
+
+      <!-- OUTLINE — navigation only -->
+      <div class="outline">
+        <div class="op-head">
+          <div class="op-lbl">Palette</div>
+          <div class="op-search">
+            <svg viewBox="0 0 12 12"><circle cx="5" cy="5" r="3.5"/><line x1="8" y1="8" x2="10.5" y2="10.5"/></svg>
+            <input placeholder="Filter states..." id="pal-filter" oninput="filterPal(this.value)">
+          </div>
+        </div>
+        <div class="op-body" id="pal-body"></div>
+      </div>
+
+      <!-- CANVAS -->
+      <div class="canvas-area" id="canvas-area"
+        ondragover="ev=>{ev.preventDefault();document.getElementById('dropind').classList.add('show')}"
+        ondragleave="document.getElementById('dropind').classList.remove('show')"
+        ondrop="onDrop(event)">
+
+        <div class="drop-ind" id="dropind">
+          <div class="drop-ind-text">Drop to add state</div>
+        </div>
+
+        <!-- Single primary command row -->
+        <div class="canvas-cmd">
+          <button class="cc-btn on" id="tool-sel" onclick="setTool('sel',this)">
+            <svg viewBox="0 0 12 12"><path d="M2 2l8 4-4 1-2 4z" fill="currentColor"/></svg>
+            Select
+          </button>
+          <button class="cc-btn" id="tool-con" onclick="setTool('con',this)">
+            <svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6"/><polyline points="7,3 10,6 7,9"/></svg>
+            Connect
+          </button>
+          <div class="cc-sep"></div>
+          <button class="cc-btn" onclick="alert('Auto-layout: Dagre applied.')">
+            <svg viewBox="0 0 12 12"><rect x="1" y="1" width="4" height="3" rx="1"/><rect x="7" y="4" width="4" height="3" rx="1"/><rect x="1" y="8" width="4" height="3" rx="1"/><line x1="5" y1="2.5" x2="7" y2="5.5"/><line x1="5" y1="9.5" x2="7" y2="5.5"/></svg>
+            Layout
+          </button>
+          <div class="cc-sep"></div>
+          <button class="cc-btn" onclick="alert('Fit view reset.')">Fit</button>
+          <button class="cc-btn" id="zpct">100%</button>
+        </div>
+
+        <div class="canvas-zoom">
+          <div class="zoom-btn" onclick="doZoom(1.15)">+</div>
+          <div class="zoom-pct" id="zp">100%</div>
+          <div class="zoom-btn" onclick="doZoom(.87)">−</div>
+        </div>
+
+        <div class="canvas-status" id="canvas-status">9 states · 12 transitions</div>
+
+        <div id="canvas-inner" onclick="onCanvasClick(event)">
+          <svg class="edges-svg" id="esvg">
+            <defs>
+              <marker id="a0" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" class="earr"/></marker>
+              <marker id="a-blue" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4a9eff"/></marker>
+              <marker id="a-amber" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(232,160,32,.6)"/></marker>
+              <marker id="a-red" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(240,80,96,.5)"/></marker>
+              <marker id="a-dashed" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(232,160,32,.4)"/></marker>
+            </defs>
+            <g id="eg"></g>
+          </svg>
+          <div id="ng"></div>
+        </div>
+      </div>
+
+      <!-- INSPECTOR — detail lane -->
+      <div class="inspector">
+        <div class="insp-header">
+          <div class="insp-ctx">
+            <div class="insp-chip ic-empty" id="insp-chip">NO SELECTION</div>
+          </div>
+          <div class="insp-name" id="insp-name">Properties Inspector</div>
+          <div class="insp-sub" id="insp-sub">Select a state or transition</div>
+          <div class="insp-tabs" id="insp-tabs" style="display:none;margin-top:10px">
+            <button class="it on" onclick="setItab('basic',this)">Basic</button>
+            <button class="it" onclick="setItab('actions',this)">Actions</button>
+            <button class="it" onclick="setItab('flags',this)">Flags</button>
+            <button class="it" onclick="setItab('advanced',this)">Advanced</button>
+          </div>
+        </div>
+        <div class="insp-body" id="insp-body">
+          <div class="insp-empty">
+            <div class="ie-circle"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="8" y="13" width="8" height="8" rx="2"/></svg></div>
+            <div class="ie-h">Nothing selected</div>
+            <div class="ie-p">Click any state or transition to inspect and edit its properties</div>
+            <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:6px">
+              <div class="ie-tip"><strong>◉ State</strong> — entry/exit, SLA, flags</div>
+              <div class="ie-tip"><strong>→ Transition</strong> — guard, actions, notify</div>
+              <div class="ie-tip"><strong>Drag</strong> from palette to add states</div>
+            </div>
+          </div>
+        </div>
+        <div class="insp-foot" id="insp-foot" style="display:none">
+          <div class="ifb del" onclick="delSel()">Delete</div>
+          <div class="ifb" onclick="alert('Discarded.')">Reset</div>
+          <div class="ifb save" onclick="saveSel()">Save</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────
+const PAL_GROUPS=[
+  {g:'AP States',items:[
+    {id:'p1',name:'Received',       kind:'initial',  stripe:'ns-green', ind:'ind-green', tc:'tc-green',  tag:'initial'},
+    {id:'p2',name:'Extracted',      kind:'auto',     stripe:'ns-blue',  ind:'ind-blue',  tc:'tc-blue',   tag:'auto'},
+    {id:'p3',name:'Matched',        kind:'auto',     stripe:'ns-teal',  ind:'ind-teal',  tc:'tc-teal',   tag:'auto'},
+    {id:'p4',name:'Pending Approval',kind:'approval',stripe:'ns-amber', ind:'ind-amber', tc:'tc-amber',  tag:'approval'},
+  ]},
+  {g:'Approval Tiers',items:[
+    {id:'p5',name:'Manager',        kind:'approval', stripe:'ns-amber', ind:'ind-amber', tc:'tc-amber',  tag:'≤$25k'},
+    {id:'p6',name:'Director',       kind:'approval', stripe:'ns-amber', ind:'ind-amber', tc:'tc-amber',  tag:'≤$100k'},
+    {id:'p7',name:'CFO Approval',   kind:'approval', stripe:'ns-amber', ind:'ind-amber', tc:'tc-amber',  tag:'>$100k'},
+  ]},
+  {g:'Outcomes',items:[
+    {id:'p8',name:'Approved',       kind:'terminal', stripe:'ns-purple',ind:'ind-purple',tc:'tc-purple', tag:'terminal'},
+    {id:'p9',name:'Posted to ERP',  kind:'auto',     stripe:'ns-teal',  ind:'ind-teal',  tc:'tc-teal',   tag:'auto'},
+    {id:'p10',name:'Rejected',      kind:'terminal', stripe:'ns-purple',ind:'ind-purple',tc:'tc-purple', tag:'terminal'},
+  ]},
+  {g:'Exceptions',items:[
+    {id:'p11',name:'Exception',     kind:'exception',stripe:'ns-red',   ind:'ind-red',   tc:'tc-red',    tag:'exception'},
+    {id:'p12',name:'Escalated',     kind:'exception',stripe:'ns-red',   ind:'ind-red',   tc:'tc-red',    tag:'SLA breach'},
+    {id:'p13',name:'Return to Vendor',kind:'auto',   stripe:'ns-blue',  ind:'ind-blue',  tc:'tc-blue',   tag:'vendor'},
+  ]},
+];
+
+const NODES=[
+  {id:'n1',name:'Received',        kind:'initial',  stripe:'ns-green', ind:'ind-green',  tc:'tc-green',  tag:'initial',  meta:'entry: validate · audit',x:140,y:45,  sla:null},
+  {id:'n2',name:'Extracted',       kind:'auto',     stripe:'ns-blue',  ind:'ind-blue',   tc:'tc-blue',   tag:'auto',     meta:'invoke: Granite-Docling', x:140,y:175, sla:null},
+  {id:'n3',name:'Matched',         kind:'auto',     stripe:'ns-teal',  ind:'ind-teal',   tc:'tc-teal',   tag:'verified', meta:'invoke: matchPO · 2-way', x:140,y:305, sla:null},
+  {id:'n4',name:'Pending Approval',kind:'approval', stripe:'ns-amber', ind:'ind-amber',  tc:'tc-amber',  tag:'approval', meta:'entry: email · token',    x:140,y:435, sla:'4h · L1→L2→L3'},
+  {id:'n5',name:'Manager',         kind:'approval', stripe:'ns-amber', ind:'ind-amber',  tc:'tc-amber',  tag:'≤$25k',    meta:'assignee: ap_manager',    x:40, y:585, sla:'8h'},
+  {id:'n6',name:'CFO Approval',    kind:'approval', stripe:'ns-amber', ind:'ind-amber',  tc:'tc-amber',  tag:'>$25k',    meta:'assignee: cfo_role',      x:250,y:585, sla:'24h'},
+  {id:'n7',name:'Approved',        kind:'terminal', stripe:'ns-purple',ind:'ind-purple', tc:'tc-purple', tag:'terminal', meta:'entry: postERP · seal',   x:140,y:740, sla:null},
+  {id:'n8',name:'Exception',       kind:'exception',stripe:'ns-red',   ind:'ind-red',    tc:'tc-red',    tag:'exception',meta:'entry: alert · hold',     x:395,y:435, sla:'2h'},
+  {id:'n9',name:'Escalated',       kind:'exception',stripe:'ns-red',   ind:'ind-red',    tc:'tc-red',    tag:'SLA breach',meta:'after: 4h · auto',       x:395,y:585, sla:null},
+];
+const EDGES=[
+  {id:'e1', f:'n1',t:'n2',lbl:'OCR extract',  cls:'',        mkr:'a0'},
+  {id:'e2', f:'n2',t:'n3',lbl:'conf ≥ 0.70',  cls:'',        mkr:'a0'},
+  {id:'e3', f:'n3',t:'n4',lbl:'PO match',      cls:'',        mkr:'a0'},
+  {id:'e4', f:'n4',t:'n5',lbl:'≤ $25k',        cls:'ep-amber',mkr:'a-amber'},
+  {id:'e5', f:'n4',t:'n6',lbl:'> $25k',         cls:'ep-amber',mkr:'a-amber'},
+  {id:'e6', f:'n5',t:'n7',lbl:'APPROVE',        cls:'',        mkr:'a0'},
+  {id:'e7', f:'n6',t:'n7',lbl:'APPROVE',        cls:'',        mkr:'a0'},
+  {id:'e8', f:'n2',t:'n8',lbl:'conf < 0.70',   cls:'ep-red',  mkr:'a-red'},
+  {id:'e9', f:'n3',t:'n8',lbl:'no PO',          cls:'ep-red',  mkr:'a-red'},
+  {id:'e10',f:'n4',t:'n9',lbl:'after 4h',       cls:'ep-dashed',mkr:'a-dashed'},
+];
+
+// ─── STATE ──────────────────────────────────────────────────────
+let selN=null,selE=null,tool='sel',zl=1,itab='basic';
+const nEls={},nDat={};
+let dragPal=null;
+
+// ─── PALETTE ────────────────────────────────────────────────────
+function renderPal(f=''){
+  const el=document.getElementById('pal-body');
+  el.innerHTML=PAL_GROUPS.map(g=>{
+    const its=g.items.filter(i=>!f||i.name.toLowerCase().includes(f.toLowerCase()));
+    if(!its.length)return'';
+    return`<div class="og">
+      <div class="og-lbl"><span class="og-chevron open">▶</span>${g.g}</div>
+      ${its.map(i=>`<div class="oi" draggable="true"
+        data-pid="${i.id}" data-name="${i.name}" data-kind="${i.kind}"
+        data-stripe="${i.stripe}" data-ind="${i.ind}" data-tc="${i.tc}" data-tag="${i.tag}"
+        ondragstart="palDS(event,this)" ondragend="palDE()"
+      ><div class="oi-indicator ${i.ind}"></div>
+      <span class="oi-name">${i.name}</span>
+      <span class="oi-tag ${i.tc}">${i.tag}</span></div>`).join('')}
+    </div>`;
+  }).join('');
+}
+function filterPal(v){renderPal(v)}
+function palDS(e,el){
+  dragPal={name:el.dataset.name,kind:el.dataset.kind,
+    stripe:el.dataset.stripe,ind:el.dataset.ind,tc:el.dataset.tc,tag:el.dataset.tag};
+}
+function palDE(){document.getElementById('dropind').classList.remove('show')}
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('dropind').classList.remove('show');
+  if(!dragPal)return;
+  const ci=document.getElementById('canvas-inner');
+  const r=ci.getBoundingClientRect();
+  const x=Math.round(((e.clientX-r.left)/zl)/12)*12;
+  const y=Math.round(((e.clientY-r.top)/zl)/12)*12;
+  const id='n'+(Date.now()%100000);
+  const nd={id,name:dragPal.name,kind:dragPal.kind,
+    stripe:dragPal.stripe,ind:dragPal.ind,tc:dragPal.tc,tag:dragPal.tag,
+    meta:'entry: configure',sla:dragPal.kind==='approval'?'4h':null,x,y};
+  NODES.push(nd);renderNode(nd);nDat[id]={...nd};
+  dragPal=null;
+  setTimeout(()=>selNode(id),80);
+}
+
+// ─── NODES ──────────────────────────────────────────────────────
+function renderNode(n){
+  const el=document.createElement('div');
+  el.className=`wf-node ${n.stripe}`;
+  el.id='nd-'+n.id;
+  el.style.cssText=`left:${n.x}px;top:${n.y}px`;
+  el.innerHTML=`
+    <div class="ch-in"></div>
+    <div class="node-inner">
+      <div class="node-row1">
+        <div>
+          <div class="node-name">${n.name}</div>
+          <div class="node-kind">${n.kind}</div>
+        </div>
+        <span class="node-badge ${n.tc}">${n.tag}</span>
+      </div>
+      <div class="node-meta">${n.meta||''}</div>
+      ${n.sla?`<div class="node-sla">⏱ ${n.sla}</div>`:''}
+    </div>
+    <div class="ch-out" data-nid="${n.id}"></div>`;
+  el.onclick=e=>{e.stopPropagation();selNode(n.id)};
+  dragNode(el,n);
+  document.getElementById('ng').appendChild(el);
+  nEls[n.id]=el;nDat[n.id]={...n};
+}
+function dragNode(el,n){
+  let dn=false,ox,oy,sx,sy;
+  el.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('ch-out')||e.target.classList.contains('ch-in'))return;
+    dn=true;ox=n.x;oy=n.y;sx=e.clientX;sy=e.clientY;
+    e.stopPropagation();
+    const mm=ev=>{
+      if(!dn)return;
+      n.x=Math.round((ox+(ev.clientX-sx)/zl)/12)*12;
+      n.y=Math.round((oy+(ev.clientY-sy)/zl)/12)*12;
+      el.style.left=n.x+'px';el.style.top=n.y+'px';
+      nDat[n.id]={...n};updateEdges();
+    };
+    const mu=()=>{dn=false;document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu)};
+    document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
+  });
+}
+
+// ─── EDGES ──────────────────────────────────────────────────────
+function nCenter(id){
+  const el=nEls[id];const n=nDat[id];if(!el||!n)return null;
+  const w=el.offsetWidth||165,h=el.offsetHeight||90;
+  return{x:n.x+w/2,y:n.y+h/2,r:n.x+w,b:n.y+h,l:n.x,t:n.y,w,h};
+}
+function edgePath(e){
+  const f=nCenter(e.f),t=nCenter(e.t);if(!f||!t)return'';
+  const dx=t.x-f.x,dy=t.y-f.y;
+  let x1,y1,x2,y2;
+  if(Math.abs(dy)>Math.abs(dx)){
+    x1=f.x;y1=dy>0?f.b:f.t;x2=t.x;y2=dy>0?t.t:t.b;
+  } else {
+    x1=dx>0?f.r:f.l;y1=f.y;x2=dx>0?t.l:t.r;y2=t.y;
+  }
+  const off=Math.min(70,Math.abs(dy||dx)*.28);
+  if(Math.abs(dy)>Math.abs(dx))
+    return`M${x1},${y1} C${x1},${y1+off} ${x2},${y2-off} ${x2},${y2}`;
+  return`M${x1},${y1} C${x1+off},${y1} ${x2-off},${y2} ${x2},${y2}`;
+}
+function midPoint(d){
+  const m=d.match(/M([\d.]+),([\d.]+) C([\d.]+),([\d.]+) ([\d.]+),([\d.]+) ([\d.]+),([\d.]+)/);
+  if(!m)return{x:0,y:0};
+  const t=.5,a=parseFloat(m[1]),b=parseFloat(m[2]),
+    c1x=parseFloat(m[3]),c1y=parseFloat(m[4]),
+    c2x=parseFloat(m[5]),c2y=parseFloat(m[6]),
+    ex=parseFloat(m[7]),ey=parseFloat(m[8]);
+  const x=Math.pow(1-t,3)*a+3*Math.pow(1-t,2)*t*c1x+3*(1-t)*t*t*c2x+t*t*t*ex;
+  const y=Math.pow(1-t,3)*b+3*Math.pow(1-t,2)*t*c1y+3*(1-t)*t*t*c2y+t*t*t*ey;
+  return{x,y};
+}
+function renderEdge(e){
+  const g=document.getElementById('eg');
+  const grp=document.createElementNS('http://www.w3.org/2000/svg','g');
+  grp.id='eg-'+e.id;
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.id='ep-'+e.id;path.setAttribute('class','ep '+(e.cls||''));
+  path.setAttribute('marker-end','url(#'+(e.mkr||'a0')+')');
+  const click=document.createElementNS('http://www.w3.org/2000/svg','path');
+  click.setAttribute('class','eclick');click.setAttribute('data-eid',e.id);
+  click.onclick=ev=>{ev.stopPropagation();selEdge(e.id)};
+  const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  txt.id='et-'+e.id;txt.setAttribute('class','elbl');
+  txt.setAttribute('data-eid',e.id);txt.textContent=e.lbl||'';
+  txt.onclick=ev=>{ev.stopPropagation();selEdge(e.id)};
+  grp.appendChild(path);grp.appendChild(click);grp.appendChild(txt);
+  g.appendChild(grp);
+  updateEdge(e);
+}
+function updateEdge(e){
+  const d=edgePath(e);
+  const p=document.getElementById('ep-'+e.id);
+  const c=document.querySelector(`[data-eid="${e.id}"].eclick`);
+  const t=document.getElementById('et-'+e.id);
+  if(p)p.setAttribute('d',d);
+  if(c)c.setAttribute('d',d);
+  if(t){const m=midPoint(d);t.setAttribute('x',m.x);t.setAttribute('y',m.y-5)}
+}
+function updateEdges(){EDGES.forEach(e=>updateEdge(e))}
+
+// ─── SELECTION ──────────────────────────────────────────────────
+function clearSel(){
+  document.querySelectorAll('.wf-node.sel').forEach(el=>el.classList.remove('sel'));
+  document.querySelectorAll('.ep.sel').forEach(el=>el.classList.remove('sel'));
+  document.querySelectorAll('.elbl.sel').forEach(el=>el.classList.remove('sel'));
+  selN=null;selE=null;
+}
+function selNode(id){
+  clearSel();selN=id;
+  nEls[id]?.classList.add('sel');
+  const n=nDat[id];
+  document.getElementById('canvas-status').textContent='State: '+n.name+' · '+n.kind;
+  showStateInsp(n);
+}
+function selEdge(id){
+  clearSel();selE=id;
+  document.getElementById('ep-'+id)?.classList.add('sel');
+  document.getElementById('et-'+id)?.classList.add('sel');
+  const e=EDGES.find(x=>x.id===id);
+  const fn=NODES.find(x=>x.id===e.f);
+  const tn=NODES.find(x=>x.id===e.t);
+  document.getElementById('canvas-status').textContent='Transition: '+fn?.name+' → '+tn?.name;
+  showTransInsp(e,fn,tn);
+}
+function onCanvasClick(e){
+  if(e.target.id==='canvas-inner'||e.target===document.getElementById('canvas-area')){
+    clearSel();showEmpty();
+    document.getElementById('canvas-status').textContent=NODES.length+' states · '+EDGES.length+' transitions';
+  }
+}
+
+// ─── INSPECTOR HELPERS ──────────────────────────────────────────
+function setChip(txt,cls){
+  const c=document.getElementById('insp-chip');
+  c.textContent=txt;c.className='insp-chip '+cls;
+}
+function showEmpty(){
+  setChip('NO SELECTION','ic-empty');
+  document.getElementById('insp-name').textContent='Properties Inspector';
+  document.getElementById('insp-sub').textContent='Select a state or transition';
+  document.getElementById('insp-tabs').style.display='none';
+  document.getElementById('insp-foot').style.display='none';
+  document.getElementById('insp-body').innerHTML=`
+    <div class="insp-empty">
+      <div class="ie-circle"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.5"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="8" y="13" width="8" height="8" rx="2"/></svg></div>
+      <div class="ie-h">Nothing selected</div>
+      <div class="ie-p">Click any state or transition to configure</div>
+      <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:6px">
+        <div class="ie-tip"><strong>◉ State</strong> — entry/exit, SLA, flags</div>
+        <div class="ie-tip"><strong>→ Transition</strong> — guard, actions, notify</div>
+        <div class="ie-tip"><strong>Drag</strong> from palette to add</div>
+      </div>
+    </div>`;
+}
+function setItab(t,el){
+  itab=t;
+  document.querySelectorAll('.it').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(selN)showStateInsp(nDat[selN]);
+  else if(selE){const e=EDGES.find(x=>x.id===selE);const fn=NODES.find(x=>x.id===e.f);const tn=NODES.find(x=>x.id===e.t);showTransInsp(e,fn,tn)}
+}
+
+// ─── STATE INSPECTOR ────────────────────────────────────────────
+function showStateInsp(n){
+  setChip('STATE','ic-state');
+  document.getElementById('insp-name').textContent=n.name;
+  document.getElementById('insp-sub').textContent=n.id+' · '+n.kind;
+  document.getElementById('insp-tabs').style.display='flex';
+  document.getElementById('insp-foot').style.display='flex';
+  const isAppr=n.kind==='approval';
+  const isTerm=n.kind==='terminal';
+  const out=EDGES.filter(e=>e.f===n.id);
+  let html='';
+  if(itab==='basic'){
+    html=`
+    <div class="isec">
+      <div class="sl">Identity</div>
+      <div class="fr"><label class="fl">Name</label><input class="fi" value="${n.name}" oninput="liveRename('${n.id}',this.value)"></div>
+      <div class="fr"><label class="fl">Kind</label>
+        <select class="fs"><option ${n.kind==='initial'?'selected':''}>initial</option>
+          <option ${n.kind==='auto'?'selected':''}>auto</option>
+          <option ${n.kind==='approval'?'selected':''}>approval</option>
+          <option ${n.kind==='terminal'?'selected':''}>terminal</option>
+          <option ${n.kind==='exception'?'selected':''}>exception</option></select></div>
+    </div>
+    ${isAppr?`<div class="isec">
+      <div class="sl">Assignment</div>
+      <div class="fr"><label class="fl">Assignee role</label>
+        <select class="fs"><option>AP Manager</option><option>Controller</option><option>CFO</option></select></div>
+      <div class="f2"><div class="fr"><label class="fl">SLA duration</label>
+        <input class="fi" type="number" value="${parseInt(n.sla)||4}"></div>
+        <div class="fr"><label class="fl">Unit</label>
+          <select class="fs" style="padding:6px 5px"><option>hours</option><option>days</option></select></div></div>
+      <div class="sl" style="margin-top:8px">Escalation</div>
+      <div class="erow"><span class="elv elv1">L1</span><span>at 4h</span><span style="color:var(--dim)">→</span><span>ap_manager</span></div>
+      <div class="erow"><span class="elv elv2">L2</span><span>at 8h</span><span style="color:var(--dim)">→</span><span>controller</span></div>
+      <div class="erow"><span class="elv elv3">L3</span><span>at 12h</span><span style="color:var(--dim)">→</span><span>cfo + hold</span></div>
+    </div>`:''}
+    <div class="isec">
+      <div class="sl">Outgoing transitions</div>
+      <div class="tlist">${out.length
+        ?out.map(e=>{const tn=NODES.find(x=>x.id===e.t);return`<div class="titem" onclick="selEdge('${e.id}')"><span class="tarr">→</span><span style="color:var(--bright)">${tn?.name||e.t}</span><span class="tgrd">${e.lbl||''}</span></div>`}).join('')
+        :'<div style="font-size:10px;color:var(--dim);font-family:var(--mono)">Terminal — no outgoing</div>'}</div>
+    </div>`;
+  } else if(itab==='actions'){
+    html=`
+    <div class="isec">
+      <div class="sl">Entry actions</div>
+      <div class="alist">
+        <div class="arow on"><div class="adot" style="background:var(--green)"></div>sendApprovalEmail<span class="achk">✓</span></div>
+        <div class="arow on"><div class="adot" style="background:var(--blue)"></div>generateApprovalToken<span class="achk">✓</span></div>
+        ${isAppr?'<div class="arow on"><div class="adot" style="background:var(--amber)"></div>startSLATimer<span class="achk">✓</span></div>':''}
+        <div class="arow"><div class="adot" style="background:var(--purple)"></div>postSlackAlert<span class="axbtn" onclick="this.parentElement.remove()">✕</span></div>
+      </div>
+      <div class="add-row" onclick="alert('Add entry action.')">+ Add entry action</div>
+    </div>
+    <div class="isec">
+      <div class="sl">Exit actions</div>
+      <div class="alist">
+        <div class="arow on"><div class="adot" style="background:var(--red)"></div>cancelSLATimer<span class="achk">✓</span></div>
+        <div class="arow on"><div class="adot" style="background:var(--dim)"></div>expireApprovalToken<span class="achk">✓</span></div>
+      </div>
+      <div class="add-row" onclick="alert('Add exit action.')">+ Add exit action</div>
+    </div>
+    ${n.kind!=='terminal'?`<div class="isec">
+      <div class="sl">Invoked service</div>
+      <div class="fr"><label class="fl">Service ID</label>
+        <input class="fi" value="${n.kind==='auto'?'runOCRPipeline':''}"></div>
+      <div class="fr"><label class="fl">On error</label>
+        <select class="fs"><option>→ exception</option><option>retry ×3</option></select></div>
+    </div>`:''}`;
+  } else if(itab==='flags'){
+    html=`
+    <div class="isec">
+      <div class="sl">Behaviour flags</div>
+      <div class="trow"><div><div class="tl">Comments enabled</div><div class="td">Inline thread on invoice</div></div><div class="tog ${isAppr?'on':''}" onclick="this.classList.toggle('on')"></div></div>
+      <div class="trow"><div><div class="tl">One-tap email approval</div><div class="td">Tokenised link to approver</div></div><div class="tog ${isAppr?'on':''}" onclick="this.classList.toggle('on')"></div></div>
+      <div class="trow"><div><div class="tl">Vendor reply enabled</div><div class="td">Tokenised vendor link</div></div><div class="tog" onclick="this.classList.toggle('on')"></div></div>
+      <div class="trow"><div><div class="tl">Lock fields on entry</div><div class="td">Prevent edits in this state</div></div><div class="tog ${isAppr||isTerm?'on-green':''}" onclick="this.classList.toggle('on-green')"></div></div>
+    </div>
+    <div class="isec">
+      <div class="sl">Missing PO handling</div>
+      <div class="fr"><select class="fs">
+        <option>Route to exception</option>
+        <option>Semantic GL coding</option>
+        <option>Continue</option>
+      </select></div>
+    </div>`;
+  } else {
+    html=`
+    <div class="isec">
+      <div class="sl">XState JSON</div>
+      <div class="jprev">{
+  <span class="jk">"id"</span>: <span class="js">"${n.id}"</span>,
+  <span class="jk">"kind"</span>: <span class="js">"${n.kind}"</span>,
+  <span class="jk">"entry"</span>: [<span class="js">"sendEmail"</span>,<span class="js">"genToken"</span>],
+  <span class="jk">"exit"</span>: [<span class="js">"cancelTimer"</span>]${isAppr?`,
+  <span class="jk">"after"</span>: {<span class="jn">14400000</span>: <span class="js">"escalated"</span>}`:''}
+}</div>
+    </div>
+    <div class="isec">
+      <div class="sl">Runtime context</div>
+      <div style="font-size:10px;color:var(--dim);font-family:var(--mono);line-height:1.8">
+        workflow_definition_version: <span style="color:var(--bright)">2</span><br>
+        xstate_snapshot: <span style="color:var(--bright)">persisted</span><br>
+        optimistic_lock: <span style="color:var(--bright)">version + 1</span><br>
+        n8n_event: <span style="color:var(--bright)">post-commit only</span>
+      </div>
+    </div>`;
+  }
+  document.getElementById('insp-body').innerHTML=`<div style="animation:none">${html}</div>`;
+}
+
+// ─── TRANSITION INSPECTOR ───────────────────────────────────────
+function showTransInsp(e,fn,tn){
+  setChip('TRANSITION','ic-trans');
+  document.getElementById('insp-name').textContent=(fn?.name||e.f)+' → '+(tn?.name||e.t);
+  document.getElementById('insp-sub').textContent='id: '+e.id+' · event: APPROVE';
+  document.getElementById('insp-tabs').style.display='flex';
+  document.getElementById('insp-foot').style.display='flex';
+  const hasGuard=e.lbl&&(e.lbl.includes('$')||e.lbl.includes('conf')||e.lbl.includes('≤')||e.lbl.includes('>'));
+  const isDelay=e.cls&&e.cls.includes('dashed');
+  let html='';
+  if(itab==='basic'){
+    html=`
+    <div class="isec">
+      <div class="sl">Trigger</div>
+      <div class="fr"><label class="fl">Event type</label>
+        <select class="fs"><option>APPROVE</option><option>REJECT</option><option>OCR_COMPLETE</option><option>MATCH_COMPLETE</option><option>SLA_BREACH</option><option>TOKEN_APPROVAL</option></select></div>
+      <div class="fr"><label class="fl">Canvas label</label><input class="fi" value="${e.lbl||''}"></div>
+      ${isDelay?`<div style="font-size:10px;color:var(--amber);font-family:var(--mono);padding:4px 0">⏱ Delayed · fires after configured hours via BullMQ</div>`:''}
+    </div>
+    <div class="isec">
+      <div class="sl">Guard condition</div>
+      ${hasGuard?`<div class="guard-box">
+        <div class="gfield-row">
+          <select class="fs"><option>invoice.total</option><option>vendor.risk</option><option>confidence</option></select>
+          <select class="fs"><option>${e.lbl?.includes('≤')?'≤':'>'}</option><option>≤</option><option>≥</option><option>=</option></select>
+          <input class="fi" value="${e.lbl?.match(/[\d,]+$/)?.[0]||'25000'}">
+        </div>
+        <div class="gops"><div class="gop on">AND</div><div class="gop">OR</div><div class="gop">NOT</div></div>
+        <div class="gprev">${e.lbl||''}</div>
+      </div>`
+      :`<div style="font-size:10px;color:var(--dim);font-family:var(--mono)">No guard — unconditional</div>`}
+    </div>
+    <div class="isec">
+      <div class="sl">Route</div>
+      <div class="fr"><label class="fl">From</label><input class="fi" value="${fn?.name||e.f}" readonly style="opacity:.5"></div>
+      <div class="fr"><label class="fl">Target</label><input class="fi" value="${tn?.name||e.t}"></div>
+    </div>`;
+  } else if(itab==='actions'){
+    html=`
+    <div class="isec">
+      <div class="sl">Pre-transition <span style="font-size:8px;color:var(--dim);text-transform:none;letter-spacing:0">(sync · before commit)</span></div>
+      <div class="alist">
+        <div class="arow on"><div class="adot" style="background:var(--blue)"></div>runGLSuggestion<span class="achk">✓</span></div>
+        <div class="arow on"><div class="adot" style="background:var(--amber)"></div>runAnomalyCheck<span class="achk">✓</span></div>
+        <div class="arow"><div class="adot" style="background:var(--teal)"></div>runDuplicateCheck<span class="axbtn" onclick="this.parentElement.remove()">✕</span></div>
+      </div>
+      <div class="add-row" onclick="alert('Add pre-action.')">+ Add pre-action</div>
+    </div>
+    <div class="isec">
+      <div class="sl">Post-commit notifications <span style="font-size:8px;color:var(--dim);text-transform:none;letter-spacing:0">(async · n8n)</span></div>
+      <div class="alist">
+        <div class="arow on"><div class="adot" style="background:var(--purple)"></div>email_assignee<span class="achk">✓</span></div>
+      </div>
+      <div class="trow" style="margin-top:8px"><div><div class="tl">Vendor notification</div><div class="td">Tokenised reply link</div></div><div class="tog" onclick="this.classList.toggle('on')"></div></div>
+      <div class="add-row" onclick="alert('Add notification.')">+ Add notification</div>
+    </div>`;
+  } else if(itab==='flags'){
+    html=`
+    <div class="isec">
+      <div class="sl">Transition flags</div>
+      <div class="trow"><div><div class="tl">Re-entry / internal</div><div class="td">No exit/entry actions fire</div></div><div class="tog" onclick="this.classList.toggle('on')"></div></div>
+      <div class="trow"><div><div class="tl">GL suggestion</div><div class="td">Run before commit</div></div><div class="tog on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="trow"><div><div class="tl">Anomaly detection</div><div class="td">Flag before commit</div></div><div class="tog on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="trow"><div><div class="tl">Duplicate check</div><div class="td">Block if duplicate detected</div></div><div class="tog" onclick="this.classList.toggle('on')"></div></div>
+    </div>`;
+  } else {
+    html=`
+    <div class="isec">
+      <div class="sl">XState JSON</div>
+      <div class="jprev">{
+  <span class="jk">"event"</span>: <span class="js">"APPROVE"</span>,
+  <span class="jk">"target"</span>: <span class="js">"${tn?.id||e.t}"</span>${hasGuard?`,
+  <span class="jk">"guard"</span>: <span class="js">"${e.lbl||''}"</span>`:''}${isDelay?`,
+  <span class="jk">"after"</span>: <span class="jn">14400000</span>`:''}
+}</div>
+    </div>`;
+  }
+  document.getElementById('insp-body').innerHTML=`<div>${html}</div>`;
+}
+
+// ─── ACTIONS ────────────────────────────────────────────────────
+function liveRename(id,v){
+  const el=nEls[id];
+  if(el){const nn=el.querySelector('.node-name');if(nn)nn.textContent=v||'Untitled'}
+  if(nDat[id])nDat[id].name=v;
+}
+function setTool(t,el){
+  tool=t;
+  document.querySelectorAll('.cc-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function doZoom(f){
+  zl=Math.max(.3,Math.min(2,zl*f));
+  document.getElementById('canvas-inner').style.transform=`scale(${zl})`;
+  const p=Math.round(zl*100)+'%';
+  document.getElementById('zpct').textContent=p;
+  document.getElementById('zp').textContent=p;
+}
+function delSel(){
+  if(selN){
+    if(!confirm('Delete "'+nDat[selN]?.name+'"?'))return;
+    nEls[selN]?.remove();
+    const i=NODES.findIndex(n=>n.id===selN);if(i>-1)NODES.splice(i,1);
+    EDGES.filter(e=>e.f===selN||e.t===selN).forEach(e=>document.getElementById('eg-'+e.id)?.remove());
+    showEmpty();
+  } else if(selE){
+    if(!confirm('Delete this transition?'))return;
+    document.getElementById('eg-'+selE)?.remove();
+    const i=EDGES.findIndex(e=>e.id===selE);if(i>-1)EDGES.splice(i,1);
+    showEmpty();
+  }
+}
+function saveSel(){
+  alert('✓ Saved\n\nXState JSON written to workflow_definitions.\nBullMQ timers updated.\nn8n notification config applied.\nOptimistic lock version incremented.');
+}
+function runSim(){
+  alert('Simulation:\n\n▷ Initialising XState from PostgreSQL v2.1...\n✓ Received → Extracted (OCR_COMPLETE)\n✓ Extracted → Matched (conf 0.94)\n✓ Matched → Pending Approval\n✓ $74,200 > $25,000 → CFO Approval\n✓ CFO Approval → Approved (TOKEN_APPROVAL)\n✓ postToERP · sealAuditRecord fired\n✓ n8n post-commit notification sent\n\n✓ PASSED — 7 transitions · 0 failures\n✓ Ready to activate');
+}
+function activate(){
+  alert('✓ Workflow published as v2.2\n✓ In-flight invoices stay on v2.1\n✓ New invoices use v2.2 from now on\n✓ Simulation gate passed\n✓ Workflow is live');
+}
+
+// ─── INIT ───────────────────────────────────────────────────────
+renderPal();
+NODES.forEach(n=>renderNode(n));
+setTimeout(()=>{
+  NODES.forEach(n=>{nDat[n.id]={...n}});
+  EDGES.forEach(e=>renderEdge(e));
+  setTimeout(updateEdges,60);
+},60);
+window.addEventListener('resize',updateEdges);
+</script>
+</body>
+</html>
