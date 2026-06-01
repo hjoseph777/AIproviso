@@ -521,6 +521,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .surface-collab-btn:hover{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.55);box-shadow:0 0 12px rgba(34,197,94,0.2)}
 .surface-collab-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);animation:collab-pulse 2s ease-in-out infinite;flex-shrink:0}
 @keyframes collab-pulse{0%,100%{box-shadow:0 0 4px rgba(34,197,94,.6)}50%{box-shadow:0 0 10px rgba(34,197,94,1)}}
+/* ── Accessibility: respect reduced-motion preference ── */
+@media (prefers-reduced-motion: reduce) {
+  .project-pill-shake,
+  .project-panel-enter,
+  .surface-collab-dot,
+  .hub-ai-card { animation: none !important; transition: none !important; }
+}
 /* ── Project panel form spring entry ── */
 @keyframes project-panel-in{
   from{opacity:0;transform:translateY(-6px) scale(0.97)}
@@ -2139,39 +2146,42 @@ export default function App() {
                       <button className={integratorCanvasMode === 'split' ? 'active' : ''} onClick={() => { setIntegratorCanvasMode('split'); setIntegratorSubview('data'); }}>Data + Canvas</button>
                     </div>
 
-                    {/* ── Project context pill ── */}
+                    {/* ── Project context pill — spec: bg-slate-800/50 backdrop-blur border-amber-500/30 ── */}
                     <button
                       type="button"
                       className={pillShaking ? 'project-pill-shake' : ''}
                       onClick={openProjectPanel}
-                      title={activeProject ? `Project: ${activeProject.name}` : 'No project selected — click to open or create a project'}
+                      aria-label={activeProject
+                        ? `Active project: ${activeProject.name}. Click to switch or manage projects.`
+                        : 'No project selected. Click to open or create a project.'}
+                      aria-expanded={false}
+                      aria-haspopup="listbox"
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '3px 10px', borderRadius: 6,
-                        border: `1px solid ${activeProject ? 'rgba(56,189,248,0.35)' : 'rgba(251,191,36,0.35)'}`,
-                        background: activeProject ? 'rgba(56,189,248,0.08)' : 'rgba(251,191,36,0.08)',
-                        color: activeProject ? '#38bdf8' : '#fbbf24',
-                        fontSize: 10, fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
-                        marginLeft: 6,
+                        padding: '4px 12px', borderRadius: 6, marginLeft: 8,
+                        border: `1px solid ${activeProject ? 'rgba(56,189,248,0.30)' : 'rgba(245,158,11,0.35)'}`,
+                        background: activeProject ? 'rgba(15,23,42,0.55)' : 'rgba(15,23,42,0.55)',
+                        backdropFilter: 'blur(8px)',
+                        color: activeProject ? '#cbd5e1' : '#cbd5e1',
+                        fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                        transition: 'border-color .18s, box-shadow .18s',
+                        boxShadow: activeProject ? 'none' : '0 0 0 1px rgba(245,158,11,0.15)',
                       }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(30,41,59,0.70)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(15,23,42,0.55)'; }}
                     >
-                      {/* Pulsing indicator dot */}
-                      <span style={{
-                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                        background: activeProject ? '#22c55e' : '#f59e0b',
-                        boxShadow: activeProject
-                          ? '0 0 5px rgba(34,197,94,0.8)'
-                          : '0 0 5px rgba(245,158,11,0.8)',
-                        animation: !activeProject ? 'collab-pulse 2s ease-in-out infinite' : 'none',
-                      }} />
-                      {activeProject ? `◆ ${activeProject.name}` : '📁 Open or Create Project'}
+                      {/* Amber pulse when unassigned, green dot when active */}
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                          background: activeProject ? '#22c55e' : '#f59e0b',
+                          boxShadow: activeProject ? '0 0 4px rgba(34,197,94,0.7)' : '0 0 5px rgba(245,158,11,0.8)',
+                          animation: !activeProject ? 'collab-pulse 2s ease-in-out infinite' : 'none',
+                        }}
+                      />
+                      {activeProject ? activeProject.name : 'Open or Create Project'}
                     </button>
-
-                    {!activeProject && (
-                      <span style={{ fontSize: 9, color: 'rgba(251,191,36,0.6)', fontStyle: 'italic' }}>
-                        No project selected
-                      </span>
-                    )}
                   </div>
                   {integratorSubview === 'data' ? (
                     <div className="design-host">

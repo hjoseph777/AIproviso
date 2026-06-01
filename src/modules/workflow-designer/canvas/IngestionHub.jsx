@@ -138,34 +138,33 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     >
       <div style={{ width: '100%', maxWidth: 860, padding: '0 24px' }}>
 
-        {/* ── Header ── */}
+        {/* ── Header — static, no project-state messaging on canvas ── */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(100,116,139,0.5)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(100,116,139,0.45)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 6 }}>
             ✦ Workflow Studio
           </div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: activeProjectId ? '#dde7f5' : 'rgba(148,163,184,0.6)', margin: 0, letterSpacing: '-.2px', transition: SPRING }}>
-            {activeProjectId ? 'How would you like to start?' : 'Choose a starting point'}
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#dde7f5', margin: 0, letterSpacing: '-.2px' }}>
+            How would you like to start?
           </h2>
-          {!activeProjectId ? (
-            <p style={{ fontSize: 10, color: 'rgba(251,191,36,0.7)', marginTop: 6, letterSpacing: '.2px' }}>
-              Project required to begin workflow authoring — use the pill in the toolbar above
-            </p>
-          ) : (
-            <p style={{ fontSize: 11, color: 'rgba(100,116,139,0.5)', marginTop: 5 }}>
-              Or drag any component from the left palette to skip this
+          {activeProjectId && (
+            <p style={{ fontSize: 11, color: 'rgba(100,116,139,0.45)', marginTop: 5 }}>
+              Drag any component from the left palette to skip this
             </p>
           )}
         </div>
 
-        {/* ── 4 mode cards — cards dim passively when no project; click nudges header pill ── */}
+        {/* ── 4 mode cards — passive dim only when no project; click nudges header pill ── */}
         <div
+          role={!activeProjectId ? 'button' : undefined}
+          aria-label={!activeProjectId ? 'Open or create a project to enable workflow creation' : undefined}
+          aria-disabled={!activeProjectId ? 'true' : undefined}
+          tabIndex={!activeProjectId ? 0 : undefined}
+          onKeyDown={!activeProjectId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRequireProject?.(); } } : undefined}
           style={{
             display: 'flex', gap: 12, alignItems: 'stretch', position: 'relative',
-            // Passive state: reduce emphasis, intercept clicks to nudge header pill
-            opacity: activeProjectId ? 1 : 0.45,
-            filter: activeProjectId ? 'none' : 'saturate(0.4)',
+            opacity: activeProjectId ? 1 : 0.42,
+            filter: activeProjectId ? 'none' : 'saturate(0.35) brightness(0.85)',
             transition: SPRING,
-            pointerEvents: 'all',
             cursor: !activeProjectId ? 'pointer' : 'default',
           }}
           onClick={!activeProjectId ? () => onRequireProject?.() : undefined}
