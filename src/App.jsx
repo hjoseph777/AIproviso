@@ -520,6 +520,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .surface-collab-btn:hover{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.55);box-shadow:0 0 12px rgba(34,197,94,0.2)}
 .surface-collab-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);animation:collab-pulse 2s ease-in-out infinite;flex-shrink:0}
 @keyframes collab-pulse{0%,100%{box-shadow:0 0 4px rgba(34,197,94,.6)}50%{box-shadow:0 0 10px rgba(34,197,94,1)}}
+/* ── IngestionHub AI card pulsing border ── */
+@keyframes ai-border-pulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(139,92,246,0.28),0 0 12px rgba(139,92,246,0.08)}
+  50%{box-shadow:0 0 0 1px rgba(6,182,212,0.28),0 0 12px rgba(6,182,212,0.08)}
+}
+.hub-ai-card{animation:ai-border-pulse 3s ease-in-out infinite}
+.hub-ai-card:focus-within{
+  animation:none !important;
+  box-shadow:0 0 0 1.5px rgba(139,92,246,0.6),0 0 0 4px rgba(139,92,246,0.12),0 0 24px rgba(167,139,250,0.28) !important;
+  border-color:rgba(139,92,246,0.5) !important;
+  background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(7,11,22,0.85)) !important
+}
 .surface-dark .integrator-toggle button{background:#142540;border-color:#274468;color:#7da8d4}
 .surface-dark .integrator-toggle button.active{background:rgba(42,127,255,.15);border-color:#2a7fff;color:#7ab8ff}
 
@@ -1219,15 +1231,6 @@ function statusClass(status) {
 
 function runtimeToneClass(tone) {
   return ({ blue: 'blue', green: 'green', amber: 'amber', red: 'red' }[tone] || 'dim');
-}
-
-function RuntimeRows({ rows = [] }) {
-  return rows.map(([label, value, tone]) => (
-    <div className="ap-runtime-row" key={`${label}-${value}`}>
-      <span className="ap-runtime-label">{label}</span>
-      <span className={`ap-runtime-chip ${runtimeToneClass(tone)}`}>{value}</span>
-    </div>
-  ));
 }
 
 function runtimeTextRows(rows = []) {

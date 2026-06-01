@@ -10,22 +10,25 @@ import { useEffect, useRef, useState } from 'react';
 import { AP_TEMPLATES } from './WorkflowModeSelector';
 import { parseScenario } from './WorkflowModeSelector';
 
-// ── Glassmorphism base ────────────────────────────────────────────────────────
+// ── Glassmorphism base — slate-900/40, backdrop-blur-md, crisp white/10 border
 const GLASS = {
-  background: 'rgba(7, 11, 22, 0.80)',
-  backdropFilter: 'blur(28px) saturate(160%)',
-  WebkitBackdropFilter: 'blur(28px) saturate(160%)',
-  border: '1px solid rgba(255,255,255,0.09)',
-  boxShadow: '0 16px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
+  background: 'rgba(15, 23, 42, 0.40)',       // bg-slate-900/40
+  backdropFilter: 'blur(12px) saturate(140%)', // backdrop-blur-md
+  WebkitBackdropFilter: 'blur(12px) saturate(140%)',
+  border: '1px solid rgba(255,255,255,0.10)',  // border-white/10
+  boxShadow: '0 0 50px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)',
   borderRadius: 18,
 };
+
+// Spring easing — cubic-bezier(0.16, 1, 0.3, 1) matches Radix/Linear feel
+const SPRING = 'all 550ms cubic-bezier(0.16, 1, 0.3, 1)';
 
 const CARD = {
   ...GLASS,
   borderRadius: 14,
   padding: '20px 22px',
   cursor: 'pointer',
-  transition: 'all 0.18s ease',
+  transition: SPRING,
   flex: '1 1 0',
   minWidth: 0,
   display: 'flex',
@@ -33,21 +36,22 @@ const CARD = {
   gap: 10,
 };
 
-function HubCard({ color, icon, title, desc, active, onClick, children }) {
+function HubCard({ color, icon, title, desc, active, onClick, children, className }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={className}
       style={{
         ...CARD,
-        border: `1px solid ${active || hovered ? color + '55' : 'rgba(255,255,255,0.08)'}`,
+        border: `1px solid ${active || hovered ? color + '55' : 'rgba(255,255,255,0.10)'}`,
         background: active || hovered
-          ? `linear-gradient(135deg, ${color}14, rgba(7,11,22,0.90))`
+          ? `linear-gradient(135deg, ${color}14, rgba(15,23,42,0.75))`
           : GLASS.background,
         boxShadow: active
-          ? `0 0 0 1px ${color}30, 0 12px 36px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07)`
+          ? `0 0 0 1px ${color}30, 0 12px 36px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07)`
           : GLASS.boxShadow,
         transform: hovered && !active ? 'translateY(-2px)' : 'none',
       }}
@@ -118,11 +122,13 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 5,
+        // z-index: 4 sits above RF grid/background (z:0-2) and nodes (z:3),
+        // but below Action Decks, toolbar Panels, and left palette (z:10+)
+        zIndex: 4,
         pointerEvents: isVisible ? 'all' : 'none',
         opacity: isVisible ? 1 : 0,
-        transform: isVisible ? 'scale(1)' : 'scale(0.96)',
-        transition: 'opacity 0.4s ease, transform 0.4s ease',
+        transform: isVisible ? 'scale(1) translateY(0)' : 'scale(0.96) translateY(8px)',
+        transition: SPRING,
       }}
     >
       <div style={{ width: '100%', maxWidth: 860, padding: '0 24px' }}>
@@ -203,13 +209,14 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
             )}
           </HubCard>
 
-          {/* Mode 3: AI Generate */}
+          {/* Mode 3: AI Generate — pulsing violet→cyan border via CSS */}
           <HubCard
             color="#a78bfa"
             icon="✨"
             title="AI Generated"
             desc="Describe your process — we build the workflow"
             active={activeMode === 3}
+            className="hub-ai-card"
             onClick={() => setActiveMode(3)}
           >
             {activeMode === 3 && (
@@ -224,12 +231,11 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
                   rows={3}
                   style={{
                     width: '100%', boxSizing: 'border-box',
-                    background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.35)',
+                    background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.30)',
                     borderRadius: 9, padding: '8px 10px',
                     fontSize: 10, color: '#c8d8ec', outline: 'none', resize: 'none',
                     fontFamily: 'inherit', lineHeight: 1.5,
-                    boxShadow: aiText.trim() ? '0 0 0 1px rgba(167,139,250,0.4), 0 0 12px rgba(167,139,250,0.2)' : 'none',
-                    transition: 'box-shadow .2s',
+                    transition: SPRING,
                   }}
                 />
                 <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', textAlign: 'right' }}>
