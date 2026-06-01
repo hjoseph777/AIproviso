@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import CommandPalette from './components/CommandPalette';
 import RuntimeErrorBoundary from './components/RuntimeErrorBoundary';
 import { approveInvoice, getDashboardSummary, getInvoices, getRuntimeView, sendInvoiceToReview } from './lib/api';
+import useProjectStore from './modules/workflow-designer/store/useProjectStore';
 
 const CommandCenter = lazy(() => import('./modules/workflow-designer/WorkflowDesignerShell'));
 
@@ -520,6 +521,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .surface-collab-btn:hover{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.55);box-shadow:0 0 12px rgba(34,197,94,0.2)}
 .surface-collab-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);animation:collab-pulse 2s ease-in-out infinite;flex-shrink:0}
 @keyframes collab-pulse{0%,100%{box-shadow:0 0 4px rgba(34,197,94,.6)}50%{box-shadow:0 0 10px rgba(34,197,94,1)}}
+/* ── Project panel form spring entry ── */
+@keyframes project-panel-in{
+  from{opacity:0;transform:translateY(-6px) scale(0.97)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.project-panel-enter{animation:project-panel-in 320ms cubic-bezier(0.16,1,0.3,1) both}
 /* ── Project pill shake — fires when user tries to create workflow without a project ── */
 @keyframes project-pill-shake{
   0%,100%{transform:translateX(0)}
@@ -1342,6 +1349,18 @@ function deriveIntegratorDebugContext(runtimePayload, selectedInvoice) {
 }
 
 export default function App() {
+  // ── Project context — sourced from global Zustand store ───────────────────
+  const activeProjectId   = useProjectStore((s) => s.activeProjectId);
+  const activeProject     = useProjectStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
+  const openProjectPanel  = useProjectStore((s) => s.openProjectPanel);
+  const [pillShaking, setPillShaking] = useState(false);
+
+  const shakeProjectPill = () => {
+    setPillShaking(true);
+    setTimeout(() => setPillShaking(false), 450);
+    openProjectPanel();
+  };
+
   const [workspaceMode, setWorkspaceMode] = useState('client');
   const [activeView, setActiveView] = useState('ap');
   const [query, setQuery] = useState('');
@@ -2119,6 +2138,40 @@ export default function App() {
                       <button className={integratorCanvasMode === 'full' ? 'active' : ''} onClick={() => { setIntegratorCanvasMode('full'); setIntegratorSubview('data'); }}>Full Canvas</button>
                       <button className={integratorCanvasMode === 'split' ? 'active' : ''} onClick={() => { setIntegratorCanvasMode('split'); setIntegratorSubview('data'); }}>Data + Canvas</button>
                     </div>
+
+                    {/* ── Project context pill ── */}
+                    <button
+                      type="button"
+                      className={pillShaking ? 'project-pill-shake' : ''}
+                      onClick={openProjectPanel}
+                      title={activeProject ? `Project: ${activeProject.name}` : 'No project selected — click to open or create a project'}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '3px 10px', borderRadius: 6,
+                        border: `1px solid ${activeProject ? 'rgba(56,189,248,0.35)' : 'rgba(251,191,36,0.35)'}`,
+                        background: activeProject ? 'rgba(56,189,248,0.08)' : 'rgba(251,191,36,0.08)',
+                        color: activeProject ? '#38bdf8' : '#fbbf24',
+                        fontSize: 10, fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
+                        marginLeft: 6,
+                      }}
+                    >
+                      {/* Pulsing indicator dot */}
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                        background: activeProject ? '#22c55e' : '#f59e0b',
+                        boxShadow: activeProject
+                          ? '0 0 5px rgba(34,197,94,0.8)'
+                          : '0 0 5px rgba(245,158,11,0.8)',
+                        animation: !activeProject ? 'collab-pulse 2s ease-in-out infinite' : 'none',
+                      }} />
+                      {activeProject ? `◆ ${activeProject.name}` : '📁 Open or Create Project'}
+                    </button>
+
+                    {!activeProject && (
+                      <span style={{ fontSize: 9, color: 'rgba(251,191,36,0.6)', fontStyle: 'italic' }}>
+                        No project selected
+                      </span>
+                    )}
                   </div>
                   {integratorSubview === 'data' ? (
                     <div className="design-host">

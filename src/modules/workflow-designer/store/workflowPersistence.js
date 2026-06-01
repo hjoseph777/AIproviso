@@ -43,10 +43,10 @@ export async function saveWorkflow(id, { name, definition, version = 1, tenantId
 }
 
 /** Create a brand-new workflow record (status: draft). */
-export async function createWorkflow({ id, name, definition, tenantId } = {}) {
+export async function createWorkflow({ id, name, definition, tenantId, projectId } = {}) {
   return apiFetch(BASE, {
     method: 'POST',
-    body: JSON.stringify({ id, name, definition, tenant_id: tenantId }),
+    body: JSON.stringify({ id, name, definition, tenant_id: tenantId, project_id: projectId }),
   });
 }
 

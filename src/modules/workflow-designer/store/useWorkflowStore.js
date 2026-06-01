@@ -8,16 +8,10 @@ import {
   publishWorkflow as apiPublish,
 } from './workflowPersistence';
 import { listProjectWorkflows as apiListProjectWorkflows } from './projectPersistence';
+import useProjectStore from './useProjectStore';
 
-// Lazy reference to avoid circular import — resolved at call time
-const getActiveProjectId = () => {
-  try {
-    // eslint-disable-next-line global-require
-    return require('./useProjectStore').default.getState().activeProjectId || null;
-  } catch {
-    return null;
-  }
-};
+// Cross-store getter — Zustand stores are singletons, .getState() is always safe
+const getActiveProjectId = () => useProjectStore.getState().activeProjectId || null;
 
 const makeId = () => Math.random().toString(36).slice(2, 9);
 const DEFAULT_POSITION_STEP_Y = 180;
@@ -718,6 +712,7 @@ const fresh = () => {
   lastPublishedAt: null,
   isDirty: false,
   lastSavedAt: null,
+  bootstrapReady: false,  // latch: true only after projects + workflows are resolved
   hoveredState: null,
   hoveredTransition: null,
   cmdPaletteOpen: false,
@@ -871,10 +866,12 @@ export const useWorkflowStore = create((set, get) => ({
   markSaved: () => set(s => ({ ...withEditorProjection(s, { isDirty: false, lastSavedAt: new Date().toISOString() }) })),
 
   // ── Backend persistence ───────────────────────────────────────────────────
-  // saveActiveWorkflow: debounced auto-save — always injects activeProjectId
+  // saveActiveWorkflow: blocked until bootstrap latch is set + project is active
   saveActiveWorkflow: async () => {
     const state = useWorkflowStore.getState();
-    const { activeId, activeDefinition, workflows } = state;
+    const { activeId, activeDefinition, workflows, bootstrapReady } = state;
+    if (!bootstrapReady) return;       // latch: never autosave before project resolves
+    if (!getActiveProjectId()) return; // never save without a project context
     if (!activeId || !activeDefinition) return;
     const wf = workflows.find(w => w.id === activeId);
     if (!wf) return;
@@ -1299,7 +1296,10 @@ export const useWorkflowStore = create((set, get) => ({
       const result = await apiList(tenantId);
       stubs = result?.workflows ?? result; // handle both {workflows:[]} and []
     }
-    if (!stubs?.length) return false;               // no saved workflows → empty canvas
+    if (!stubs?.length) {
+      set({ bootstrapReady: true });               // latch: ready even with empty canvas
+      return false;
+    }
 
     // Sort by most recently updated and load the first one fully
     const sorted = [...stubs].sort((a, b) =>
@@ -1325,7 +1325,7 @@ export const useWorkflowStore = create((set, get) => ({
 
     const allWorkflows = [wf, ...shallowStubs];
     set(s => {
-      const next = { ...s, workflows: allWorkflows, activeId: wf.id, isDirty: repaired };
+      const next = { ...s, workflows: allWorkflows, activeId: wf.id, isDirty: repaired, bootstrapReady: true };
       return { ...next, ...deriveEditorSlice(next) };
     });
 

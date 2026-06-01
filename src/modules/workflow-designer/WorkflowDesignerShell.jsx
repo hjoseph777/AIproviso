@@ -182,11 +182,20 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const activeProjectId    = useProjectStore((s) => s.activeProjectId);
   const projectLoading     = useProjectStore((s) => s.loading);
   const getActiveProject   = useProjectStore((s) => s.getActiveProject);
-  const setActiveProject   = useProjectStore((s) => s.setActiveProject);
-  const createNewProject   = useProjectStore((s) => s.createProject);
-  const bootstrapProjects  = useProjectStore((s) => s.bootstrapProjects);
+  const setActiveProject      = useProjectStore((s) => s.setActiveProject);
+  const createNewProject      = useProjectStore((s) => s.createProject);
+  const bootstrapProjects     = useProjectStore((s) => s.bootstrapProjects);
+  const projectPanelOpen      = useProjectStore((s) => s.projectPanelOpen);
+  const openProjectPanel      = useProjectStore((s) => s.openProjectPanel);
+  const closeProjectPanel     = useProjectStore((s) => s.closeProjectPanel);
+  const toggleProjectPanel    = useProjectStore((s) => s.toggleProjectPanel);
+  const pendingProjectSwitch  = useProjectStore((s) => s.pendingProjectSwitch);
+  const confirmProjectSwitch  = useProjectStore((s) => s.confirmProjectSwitch);
+  const cancelProjectSwitch   = useProjectStore((s) => s.cancelProjectSwitch);
 
-  const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const showProjectPanel    = projectPanelOpen;
+  const setShowProjectPanel = (val) => val === false ? closeProjectPanel() : openProjectPanel();
+
   const [newProjectName, setNewProjectName]     = useState('');
   const [newProjectClient, setNewProjectClient] = useState('');
   const [projectPillShaking, setProjectPillShaking] = useState(false);
@@ -194,10 +203,10 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
   const requireProject = () => {
     if (activeProjectId) return true;
-    // Shake the pill and open the dropdown
+    // Shake the pill and open the project panel (from store — visible in header too)
     setProjectPillShaking(true);
     setTimeout(() => setProjectPillShaking(false), 450);
-    setShowProjectPanel(true);
+    openProjectPanel();
     return false;
   };
 
@@ -250,28 +259,35 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
     }
 
     if (mode === 2) {
-      // Draw from Scratch — create empty workflow then rename it
-      store.addWorkflow();
+      // Draw from Scratch — requires active project
+      if (!activeProjectId) { requireProject(); return; }
+      store.addWorkflow(activeProjectId);
       const newId = useWorkflowStore.getState().activeId;
       if (name?.trim()) store.renameWorkflow(newId, name.trim());
     } else if (mode === 1 && template) {
-      // Rapid Fire — seed from template
+      // Template — requires active project (all entry paths gated)
+      if (!activeProjectId) { requireProject(); return; }
       store.importWorkflow({
         workflow: {
           name: name || template.name,
           states: template.states,
           transitions: template.transitions,
+          project_id: activeProjectId,
         },
       });
     } else if (mode === 3 && parsed) {
-      // AI Generated — seed from parsed scenario
+      // AI Generated — requires active project
+      if (!activeProjectId) { requireProject(); return; }
       store.importWorkflow({
         workflow: {
           name: name || 'AI Generated Workflow',
           states: parsed.states,
           transitions: parsed.transitions,
+          project_id: activeProjectId,
         },
       });
+    } else if (mode === 4 && preset) {
+      if (!activeProjectId) { requireProject(); return; }
     }
   };
   const [viewMode, setViewMode] = useState('business');
@@ -833,15 +849,18 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
               + New Project
             </button>
 
-            {/* Project panel dropdown */}
+            {/* Project panel dropdown — spring-animated entry */}
             {showProjectPanel && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 8, zIndex: 100,
-                background: 'rgba(7,11,22,0.97)', backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.6)', padding: '10px',
-                minWidth: 280, maxWidth: 340,
-              }}>
+              <div
+                className="project-panel-enter"
+                style={{
+                  position: 'absolute', top: '100%', left: 8, zIndex: 100,
+                  background: 'rgba(7,11,22,0.97)', backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)', padding: '10px',
+                  minWidth: 280, maxWidth: 340,
+                }}
+              >
                 {showProjectPanel === 'new' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', marginBottom: 4 }}>New Project</div>
@@ -1569,6 +1588,55 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
       </div>
     </div>
 
+    {/* ── Project-switch draft protection dialog ── */}
+    {pendingProjectSwitch && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div
+          className="project-panel-enter"
+          style={{
+            background: 'rgba(7,11,22,0.97)', backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16,
+            padding: '24px 28px', maxWidth: 380, width: '100%',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
+          }}
+        >
+          <div style={{ fontSize: 18, marginBottom: 8 }}>⚠️</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#dde7f5', marginBottom: 8 }}>
+            Unsaved changes
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(100,116,139,0.8)', lineHeight: 1.6, marginBottom: 20 }}>
+            You have unsaved changes in the current workflow. What would you like to do before switching projects?
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={async () => { await saveActiveWorkflow(); confirmProjectSwitch(); }}
+              style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+            >
+              ✓ Save &amp; Switch
+            </button>
+            <button
+              type="button"
+              onClick={confirmProjectSwitch}
+              style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+            >
+              ✕ Discard &amp; Switch
+            </button>
+            <button
+              type="button"
+              onClick={cancelProjectSwitch}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#64748b', fontSize: 11, cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

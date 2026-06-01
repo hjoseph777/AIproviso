@@ -19,10 +19,12 @@ const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 const useProjectStore = create((set, get) => ({
   // ── State ──────────────────────────────────────────────────────────────────
-  projects:        [],        // [{id, name, client_name, status, version, ...}]
-  activeProjectId: null,      // currently open project
-  loading:         false,
-  error:           null,
+  projects:             [],     // [{id, name, client_name, status, version, ...}]
+  activeProjectId:      null,   // currently open project
+  pendingProjectSwitch: null,   // projectId waiting for save/discard confirmation
+  projectPanelOpen:     false,  // controls dropdown from any component
+  loading:              false,
+  error:                null,
 
   // ── Derived ────────────────────────────────────────────────────────────────
   getActiveProject: () => {
@@ -50,10 +52,48 @@ const useProjectStore = create((set, get) => ({
     return [];
   },
 
-  // ── Set active project (clears workflow designer state) ───────────────────
+  // ── Set active project — isolated switch with draft protection ─────────────
   setActiveProject: (projectId) => {
-    set({ activeProjectId: projectId });
+    if (get().activeProjectId === projectId) return; // no-op: already on this project
+
+    // Check workflow store for unsaved changes before switching
+    let isDirty = false;
+    try {
+      isDirty = require('./useWorkflowStore').default.getState().isDirty;
+    } catch { /* safe */ }
+
+    if (isDirty) {
+      // Let the calling UI decide (returns false to signal pending save check needed)
+      set({ pendingProjectSwitch: projectId });
+      return;
+    }
+
+    // Clean switch: clear workflow canvas then load target project
+    set({ activeProjectId: projectId, pendingProjectSwitch: null });
+    try {
+      const wfStore = require('./useWorkflowStore').default;
+      wfStore.getState().resetAll?.();
+      wfStore.setState({ bootstrapReady: false });
+    } catch { /* safe */ }
   },
+
+  // ── Confirm a pending project switch (after save/discard) ─────────────────
+  confirmProjectSwitch: () => {
+    const { pendingProjectSwitch } = get();
+    if (!pendingProjectSwitch) return;
+    set({ activeProjectId: pendingProjectSwitch, pendingProjectSwitch: null });
+    try {
+      const wfStore = require('./useWorkflowStore').default;
+      wfStore.getState().resetAll?.();
+      wfStore.setState({ bootstrapReady: false });
+    } catch { /* safe */ }
+  },
+
+  cancelProjectSwitch: () => set({ pendingProjectSwitch: null }),
+
+  openProjectPanel:  () => set({ projectPanelOpen: true }),
+  closeProjectPanel: () => set({ projectPanelOpen: false }),
+  toggleProjectPanel: () => set(s => ({ projectPanelOpen: !s.projectPanelOpen })),
 
   // ── Create project ─────────────────────────────────────────────────────────
   createProject: async ({ name, clientName, description }, tenantId = DEV_TENANT_ID) => {
