@@ -20,6 +20,7 @@ import {
 import { KIND_COLORS, resolveEdgeColor } from './edges/WorkflowTransitionEdge';
 import { useElkLayout } from '../engine/useElkLayout';
 import CanvasContextMenu from './CanvasContextMenu';
+import IngestionHub from './IngestionHub';
 import {
   CreationDeck, LayoutDeck, HistoryDeck, ContextDeck, CloudDeck,
   ProPanel, ModeIndicator,
@@ -118,8 +119,24 @@ const getNodeShapeStyle = (stateKind = 'standard') => {
 };
 
 
+// ── ProRuntimeBridge — pipes RF Pro hooks (viewport, nodesReady, connection, api) ─
+// Rendered inside <ReactFlow> so it can access the RF context directly.
+function ProRuntimeBridge({ onViewport, onNodesReady, onConnecting, onApi }) {
+  const viewport  = useViewport();
+  const nodesReady = useNodesInitialized();
+  const connection = useConnection();
+  const api        = useReactFlow();
+
+  useEffect(() => { onApi?.(api); },                              [api, onApi]);
+  useEffect(() => { onViewport?.(viewport); },                    [viewport, onViewport]);
+  useEffect(() => { onNodesReady?.(nodesReady); },                [nodesReady, onNodesReady]);
+  useEffect(() => { onConnecting?.(Boolean(connection?.inProgress)); }, [connection?.inProgress, onConnecting]);
+
+  return null;
+}
+
 // ── Main CanvasSurface component ─────────────────────────────────────────────
-export default function CanvasSurface({ onOpenInspector }) {
+export default function CanvasSurface({ onOpenInspector, onModeSelect }) {
   const rfNodes               = useWorkflowStore((s) => s.rfNodes);
   const rfEdges               = useWorkflowStore((s) => s.rfEdges);
   const applyCanvasNodeChanges = useWorkflowStore((s) => s.applyCanvasNodeChanges);
@@ -1565,21 +1582,12 @@ export default function CanvasSurface({ onOpenInspector }) {
         </svg>
       )}
 
-      {!rfNodes.length && !isDropActive && (
-        <div className="wf2-empty-state" style={{ zIndex: 3 }}>
-          <div className="wf2-empty-icon">◎</div>
-          <div className="wf2-empty-title">Canvas is empty</div>
-          <div className="wf2-empty-copy">
-            Drag an AP component from the palette to begin, or use a template from the toolbar.
-          </div>
-          <div className="wf2-empty-hints">
-            <span>› Open the palette with the <strong>‹</strong> arrow on the left edge</span>
-            <span>› Drag nodes onto the canvas — connections snap automatically</span>
-            <span>› Double-click any transition to name the rule inline</span>
-            <span>› Use <kbd style={{background:'rgba(255,255,255,.08)',padding:'1px 4px',borderRadius:3,fontFamily:'monospace',fontSize:10}}>Ctrl+Z</kbd> / <kbd style={{background:'rgba(255,255,255,.08)',padding:'1px 4px',borderRadius:3,fontFamily:'monospace',fontSize:10}}>Ctrl+Y</kbd> for undo / redo</span>
-          </div>
-        </div>
-      )}
+      {/* ── Ingestion Hub — glassmorphic entry panel, fades away when nodes exist ── */}
+      <IngestionHub
+        rfNodes={rfNodes}
+        visible={!isDropActive}
+        onModeSelect={onModeSelect || (() => {})}
+      />
 
       <ReactFlow
         style={{ width: '100%', height: '100%' }}

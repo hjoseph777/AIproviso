@@ -178,20 +178,14 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
   // ── Bootstrap on mount: load from backend, or show Workflow Studio ─────────
   const [bootstrapping, setBootstrapping] = useState(true);
-  const [showModeSelector, setShowModeSelector] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const loaded = await bootstrapFromBackend();
-        if (!cancelled) {
-          // No saved workflows found → present the mode selector so the user
-          // can choose how to start (template / blank / AI / preset default)
-          if (!loaded) setShowModeSelector(true);
-        }
+        await bootstrapFromBackend();
       } catch {
-        if (!cancelled) setShowModeSelector(true);
+        // backend unavailable — start on empty canvas, IngestionHub will show
       } finally {
         if (!cancelled) setBootstrapping(false);
       }
@@ -212,7 +206,6 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
   // ── Handle mode selector result ──────────────────────────────────────────────
   const handleModeSelect = ({ mode, template, parsed, name, preset }) => {
-    setShowModeSelector(false);
     const store = useWorkflowStore.getState();
 
     if (mode === 4 && preset) {
@@ -638,8 +631,8 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                 className="cc-sec-add"
                 type="button"
                 style={{ marginLeft: 4, alignSelf: 'center' }}
-                onClick={() => setShowModeSelector(true)}
-                title="Create a new workflow — choose from templates, blank canvas, or AI generation"
+                onClick={() => { addWorkflow(); }}
+                title="Create a new blank workflow — the Ingestion Hub on the canvas will guide you"
               >
                 + Workflow
               </button>
@@ -1013,7 +1006,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                     <span>Open Inspector</span>
                   </button>
                 )}
-                <CanvasSurface />
+                <CanvasSurface onModeSelect={handleModeSelect} />
               </div>
             </div>
           )}
@@ -1407,14 +1400,6 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
       </div>
     </div>
 
-    {/* ── Workflow Mode Selector overlay ── */}
-    {showModeSelector && (
-      <WorkflowModeSelector
-        onSelect={handleModeSelect}
-        onDismiss={() => setShowModeSelector(false)}
-        existingWorkflows={workflows}
-      />
-    )}
     </>
   );
 }
