@@ -2,6 +2,7 @@
 
 > **Session anchor:** `WF-DESIGNER-PDR-V2-2026-05-29`
 > **Canonical strategy doc:** `PDR_IntegratorWorkspace.md` — full build reference
+> **PRD source status:** Latest detected file is `Proviso_PRD_v10.md`; no `PRD v11` file is currently present in this workspace.
 > **Stack:** React 18 · `@xyflow/react` **v12.10.2** (React Flow Pro) · ELKjs v0.11 · XState 5 · Zustand 5 · Vite 6 · Electron 42
 > **Note:** Tailwind CSS is **not installed** — styling uses CSS-in-JS / CSS modules only. NodeToolbar currently uses Tailwind class strings that have no effect.
 > **Pro usage:** `@xyflow/react` exports 135 items. We currently import 15. See Pro Feature Gap section below.

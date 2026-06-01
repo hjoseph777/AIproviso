@@ -516,6 +516,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 /* ── Dev buttons ── */
 .dev-btn{height:20px;padding:0 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:rgba(255,255,255,0.15);font-size:9px;cursor:pointer;transition:all .14s;font-family:var(--mono);line-height:1}
 .dev-btn:hover{color:rgba(255,255,255,0.45);border-color:rgba(255,255,255,0.12);background:rgba(255,255,255,0.05)}
+.surface-collab-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid rgba(34,197,94,0.35);background:rgba(34,197,94,0.08);color:#4ade80;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;position:relative}
+.surface-collab-btn:hover{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.55);box-shadow:0 0 12px rgba(34,197,94,0.2)}
+.surface-collab-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);animation:collab-pulse 2s ease-in-out infinite;flex-shrink:0}
+@keyframes collab-pulse{0%,100%{box-shadow:0 0 4px rgba(34,197,94,.6)}50%{box-shadow:0 0 10px rgba(34,197,94,1)}}
 .surface-dark .integrator-toggle button{background:#142540;border-color:#274468;color:#7da8d4}
 .surface-dark .integrator-toggle button.active{background:rgba(42,127,255,.15);border-color:#2a7fff;color:#7ab8ff}
 
@@ -1625,16 +1629,26 @@ export default function App() {
               <button className={`surface-modebtn operation ${workspaceMode === 'operation' ? 'active operation' : ''}`} onClick={() => { setWorkspaceMode('operation'); setActiveView('wf'); }}>Operation View</button>
             </div>
             {!isWorkflowDesignerView && <button className="surface-action"><i className="ti ti-player-play" /> Guided Tour</button>}
+            {isWorkflowDesignerView && (
+              <button
+                className="surface-collab-btn"
+                onClick={() => { setWorkspaceMode('integrator'); }}
+                title="Real-time collaboration — powered by React Flow Pro Yjs · click to open Collaboration panel"
+              >
+                <span className="surface-collab-dot" />
+                <span>● Live</span>
+                <span style={{ opacity: 0.6, fontSize: 10 }}>Collab</span>
+              </button>
+            )}
             <button className="surface-action primary"><i className="ti ti-upload" /> Upload</button>
           </div>
 
           <div className={`surface-ctxbar ${isWorkflowDesignerView ? 'designer' : ''}`}>
             {isWorkflowDesignerView ? (
               <>
-                <div className="surface-designer-meta">
-                  <span className="surface-ctxsub">Canvas-first workflow authoring with inspector-driven editing.</span>
-                  {!!launcherMessage && (workspaceMode === 'integrator' || workspaceMode === 'operation') && <span className="surface-ctxsub">• {launcherMessage}</span>}
-                </div>
+                {!!launcherMessage && (workspaceMode === 'integrator' || workspaceMode === 'operation') && (
+                  <span className="surface-ctxsub">{launcherMessage}</span>
+                )}
                 <div className="surface-designer-status">
                   {workflowHeaderStatus.map((item) => (
                     <div key={item.label} className="surface-statusitem">

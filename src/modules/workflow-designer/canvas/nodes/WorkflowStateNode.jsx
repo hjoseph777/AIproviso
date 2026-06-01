@@ -12,13 +12,12 @@ export const KIND_CONFIG = {
   standard:  { label: 'Standard',  icon: '◎', color: '#4A9FFF', glow: 'rgba(74,159,255,.28)',  tw: 'text-sky-400',      ring: 'ring-sky-500/60',      border: 'border-l-sky-500',      badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
 };
 
-// ── Semantic icons for transition labels ──────────────────────────────────────
 const LINTER_COPY = {
   'no-exit':     { label: '⚠ No Exit',     title: 'No outgoing transitions — this state is a dead end' },
   'unreachable': { label: '⚠ Unreachable', title: 'Nothing connects to this state' },
 };
 
-export default function WorkflowStateNode({ data, selected, id }) {
+export default function WorkflowStateNode({ data, selected }) {
   const updateNodeProperties = useWorkflowStore((s) => s.updateNodeProperties);
   const duplicateCanvasNode  = useWorkflowStore((s) => s.duplicateCanvasNode);
   const deleteCanvasNode     = useWorkflowStore((s) => s.deleteCanvasNode);
@@ -54,231 +53,154 @@ export default function WorkflowStateNode({ data, selected, id }) {
   const remoteUsers = Array.isArray(data.remotePresenceUsers) ? data.remotePresenceUsers : [];
   const isDimmed    = !!data.dimmed;
 
-  // ── Dynamic classes ──────────────────────────────────────────────────────────
-  const cardBase = [
-    'relative flex flex-col rounded-xl border-l-[3px]',
-    'bg-gradient-to-br from-slate-900/98 to-slate-950/98',
-    'shadow-2xl shadow-black/50',
-    'min-w-[210px] max-w-[255px]',
-    'transition-all duration-150 select-none',
-    cfg.border,
-    selected
-      ? `ring-2 ${cfg.ring} cursor-grab`
-      : 'ring-1 ring-white/[0.07] hover:ring-white/[0.18] cursor-grab',
-  ].join(' ');
+  const handleStyle = { zIndex: 20 };
 
   return (
     <>
-      {/* ── Node Toolbar (RF Pro) — appears above node when selected ── */}
-      <NodeToolbar isVisible={selected} position={Position.Top} offset={6}>
-        <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900/95 backdrop-blur-md px-1 py-1 shadow-xl shadow-black/40">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setSelectedNodeId(data.nodeId); }}
-            className="rounded-md px-2.5 py-1 text-[10px] font-semibold text-slate-300 hover:bg-sky-500/20 hover:text-sky-200 transition-colors"
-            title="Open in inspector"
-          >
-            Inspect
-          </button>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); duplicateCanvasNode(data.nodeId); }}
-            className="rounded-md px-2.5 py-1 text-[10px] font-semibold text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors"
-            title="Duplicate state"
-          >
-            Duplicate
-          </button>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); deleteCanvasNode(data.nodeId); }}
-            className="rounded-md px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
-            title="Delete state"
-          >
-            Delete
-          </button>
+      {/* ── RF Pro: NodeToolbar ── */}
+      <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(7,14,26,.97)', backdropFilter: 'blur(8px)', padding: '3px 4px', boxShadow: '0 4px 16px rgba(0,0,0,.5)' }}>
+          {[
+            ['Inspect',   () => setSelectedNodeId(data.nodeId),      '#38bdf8'],
+            ['Duplicate', () => duplicateCanvasNode(data.nodeId),     '#34d399'],
+            ['Delete',    () => deleteCanvasNode(data.nodeId),        '#f87171'],
+          ].map(([label, action, color]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); action(); }}
+              style={{ background: 'none', border: 'none', padding: '3px 9px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#64748b', cursor: 'pointer', transition: 'all .12s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = color + '18'; e.currentTarget.style.color = color; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </NodeToolbar>
 
-      {/* ── Node Resizer (RF Pro) ── */}
+      {/* ── RF Pro: NodeResizer ── */}
       <NodeResizer
         isVisible={selected}
-        minWidth={210}
-        minHeight={110}
-        lineClassName="border border-sky-400/40 rounded"
-        handleClassName="h-2.5 w-2.5 rounded-sm border border-sky-300/70 bg-sky-900/80 hover:bg-sky-500/50 transition-colors"
+        minWidth={155}
+        minHeight={64}
+        lineClassName="border border-white/20 rounded"
+        handleClassName="h-2 w-2 rounded-sm border border-white/25 bg-slate-800 hover:bg-white/20"
       />
 
-      {/* ── 4-direction connection handles ── */}
-      <Handle type="source" id="src-t" position={Position.Top}    className="wf2-handle wf2-src" />
-      <Handle type="source" id="src-r" position={Position.Right}  className="wf2-handle wf2-src" />
-      <Handle type="source" id="src-b" position={Position.Bottom} className="wf2-handle wf2-src" />
-      <Handle type="source" id="src-l" position={Position.Left}   className="wf2-handle wf2-src" />
-      <Handle type="target" id="tgt-t" position={Position.Top}    className="wf2-handle wf2-tgt" />
-      <Handle type="target" id="tgt-r" position={Position.Right}  className="wf2-handle wf2-tgt" />
-      <Handle type="target" id="tgt-b" position={Position.Bottom} className="wf2-handle wf2-tgt" />
-      <Handle type="target" id="tgt-l" position={Position.Left}   className="wf2-handle wf2-tgt" />
+      {/* ── 8-direction handles — z-index:20 ensures top/bottom appear above card ── */}
+      <Handle type="source" id="src-t" position={Position.Top}    className="wf2-handle wf2-src" style={handleStyle} />
+      <Handle type="source" id="src-r" position={Position.Right}  className="wf2-handle wf2-src" style={handleStyle} />
+      <Handle type="source" id="src-b" position={Position.Bottom} className="wf2-handle wf2-src" style={handleStyle} />
+      <Handle type="source" id="src-l" position={Position.Left}   className="wf2-handle wf2-src" style={handleStyle} />
+      <Handle type="target" id="tgt-t" position={Position.Top}    className="wf2-handle wf2-tgt" style={handleStyle} />
+      <Handle type="target" id="tgt-r" position={Position.Right}  className="wf2-handle wf2-tgt" style={handleStyle} />
+      <Handle type="target" id="tgt-b" position={Position.Bottom} className="wf2-handle wf2-tgt" style={handleStyle} />
+      <Handle type="target" id="tgt-l" position={Position.Left}   className="wf2-handle wf2-tgt" style={handleStyle} />
 
-      {/* ── Card ── */}
-      <div
-        className={cardBase}
-        style={{
-          opacity: isDimmed ? 0.18 : 1,
-          transition: 'opacity 0.18s ease',
-          boxShadow: selected
-            ? `0 16px 35px rgba(0,0,0,0.5), 0 0 0 1px ${cfg.color}55, 0 0 24px ${cfg.color}55`
-            : '0 16px 35px rgba(0,0,0,0.5)',
-        }}
-      >
-        {/* Subtle top glow line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-px rounded-t-xl opacity-50"
-          style={{ background: `linear-gradient(90deg, transparent, ${cfg.color}88, transparent)` }}
-        />
+      {/* ── Card — clean, professional, no gradients ── */}
+      <div style={{
+        position: 'relative',
+        minWidth: 155,
+        maxWidth: 220,
+        background: '#070e1a',
+        border: `1px solid ${selected ? cfg.color + '50' : 'rgba(255,255,255,0.08)'}`,
+        borderLeft: `3px solid ${cfg.color}`,
+        borderRadius: 8,
+        opacity: isDimmed ? 0.2 : 1,
+        boxShadow: selected
+          ? `0 0 0 1px ${cfg.color}28, 0 8px 24px rgba(0,0,0,.55)`
+          : '0 3px 12px rgba(0,0,0,.4)',
+        transition: 'opacity .18s ease, box-shadow .15s',
+        cursor: 'grab',
+        userSelect: 'none',
+      }}>
 
-        {/* ── Drag handle — visible affordance so users know the card is draggable ── */}
-        <div className="absolute top-2 right-2.5 flex items-center gap-1 rounded-full border border-white/[0.1] bg-slate-800/70 px-2 py-0.5 text-[8px] font-bold text-white/30 select-none cursor-grab hover:text-white/60 hover:border-white/20 transition-colors">
-          <svg width="7" height="9" viewBox="0 0 7 9" fill="none" className="opacity-70">
-            <circle cx="1.5" cy="1.5" r="1" fill="currentColor"/>
-            <circle cx="5.5" cy="1.5" r="1" fill="currentColor"/>
-            <circle cx="1.5" cy="4.5" r="1" fill="currentColor"/>
-            <circle cx="5.5" cy="4.5" r="1" fill="currentColor"/>
-            <circle cx="1.5" cy="7.5" r="1" fill="currentColor"/>
-            <circle cx="5.5" cy="7.5" r="1" fill="currentColor"/>
-          </svg>
-        </div>
-
-        {/* ── Header row: kind + badges ── */}
-        <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1.5">
-          {/* Kind icon */}
-          <span className={`text-[11px] leading-none ${cfg.tw} flex-shrink-0`} title={cfg.label}>
-            {cfg.icon}
+        {/* Kind row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px 3px' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: cfg.color, letterSpacing: '.5px', textTransform: 'uppercase', flexShrink: 0 }}>
+            {cfg.icon} {cfg.label}
           </span>
+          <span style={{ flex: 1 }} />
 
-          {/* Kind label */}
-          <span className={`text-[9.5px] font-bold uppercase tracking-wider ${cfg.tw}`}>
-            {cfg.label}
-          </span>
-
-          {/* Spacer */}
-          <span className="flex-1" />
-
-          {/* Recently added badge */}
-          {data.recentlyAdded && (
-            <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-px text-[8px] font-bold text-sky-300 leading-none">
-              New
-            </span>
-          )}
-
-          {/* Parallel badge */}
-          {Number(data.outgoingCount || 0) > 1 && (
-            <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-1.5 py-px text-[8px] font-bold text-sky-400/80 leading-none">
-              ×{data.outgoingCount}
-            </span>
-          )}
-
-          {/* Initial pulse */}
           {kind === 'initial' && (
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-            </span>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, boxShadow: `0 0 5px ${cfg.color}`, flexShrink: 0 }} />
           )}
-
-          {/* Validation error */}
+          {data.recentlyAdded && (
+            <span style={{ fontSize: 8, fontWeight: 700, color: '#38bdf8', border: '1px solid rgba(56,189,248,.3)', borderRadius: 99, padding: '1px 5px', lineHeight: 1.4 }}>New</span>
+          )}
+          {Number(data.outgoingCount || 0) > 1 && (
+            <span style={{ fontSize: 8, color: '#475569', lineHeight: 1 }}>×{data.outgoingCount}</span>
+          )}
           {data.hasValidationErrors && (
-            <span className="rounded-full border border-rose-500/50 bg-rose-500/10 px-1 py-px text-[9px] font-bold text-rose-400 leading-none" title="Validation errors">!</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#f87171', border: '1px solid rgba(248,113,113,.3)', borderRadius: 99, padding: '1px 5px', lineHeight: 1.4 }} title="Validation error">!</span>
           )}
-
-          {/* Linter badge */}
           {linterIssue && (
-            <span
-              className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[8px] font-bold text-amber-400 leading-none"
-              title={LINTER_COPY[linterIssue]?.title}
-            >
+            <span style={{ fontSize: 8, color: '#fbbf24', border: '1px solid rgba(251,191,36,.25)', borderRadius: 99, padding: '1px 5px', lineHeight: 1.4 }} title={LINTER_COPY[linterIssue]?.title}>
               {LINTER_COPY[linterIssue]?.label}
             </span>
           )}
         </div>
 
-        {/* Divider */}
-        <div className="mx-3 h-px bg-white/[0.05]" />
-
-        {/* ── State name ── */}
-        <div className="px-3 py-2.5">
+        {/* State name */}
+        <div style={{ padding: '2px 10px 8px' }}>
           {editing ? (
             <input
               ref={inputRef}
-              className="w-full rounded-md border border-sky-400/40 bg-sky-500/10 px-2 py-1 text-[14px] font-bold text-white/90 outline-none placeholder-white/30 focus:border-sky-400/70 focus:ring-1 focus:ring-sky-400/30"
               value={draft}
               autoFocus
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commitEdit}
               onKeyDown={handleKeyDown}
               onClick={(e) => e.stopPropagation()}
+              style={{ width: '100%', background: 'rgba(56,189,248,.08)', border: '1px solid rgba(56,189,248,.4)', borderRadius: 5, padding: '3px 7px', fontSize: 13, fontWeight: 600, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
             />
           ) : (
             <div
-              className="text-[14px] font-bold text-white/90 leading-snug cursor-text hover:text-white transition-colors truncate"
-              title={`${data.name || 'Untitled State'} — double-click to rename`}
               onDoubleClick={startEdit}
+              title={`${data.name || 'Untitled'} — double-click to rename`}
+              style={{ fontSize: 13, fontWeight: 600, color: '#d4e0f0', lineHeight: 1.3, cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {data.name || <span className="italic text-white/30">Untitled State</span>}
+              {data.name || <span style={{ color: 'rgba(255,255,255,0.22)', fontStyle: 'italic' }}>Untitled State</span>}
             </div>
           )}
         </div>
 
-        {/* ── Collaboration presence row ── */}
-        {remoteUsers.length > 0 && (
-          <div className="flex items-center gap-1.5 px-3 pb-1.5">
-            <span className="text-[8px] font-semibold uppercase tracking-wider text-slate-500">Live</span>
-            <div className="flex -space-x-1">
-              {remoteUsers.slice(0, 4).map((user) => (
-                <span
-                  key={user.clientId}
-                  title={user.label}
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7px] font-bold ring-1 ring-slate-900"
-                  style={{ background: user.tint, color: user.color, border: `1.5px solid ${user.color}` }}
-                >
-                  {user.initials}
-                </span>
-              ))}
-            </div>
+        {/* Meta chips — only when configured, no empty placeholders */}
+        {(data.assigneeRoleId || data.slaPolicyId || data.tags?.length > 0) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '0 10px 7px' }}>
+            {data.assigneeRoleId && (
+              <span style={{ fontSize: 9, color: '#38bdf8', border: '1px solid rgba(56,189,248,.2)', borderRadius: 99, padding: '1px 7px', lineHeight: 1.6 }}>
+                👤 {data.assigneeRoleId}
+              </span>
+            )}
+            {data.slaPolicyId && (
+              <span style={{ fontSize: 9, color: '#fbbf24', border: '1px solid rgba(251,191,36,.2)', borderRadius: 99, padding: '1px 7px', lineHeight: 1.6 }}>
+                ⏱ {data.slaPolicyId}
+              </span>
+            )}
+            {data.tags?.length > 0 && (
+              <span style={{ fontSize: 9, color: '#a78bfa', border: '1px solid rgba(167,139,250,.2)', borderRadius: 99, padding: '1px 7px', lineHeight: 1.6 }}>
+                🏷 {data.tags.length}
+              </span>
+            )}
           </div>
         )}
 
-        {/* ── Footer metadata chips ── */}
-        <div className="flex flex-wrap items-center gap-1 px-3 pb-2.5 pt-0.5">
-          {/* Assignee */}
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-[9px] font-medium leading-none ${data.assigneeRoleId ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-white/8 bg-white/4 text-white/30'}`}
-            title={data.assigneeRoleId ? `Assignee: ${data.assigneeRoleId}` : 'No assignee'}
-          >
-            <span className="text-[9px]">👤</span>
-            <span className="truncate max-w-[60px]">{data.assigneeRoleId || 'Unassigned'}</span>
-          </span>
-
-          {/* SLA */}
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-[9px] font-medium leading-none ${data.slaPolicyId ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-white/8 bg-white/4 text-white/30'}`}
-            title={data.slaPolicyId ? `SLA: ${data.slaPolicyId}` : 'No SLA'}
-          >
-            <span className="text-[9px]">⏱</span>
-            <span>{data.slaPolicyId || 'No SLA'}</span>
-          </span>
-
-          {/* Tags */}
-          {data.tags?.length > 0 && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-px text-[9px] font-medium text-violet-300 leading-none"
-              title={`Tags: ${data.tags.join(', ')}`}
-            >
-              <span className="text-[9px]">🏷</span>
-              <span>{data.tags.length} tag{data.tags.length > 1 ? 's' : ''}</span>
-            </span>
-          )}
-        </div>
+        {/* Collaboration presence */}
+        {remoteUsers.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '0 10px 6px' }}>
+            {remoteUsers.slice(0, 4).map((user) => (
+              <span
+                key={user.clientId}
+                title={user.label}
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, borderRadius: '50%', fontSize: 7, fontWeight: 700, background: user.tint, color: user.color, border: `1.5px solid ${user.color}`, flexShrink: 0 }}
+              >
+                {user.initials}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

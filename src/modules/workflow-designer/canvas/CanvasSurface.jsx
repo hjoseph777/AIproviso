@@ -20,6 +20,10 @@ import {
 import { KIND_COLORS, resolveEdgeColor } from './edges/WorkflowTransitionEdge';
 import { useElkLayout } from '../engine/useElkLayout';
 import CanvasContextMenu from './CanvasContextMenu';
+import {
+  CreationDeck, LayoutDeck, HistoryDeck, ContextDeck, CloudDeck,
+  ProPanel, ModeIndicator,
+} from './ActionDeckSystem';
 
 const STATE_KIND_LABELS = {
   initial: 'Initial',
@@ -252,17 +256,32 @@ function UnifiedBuilderToolbar({
   onExportServerImage,
   onCopy,
   onPaste,
+  onDuplicateNode,
+  onDeleteNode,
+  onDeleteEdge,
   hasCopyBuffer,
   remotePresenceUsers,
 }) {
   const [showProPanel, setShowProPanel] = useState(false);
+
+  const isNodeSelected = Boolean(selectedNodeId);
+  const isEdgeSelected = Boolean(selectedEdgeId);
+  const hasSelection   = isNodeSelected || isEdgeSelected;
+
   const statusText = isOptimizing ? 'Optimizing…'
-    : groupingMode ? '▣ Grouping mode — select nodes on canvas, then click Group again to wrap them'
-    : isConnecting ? 'Drag handle → handle to connect'
-    : isLocked ? '🔒 Canvas locked'
-    : selectedNodeId ? 'State selected — double-click title to rename'
-    : selectedEdgeId ? 'Transition selected — double-click label to rename'
+    : groupingMode ? '▣ Grouping — select nodes then click Group again to wrap · Esc to cancel'
+    : isConnecting ? 'Drag from a glowing handle to another node to connect'
+    : isLocked ? '🔒 Canvas locked — unlock to make edits'
+    : isNodeSelected ? 'State selected — double-click title to rename · drag to reposition'
+    : isEdgeSelected ? 'Transition selected — double-click label to rename · drag midpoint to bend'
     : 'Canvas ready';
+
+  const LabelGroup = ({ label, children }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ display: 'flex', gap: 2 }}>{children}</div>
+    </div>
+  );
 
   return (
     <Panel
@@ -270,123 +289,110 @@ function UnifiedBuilderToolbar({
       className="!mt-2.5 !rounded-xl !border !border-white/[0.08] !bg-slate-950/90 !shadow-xl !shadow-black/40 !backdrop-blur-md"
     >
       <div style={{ padding: '6px 10px 5px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {/* ── Button row ── */}
+        {/* ── Context-sensitive button row ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          {/* History & Edit */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>History & Edit</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <IBtn onClick={undo} disabled={!canUndo} title="Undo last action (Ctrl+Z)">↩ Undo</IBtn>
-              <IBtn onClick={redo} disabled={!canRedo} title="Redo last undone action (Ctrl+Y)">↪ Redo</IBtn>
-              <IBtn onClick={onCopy} disabled={!selectedNodeId && !selectedEdgeId} title="Copy selected node/transition (Ctrl+C)">⧉ Copy</IBtn>
-              <IBtn onClick={onPaste} disabled={!hasCopyBuffer} title="Paste copied node(s) onto canvas (Ctrl+V)">⎘ Paste</IBtn>
-            </div>
-          </div>
+
+          {/* Always: History */}
+          <LabelGroup label="History">
+            <IBtn onClick={undo} disabled={!canUndo} title="Undo last action (Ctrl+Z)">↩ Undo</IBtn>
+            <IBtn onClick={redo} disabled={!canRedo} title="Redo last undone action (Ctrl+Y)">↪ Redo</IBtn>
+          </LabelGroup>
 
           <TDivider />
 
-          {/* Interaction mode */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>Mode</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <IBtn onClick={() => setInteractionMode('select')} active={interactionMode === 'select'} title="Select — click and drag nodes to reposition them">◻ Select</IBtn>
-              <IBtn onClick={() => setInteractionMode('connect')} active={interactionMode === 'connect'} disabled={isLocked} title="Connect — drag from a node handle to another node to create a transition arrow">↝ Connect</IBtn>
-              <IBtn onClick={() => setInteractionMode('draw')} active={interactionMode === 'draw'} disabled={isLocked} title="Draw — freehand sketch annotations on the canvas">✏ Draw</IBtn>
-            </div>
-          </div>
+          {/* Always: Mode */}
+          <LabelGroup label="Mode">
+            <IBtn onClick={() => setInteractionMode('select')} active={interactionMode === 'select'} title="Select — click nodes to select, drag to reposition">◻ Select</IBtn>
+            <IBtn onClick={() => setInteractionMode('connect')} active={interactionMode === 'connect'} disabled={isLocked} title="Connect — hover a node, drag from the glowing handle to another node">↝ Connect</IBtn>
+            <IBtn onClick={() => setInteractionMode('draw')} active={interactionMode === 'draw'} disabled={isLocked} title="Draw — freehand annotation strokes on canvas">✏ Draw</IBtn>
+          </LabelGroup>
 
           <TDivider />
 
-          {/* Layout & View — grouped with label */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>Layout &amp; View</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <IBtn onClick={onAutoLayout} title="Auto Layout — repositions all nodes top-down using ELK (AP flow order)">⊞ Layout</IBtn>
-              <IBtn onClick={onForceLayout} disabled={isLocked || rfNodes.length < 2} title="Force Layout — D3 physics spreads nodes evenly, reduces overlap">⟳ Force</IBtn>
-              <IBtn onClick={onFitView} title="Fit to Screen — zooms/pans so all nodes are visible (no node movement)">⤢ Fit</IBtn>
-              <IBtn onClick={onOptimizePaths} disabled={isLocked || isOptimizing} active={isOptimizing} title="Optimize Paths — redraws all arrows crossing-free using ELK SPLINES (nodes don't move)">⊷ Paths</IBtn>
-              <IBtn
-                onClick={libavoidActive ? onLibavoidClear : onLibavoidRoute}
-                active={libavoidActive}
-                disabled={isLocked}
-                title={libavoidActive ? 'Clear orthogonal routing — back to bezier curves' : 'Route — obstacle-aware orthogonal routing, edges go around nodes'}
-              >
-                {libavoidActive ? '⊹ Ortho' : '⊸ Route'}
-              </IBtn>
-            </div>
-          </div>
-
-          <TDivider />
-
-          {/* Group */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>Group</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <IBtn
-                onClick={onGroupSelected}
-                active={groupingMode}
-                disabled={isLocked || rfNodes.length < 2}
-                title={groupingMode
-                  ? 'Group ON — select nodes on canvas then click again to wrap them · Escape to cancel'
-                  : 'Group — click to enter grouping mode, select nodes, click again to create group'}
-              >
-                {groupingMode ? '▣ Group ON' : '▣ Group'}
-              </IBtn>
-              <IBtn onClick={onToggleCollapse} disabled={!canToggleCollapse} active={isSelectionCollapsed} title={isSelectionCollapsed ? 'Expand — show the nodes inside this collapsed group' : 'Collapse — fold the selected group to a single compact box'}>
-                {isSelectionCollapsed ? '▶ Expand' : '▼ Collapse'}
-              </IBtn>
-            </div>
-          </div>
-
-          <TDivider />
-
-          {/* Export */}
-          <IBtn onClick={onExportPng} title="Export PNG">↓ PNG</IBtn>
-          <IBtn onClick={onExportServerImage} title="Server-side SVG">☁ SVG</IBtn>
-
-          {freehandStrokeCount > 0 && (
-            <IBtn onClick={onClearFreehand} danger title="Clear freehand strokes">✕ Ink</IBtn>
+          {/* NODE SELECTED — node-specific actions */}
+          {isNodeSelected && (
+            <>
+              <LabelGroup label="Node">
+                <IBtn onClick={onCopy} title="Copy this state (Ctrl+C)">⧉ Copy</IBtn>
+                <IBtn onClick={onPaste} disabled={!hasCopyBuffer} title="Paste copied state (Ctrl+V)">⎘ Paste</IBtn>
+                <IBtn onClick={onDuplicateNode} disabled={isLocked} title="Duplicate — create an identical copy of this state">⊞ Dupe</IBtn>
+                <IBtn onClick={onDeleteNode} disabled={isLocked} danger title="Delete this state and all its transitions (Delete key)">✕ Delete</IBtn>
+              </LabelGroup>
+              <TDivider />
+            </>
           )}
 
+          {/* EDGE SELECTED — edge style + delete */}
+          {isEdgeSelected && (
+            <>
+              <LabelGroup label="Transition Style">
+                {EDGE_CURVE_OPTIONS.map((o) => (
+                  <IBtn key={o.value} onClick={() => onEdgeCurveStyleChange(o.value)} active={edgeCurveStyle === o.value} activeColor={o.color} title={o.title}>
+                    {o.label}
+                  </IBtn>
+                ))}
+              </LabelGroup>
+              <TDivider />
+              <LabelGroup label="Arrow">
+                {EDGE_MARKER_OPTIONS.map((o) => (
+                  <IBtn key={o.value} onClick={() => onEdgeMarkerTypeChange(o.value)} active={edgeMarkerType === o.value} activeColor={o.color} title={o.label}>
+                    {o.label}
+                  </IBtn>
+                ))}
+              </LabelGroup>
+              <TDivider />
+              <LabelGroup label="Edge">
+                <IBtn onClick={onDeleteEdge} disabled={isLocked} danger title="Delete this transition (Delete key)">✕ Delete</IBtn>
+              </LabelGroup>
+              <TDivider />
+            </>
+          )}
+
+          {/* DEFAULT (nothing selected) — Layout, Group */}
+          {!hasSelection && (
+            <>
+              <LabelGroup label="Layout &amp; View">
+                <IBtn onClick={onAutoLayout} title="Auto Layout — ELK repositions all nodes in top-down AP flow order">⊞ Layout</IBtn>
+                <IBtn onClick={onForceLayout} disabled={isLocked || rfNodes.length < 2} title="Force Layout — D3 physics spreads nodes evenly, reduces overlap">⟳ Force</IBtn>
+                <IBtn onClick={onFitView} title="Fit to Screen — zoom and pan so all nodes are visible (no movement)">⤢ Fit</IBtn>
+                <IBtn onClick={onOptimizePaths} disabled={isLocked || isOptimizing} active={isOptimizing} title="Optimize Paths — redraws all arrows to reduce crossings (nodes stay put)">⊷ Paths</IBtn>
+                <IBtn onClick={libavoidActive ? onLibavoidClear : onLibavoidRoute} active={libavoidActive} disabled={isLocked}
+                  title={libavoidActive ? 'Clear obstacle routing — restore bezier curves' : 'Route — route edges around node obstacles (libavoid algorithm)'}>
+                  {libavoidActive ? '⊹ Ortho' : '⊸ Route'}
+                </IBtn>
+              </LabelGroup>
+              <TDivider />
+              <LabelGroup label="Group">
+                <IBtn onClick={onGroupSelected} active={groupingMode} disabled={isLocked || rfNodes.length < 2}
+                  title={groupingMode ? 'Group ON — select nodes then click again to wrap · Esc to cancel' : 'Group — enter grouping mode, select nodes, click again to create'}>
+                  {groupingMode ? '▣ Group ON' : '▣ Group'}
+                </IBtn>
+                <IBtn onClick={onToggleCollapse} disabled={!canToggleCollapse} active={isSelectionCollapsed}
+                  title={isSelectionCollapsed ? 'Expand — show nodes inside this collapsed group' : 'Collapse — fold selected group to a compact box'}>
+                  {isSelectionCollapsed ? '▶ Expand' : '▼ Collapse'}
+                </IBtn>
+              </LabelGroup>
+              <TDivider />
+            </>
+          )}
+
+          {/* Always: Export + Lock + Pro */}
+          <LabelGroup label="Export">
+            <IBtn onClick={onExportPng} title="Export canvas as PNG image">↓ PNG</IBtn>
+            <IBtn onClick={onExportServerImage} title="Server-side SVG render of the full canvas">☁ SVG</IBtn>
+            {freehandStrokeCount > 0 && <IBtn onClick={onClearFreehand} danger title="Clear all freehand drawing strokes">✕ Ink</IBtn>}
+          </LabelGroup>
+
           <TDivider />
 
-          {/* RF Pro features reference */}
-          <IBtn onClick={() => setShowProPanel((p) => !p)} active={showProPanel} title="React Flow Pro — view all 17 Pro features available in this designer">★ Pro</IBtn>
-
-          <TDivider />
-
-          {/* Lock */}
-          <IBtn onClick={onToggleLock} active={isLocked} title={isLocked ? 'Unlock canvas — allow edits' : 'Lock canvas — prevent accidental changes'}>
+          <IBtn onClick={onToggleLock} active={isLocked} title={isLocked ? 'Unlock canvas — allow editing' : 'Lock canvas — prevent accidental changes'}>
             {isLocked ? '🔒' : '🔓'}
           </IBtn>
 
           <TDivider />
 
-          {/* Connector curve style */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>Curve</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              {EDGE_CURVE_OPTIONS.map((o) => (
-                <IBtn key={o.value} onClick={() => onEdgeCurveStyleChange(o.value)} active={edgeCurveStyle === o.value} activeColor={o.color} title={o.title}>
-                  {o.label}
-                </IBtn>
-              ))}
-            </div>
-          </div>
+          <IBtn onClick={() => setShowProPanel((p) => !p)} active={showProPanel} title="React Flow Pro — all 17 features active, click to see the full list">★ Pro</IBtn>
 
-          <TDivider />
-
-          {/* Arrow head */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 8, color: '#64748b', textAlign: 'center', letterSpacing: '.4px', textTransform: 'uppercase' }}>Arrow</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              {EDGE_MARKER_OPTIONS.map((o) => (
-                <IBtn key={o.value} onClick={() => onEdgeMarkerTypeChange(o.value)} active={edgeMarkerType === o.value} activeColor={o.color} title={o.label}>
-                  {o.label}
-                </IBtn>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* ── Pro Features Panel ── */}
@@ -521,6 +527,7 @@ export default function CanvasSurface({ onOpenInspector }) {
   const [libavoidActive, setLibavoidActive] = useState(false);
   const [libavoidWaypoints, setLibavoidWaypoints] = useState(() => new Map());
   const [groupingMode, setGroupingMode] = useState(false);
+  const [showProPanel, setShowProPanel] = useState(false);
   const [showConnectHint, setShowConnectHint] = useState(false);
   const connectHintTimerRef = useRef(null);
   const [collaborationOnline, setCollaborationOnline] = useState(false);
@@ -1763,58 +1770,88 @@ export default function CanvasSurface({ onOpenInspector }) {
       onDragLeave={() => { setIsDropActive(false); setDropPreview(null); setDropSnap(null); }}
     >
 
-      <UnifiedBuilderToolbar
+      {/* ── Action Deck System — 5 floating glassmorphic panels ── */}
+      <CreationDeck
+        onAddNode={(kind) => addCanvasNode({ stateKind: kind })}
         interactionMode={interactionMode}
         setInteractionMode={setInteractionMode}
         isLocked={isLocked}
-        isDrawingFreehand={isDrawingFreehand}
-        onToggleLock={() => setIsLocked((prev) => !prev)}
-        onOptimizePaths={runOptimizePaths}
-        libavoidActive={libavoidActive}
-        onLibavoidRoute={runLibavoidRouting}
-        onLibavoidClear={clearLibavoidRouting}
+        groupingMode={groupingMode}
+        onGroupSelected={() => {
+          if (!groupingMode) { setGroupingMode(true); }
+          else { groupSelectedNodes(); setGroupingMode(false); }
+        }}
+        canToggleCollapse={Boolean(selectedGroupNode?.id)}
+        isSelectionCollapsed={Boolean(selectedGroupNode?.id && collapsedGroupIds.has(selectedGroupNode.id))}
+        onToggleCollapse={() => toggleGroupCollapsed(selectedGroupNode?.id)}
+        freehandStrokeCount={freehandStrokes.length}
+        onClearFreehand={clearFreehandStrokes}
+      />
+
+      <LayoutDeck
         onAutoLayout={applyElkLayout}
         onForceLayout={runForceLayout}
         onFitView={fitView}
+        onOptimizePaths={runOptimizePaths}
+        isOptimizing={isOptimizing}
+        isLocked={isLocked}
+        rfNodes={rfNodes}
+        rfEdges={rfEdges}
+        libavoidActive={libavoidActive}
+        onLibavoidRoute={runLibavoidRouting}
+        onLibavoidClear={clearLibavoidRouting}
+        zoom={zoom}
+        collaborationOnline={effectiveOnline}
+        remotePresenceUsers={Object.values(effectivePresence)}
+      />
+
+      <HistoryDeck
         undo={undo}
         redo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
-        zoom={zoom}
-        rfNodes={rfNodes}
-        rfEdges={rfEdges}
-        selectedNodeId={selectedNodeId}
-        selectedEdgeId={selectedEdgeId}
-        isOptimizing={isOptimizing}
-        collaborationOnline={effectiveOnline}
-        edgeMarkerType={edgeMarkerType}
-        onEdgeMarkerTypeChange={setEdgeMarkerType}
-        edgeCurveStyle={edgeCurveStyle}
-        onEdgeCurveStyleChange={setEdgeCurveStyle}
-        collaborationSessionId={collaborationSessionId}
-        onSessionIdChange={handleSessionIdChange}
-        isConnecting={isConnecting}
-        freehandStrokeCount={freehandStrokes.length}
-        onGroupSelected={() => {
-          if (!groupingMode) {
-            setGroupingMode(true);
-          } else {
-            groupSelectedNodes();
-            setGroupingMode(false);
-          }
-        }}
-        groupingMode={groupingMode}
-        canToggleCollapse={Boolean(selectedGroupNode?.id)}
-        isSelectionCollapsed={Boolean(selectedGroupNode?.id && collapsedGroupIds.has(selectedGroupNode.id))}
-        onToggleCollapse={() => toggleGroupCollapsed(selectedGroupNode?.id)}
-        onClearFreehand={clearFreehandStrokes}
-        onExportPng={exportCanvasToPng}
-        onExportServerImage={exportCanvasServerSide}
         onCopy={copySelectionToBuffer}
         onPaste={pasteSelectionFromBuffer}
         hasCopyBuffer={copyBufferRef.current?.nodes?.length > 0}
-        remotePresenceCount={Object.values(effectivePresence).length}
+        selectedNodeId={selectedNodeId}
+        selectedEdgeId={selectedEdgeId}
+        isLocked={isLocked}
+        onToggleLock={() => setIsLocked((prev) => !prev)}
+        showProPanel={showProPanel}
+        onToggleProPanel={() => setShowProPanel((p) => !p)}
+      />
+
+      <ContextDeck
+        selectedNodeId={selectedNodeId}
+        selectedEdgeId={selectedEdgeId}
+        isLocked={isLocked}
+        onDeleteNode={() => selectedNodeId && deleteCanvasNode(selectedNodeId)}
+        onDeleteEdge={() => selectedEdgeId && deleteCanvasEdge(selectedEdgeId)}
+        onDuplicateNode={() => selectedNodeId && duplicateCanvasNode(selectedNodeId)}
+        edgeCurveStyle={edgeCurveStyle}
+        onEdgeCurveStyleChange={setEdgeCurveStyle}
+        edgeMarkerType={edgeMarkerType}
+        onEdgeMarkerTypeChange={setEdgeMarkerType}
+        canToggleCollapse={Boolean(selectedGroupNode?.id)}
+        isSelectionCollapsed={Boolean(selectedGroupNode?.id && collapsedGroupIds.has(selectedGroupNode.id))}
+        onToggleCollapse={() => toggleGroupCollapsed(selectedGroupNode?.id)}
+      />
+
+      <CloudDeck
+        onExportPng={exportCanvasToPng}
+        onExportServerImage={exportCanvasServerSide}
+        collaborationOnline={effectiveOnline}
         remotePresenceUsers={Object.values(effectivePresence)}
+      />
+
+      <ProPanel visible={showProPanel} />
+
+      <ModeIndicator
+        interactionMode={interactionMode}
+        isOptimizing={isOptimizing}
+        groupingMode={groupingMode}
+        isLocked={isLocked}
+        isConnecting={isConnecting}
       />
 
       {isDropActive && (

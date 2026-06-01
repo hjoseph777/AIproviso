@@ -863,7 +863,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                     Select a state or transition to open Inspector, or press I.
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {AP_WORKFLOW_TEMPLATES.slice(0, 8).map((item) => (
                     <button
                       key={`quick-${item.id}`}
@@ -872,21 +872,36 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                       onDragStart={(event) => startPaletteDrag(event, item)}
                       onDragEnd={() => { lastPaletteDragAtRef.current = Date.now(); setGlobalWorkflowPaletteDragItem(null); }}
                       onClick={() => handlePaletteQuickAdd(item)}
-                      title="Click to add, or drag onto canvas"
+                      title={`${item.description} — click to add, drag to position`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 5,
-                        border: '1px solid rgba(124,170,222,.3)',
-                        borderRadius: 8,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderLeft: `3px solid ${item.color}`,
+                        borderRadius: 6,
                         background: 'rgba(8,22,40,.82)',
-                        color: '#d6e9ff',
-                        padding: '4px 7px',
+                        color: '#94a3b8',
+                        padding: '3px 8px 3px 6px',
                         fontSize: 9,
                         cursor: 'grab',
+                        transition: 'all .14s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = `${item.color}18`;
+                        e.currentTarget.style.color = '#c8d8ec';
+                        e.currentTarget.style.borderColor = `${item.color}55`;
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(8,22,40,.82)';
+                        e.currentTarget.style.color = '#94a3b8';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                        e.currentTarget.style.transform = '';
                       }}
                     >
-                      <span style={{ color: item.color }}>{item.icon}</span>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                      <span style={{ color: item.color, fontSize: 10 }}>{item.icon}</span>
                       <span>{item.label}</span>
                     </button>
                   ))}
