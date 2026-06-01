@@ -4,6 +4,11 @@ AP-first automation platform for document-heavy business operations.
 
 AI Proviso is built to solve integration nightmares while hiding complexity from end users. The system gives non-engineering teams a unified role-based workspace, deterministic-first document extraction, AI-assisted workflow generation, and reliable orchestration across enterprise systems.
 
+## Key PRD Files
+
+- `Proviso_PRD_v12.md` (current consolidated PRD)
+- `Proviso_PRD_v11.md` (previous baseline)
+
 ## Problem We Are Solving
 
 Most AP and workflow programs fail because teams are forced to stitch together fragile tools manually:

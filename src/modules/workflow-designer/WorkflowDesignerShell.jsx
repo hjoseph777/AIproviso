@@ -1114,141 +1114,245 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
             </div>
           )}
           {centerView === 'simulation' && (
-            <div className="cc-col-body" style={{ padding: '12px 14px', display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
-              <div
-                style={{
-                  border: '1px solid rgba(124,170,222,.22)',
-                  borderRadius: 10,
-                  background: 'rgba(9,25,45,.48)',
-                  padding: '10px 12px',
-                  display: 'grid',
-                  gridTemplateColumns: 'auto auto auto auto 1fr auto',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <button className="xb blue" type="button" onClick={startSimulation} disabled={simulationRunning}>▶ Play</button>
-                <button className="xb" type="button" onClick={() => setSimulationRunning(false)} disabled={!simulationRunning}>⏸ Pause</button>
-                <button className="xb" type="button" onClick={stepSimulation}>⏭ Step</button>
-                <button className="xb" type="button" onClick={resetSimulation}>⏹ Stop</button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifySelf: 'start' }}>
-                  <span style={{ fontSize: 10, color: 'var(--mid)' }}>Speed</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3"
-                    step="0.5"
-                    value={simulationSpeed}
-                    onChange={(event) => setSimulationSpeed(Number(event.target.value))}
-                  />
-                  <span style={{ fontSize: 10, color: 'var(--text)' }}>{simulationSpeed.toFixed(1)}x</span>
+            <div className="cc-col-body" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+              {/* ── Transport controls ── */}
+              <div style={{ background: 'rgba(7,12,23,0.82)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {[
+                  { label: '▶', action: startSimulation,                        disabled: simulationRunning,  color: '#4ade80', title: 'Play — run simulation automatically' },
+                  { label: '⏸', action: () => setSimulationRunning(false),       disabled: !simulationRunning, color: '#fbbf24', title: 'Pause simulation' },
+                  { label: '⏭', action: stepSimulation,                          disabled: false,              color: '#38bdf8', title: 'Step — advance one transition' },
+                  { label: '⏹', action: resetSimulation,                         disabled: false,              color: '#f87171', title: 'Stop and reset simulation' },
+                ].map(({ label, action, disabled, color, title }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={action}
+                    disabled={disabled}
+                    title={title}
+                    style={{
+                      width: 34, height: 34, borderRadius: 8, border: '1px solid',
+                      background: disabled ? 'transparent' : `${color}14`,
+                      borderColor: disabled ? 'rgba(255,255,255,0.06)' : `${color}40`,
+                      color: disabled ? 'rgba(100,116,139,0.3)' : color,
+                      fontSize: 14, cursor: disabled ? 'not-allowed' : 'pointer',
+                      transition: 'all .14s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+
+                <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.07)', margin: '0 4px' }} />
+
+                {/* Speed */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.6)', letterSpacing: '.5px', textTransform: 'uppercase' }}>Speed</span>
+                  <input type="range" min="0.5" max="3" step="0.5" value={simulationSpeed} onChange={(e) => setSimulationSpeed(Number(e.target.value))} style={{ width: 80, accentColor: '#38bdf8' }} />
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#38bdf8', minWidth: 28 }}>{simulationSpeed.toFixed(1)}×</span>
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--text)' }}>
-                  Active: {simulationActiveStateId ? (stateNameByKey.get(simulationActiveStateId) || simulationActiveStateId) : 'none'}
-                  {simulationActiveStateId && terminalStateKeys.has(simulationActiveStateId) ? ' · terminal' : ''}
+
+                <div style={{ flex: 1 }} />
+
+                {/* Active state */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {simulationActiveStateId && (
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px rgba(74,222,128,.8)', flexShrink: 0 }} />
+                  )}
+                  <span style={{ fontSize: 10, fontWeight: 600, color: simulationActiveStateId ? '#c8d8ec' : 'rgba(100,116,139,0.4)' }}>
+                    {simulationActiveStateId
+                      ? (stateNameByKey.get(simulationActiveStateId) || simulationActiveStateId) + (terminalStateKeys.has(simulationActiveStateId) ? ' · ✓ Complete' : '')
+                      : 'Not running'}
+                  </span>
                 </div>
               </div>
 
-              <div
-                style={{
-                  border: '1px solid rgba(124,170,222,.16)',
-                  borderRadius: 10,
-                  background: 'rgba(6,18,34,.48)',
-                  padding: '8px 10px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, minmax(0,1fr))',
-                  gap: 8,
-                }}
-              >
-                <label style={{ display: 'grid', gap: 4, fontSize: 10, color: 'var(--mid)' }}>
-                  Amount
-                  <input
-                    type="number"
-                    value={simulationContext.amount}
-                    onChange={(event) => setSimulationContext((prev) => ({ ...prev, amount: Number(event.target.value || 0) }))}
-                  />
-                </label>
-                <label style={{ display: 'grid', gap: 4, fontSize: 10, color: 'var(--mid)' }}>
-                  Confidence
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="1"
-                    value={simulationContext.confidence}
-                    onChange={(event) => setSimulationContext((prev) => ({ ...prev, confidence: Number(event.target.value || 0) }))}
-                  />
-                </label>
-                <label style={{ display: 'grid', gap: 4, fontSize: 10, color: 'var(--mid)' }}>
-                  Overdue Hours
-                  <input
-                    type="number"
-                    min="0"
-                    value={simulationContext.overdueHours}
-                    onChange={(event) => setSimulationContext((prev) => ({ ...prev, overdueHours: Number(event.target.value || 0) }))}
-                  />
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--mid)', marginTop: 18 }}>
-                  <input
-                    type="checkbox"
-                    checked={simulationContext.hasPo}
-                    onChange={(event) => setSimulationContext((prev) => ({ ...prev, hasPo: event.target.checked }))}
-                  />
-                  Has PO
-                </label>
-              </div>
+              {/* ── Two-column: context + trace ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 10, flex: 1, minHeight: 0 }}>
 
-              <div
-                style={{
-                  border: '1px solid rgba(124,170,222,.16)',
-                  borderRadius: 10,
-                  background: 'rgba(6,18,34,.58)',
-                  overflow: 'auto',
-                  padding: '8px 10px',
-                }}
-              >
-                {simulationHistory.length === 0 ? (
-                  <div style={{ fontSize: 11, color: 'var(--mid)' }}>Run simulation to inspect route history.</div>
-                ) : (
-                  simulationHistory.map((entry, index) => (
+                {/* Invoice Context */}
+                <div style={{ background: 'rgba(7,12,23,0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.6)', letterSpacing: '.6px', textTransform: 'uppercase' }}>Invoice Context</div>
+
+                  {[
+                    { key: 'amount',       label: '$ Amount',      type: 'number', step: 1,    min: 0 },
+                    { key: 'confidence',   label: '🎯 Confidence',  type: 'number', step: 0.01, min: 0, max: 1 },
+                    { key: 'overdueHours', label: '⏰ Overdue hrs', type: 'number', step: 1,    min: 0 },
+                  ].map(({ key, label, type, step, min, max }) => (
+                    <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(100,116,139,0.6)', letterSpacing: '.3px' }}>{label}</span>
+                      <input
+                        type={type}
+                        step={step}
+                        min={min}
+                        max={max}
+                        value={simulationContext[key]}
+                        onChange={(e) => setSimulationContext((prev) => ({ ...prev, [key]: Number(e.target.value || 0) }))}
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '5px 9px', fontSize: 11, color: '#c8d8ec', outline: 'none', fontFamily: 'var(--mono)', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </label>
+                  ))}
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
                     <div
-                      key={`${entry.ts}-${index}`}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '148px 1fr',
-                        gap: 10,
-                        fontSize: 10,
-                        fontFamily: 'var(--mono)',
-                        color: 'var(--text)',
-                        padding: '6px 0',
-                        borderBottom: '1px solid rgba(255,255,255,.04)',
-                      }}
-                    >
-                      <span style={{ color: 'var(--mid)' }}>{entry.ts}</span>
-                      <span>
-                        {entry.kind === 'start'
-                          ? `START -> ${entry.to}`
-                          : `${entry.from} -> ${entry.to} (${entry.event})`}
-                      </span>
+                      onClick={() => setSimulationContext((prev) => ({ ...prev, hasPo: !prev.hasPo }))}
+                      style={{ width: 32, height: 18, borderRadius: 99, background: simulationContext.hasPo ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.08)', border: `1px solid ${simulationContext.hasPo ? 'rgba(74,222,128,0.5)' : 'rgba(255,255,255,0.12)'}`, cursor: 'pointer', position: 'relative', transition: 'all .2s' }}>
+                      <div style={{ position: 'absolute', top: 2, left: simulationContext.hasPo ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: simulationContext.hasPo ? '#4ade80' : 'rgba(100,116,139,0.5)', transition: 'all .2s', boxShadow: simulationContext.hasPo ? '0 0 5px rgba(74,222,128,0.7)' : 'none' }} />
                     </div>
-                  ))
-                )}
+                    <span style={{ fontSize: 10, fontWeight: 600, color: simulationContext.hasPo ? '#4ade80' : 'rgba(100,116,139,0.5)' }}>Has PO</span>
+                  </label>
+                </div>
+
+                {/* Route Trace */}
+                <div style={{ background: 'rgba(7,12,23,0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.6)', letterSpacing: '.6px', textTransform: 'uppercase', marginBottom: 4 }}>Route Trace</div>
+
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {simulationHistory.length === 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, opacity: 0.5 }}>
+                        <span style={{ fontSize: 28 }}>▷</span>
+                        <span style={{ fontSize: 11, color: 'rgba(100,116,139,0.6)', textAlign: 'center' }}>Press Play or Step to begin<br />simulating the workflow</span>
+                      </div>
+                    ) : (
+                      simulationHistory.map((entry, index) => {
+                        const isLatest = index === simulationHistory.length - 1;
+                        return (
+                          <div
+                            key={`${entry.ts}-${index}`}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '6px 10px', borderRadius: 8,
+                              background: isLatest ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)',
+                              border: `1px solid ${isLatest ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                              transition: 'all .2s',
+                            }}
+                          >
+                            <span style={{ fontSize: 7, color: isLatest ? '#4ade80' : 'rgba(100,116,139,0.4)', flexShrink: 0 }}>
+                              {isLatest ? '●' : '○'}
+                            </span>
+                            <span style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', fontFamily: 'var(--mono)', flexShrink: 0, width: 60 }}>
+                              {entry.ts?.split(' ')[1] || entry.ts}
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: isLatest ? '#c8d8ec' : 'rgba(148,163,184,0.7)', fontFamily: 'var(--mono)' }}>
+                              {entry.kind === 'start'
+                                ? <><span style={{ color: '#4ade80' }}>START</span> → {entry.to}</>
+                                : <>{entry.from} <span style={{ color: 'rgba(100,116,139,0.5)' }}>→</span> <span style={{ color: isLatest ? '#38bdf8' : 'inherit' }}>{entry.to}</span></>}
+                            </span>
+                            {entry.event && (
+                              <span style={{ fontSize: 8, color: 'rgba(167,139,250,0.7)', fontFamily: 'var(--mono)', marginLeft: 'auto', flexShrink: 0 }}>
+                                {entry.event}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
           {centerView === 'stats' && (
-            <div className="stats-grid">
-              {[
-                ['RF Nodes', rfNodes.length, 'var(--a3)'],
-                ['RF Edges', rfEdges.length, 'var(--a3)'],
-                ['Selected Node', selectedNodeId ? 1 : 0, 'var(--green)'],
-                ['Selected Edge', selectedEdgeId ? 1 : 0, 'var(--green)'],
-              ].map(([label, value, color]) => (
-                <div key={label} className="stat-card">
-                  <div className="stat-val" style={{ color }}>{value}</div>
-                  <div className="stat-lbl">{label}</div>
-                </div>
-              ))}
+            <div className="cc-col-body" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+              {/* ── Workflow health score ── */}
+              {wf && (() => {
+                const total = (wf.states || []).length;
+                const hasInitial = (wf.states || []).some((s) => s.state_kind === 'initial');
+                const hasTerminal = (wf.states || []).some((s) => s.state_kind === 'terminal');
+                const hasTransitions = (wf.transitions || []).length > 0;
+                const score = [hasInitial, hasTerminal, hasTransitions, total >= 2, errorCount === 0].filter(Boolean).length;
+                const pct = Math.round((score / 5) * 100);
+                const color = pct >= 80 ? '#4ade80' : pct >= 60 ? '#fbbf24' : '#f87171';
+                return (
+                  <div style={{ background: 'rgba(7,12,23,0.82)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(100,116,139,0.7)', letterSpacing: '.5px', textTransform: 'uppercase' }}>Workflow Health</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, color }}>{pct}%</span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: `linear-gradient(90deg, ${color}99, ${color})`, transition: 'width .4s ease', boxShadow: `0 0 8px ${color}60` }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                      {[
+                        [hasInitial,     'Initial state'],
+                        [hasTerminal,    'Terminal state'],
+                        [hasTransitions, 'Has transitions'],
+                        [total >= 2,     '2+ states'],
+                        [errorCount === 0,'No errors'],
+                      ].map(([pass, label]) => (
+                        <span key={label} style={{ fontSize: 9, fontWeight: 600, color: pass ? '#4ade80' : 'rgba(248,113,113,0.6)' }}>
+                          {pass ? '✓' : '✗'} {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Count grid ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {[
+                  { label: 'States',       value: wf?.states?.length || 0,                        color: '#38bdf8' },
+                  { label: 'Transitions',  value: wf?.transitions?.length || 0,                   color: '#38bdf8' },
+                  { label: 'Errors',       value: errorCount,                                      color: errorCount > 0 ? '#f87171' : '#4ade80' },
+                  { label: 'Warnings',     value: warningCount,                                    color: warningCount > 0 ? '#fbbf24' : '#4ade80' },
+                  { label: 'Users',        value: users.length,                                    color: '#a78bfa' },
+                  { label: 'Rules',        value: rules.length,                                    color: '#a78bfa' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background: 'rgba(7,12,23,0.72)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{value}</span>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(100,116,139,0.6)', letterSpacing: '.4px', textTransform: 'uppercase' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── State kind breakdown ── */}
+              {wf?.states?.length > 0 && (() => {
+                const kindCounts = {};
+                const kindColors = { initial: '#00C870', approval: '#F0A500', exception: '#FF3D5A', technical: '#20C3D8', terminal: '#9B7EFF', standard: '#4A9FFF' };
+                (wf.states || []).forEach((s) => { kindCounts[s.state_kind || 'standard'] = (kindCounts[s.state_kind || 'standard'] || 0) + 1; });
+                return (
+                  <div style={{ background: 'rgba(7,12,23,0.72)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 16px' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.6)', letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 10 }}>State Kinds</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {Object.entries(kindCounts).map(([kind, count]) => {
+                        const color = kindColors[kind] || '#4A9FFF';
+                        const pct = Math.round((count / (wf.states?.length || 1)) * 100);
+                        return (
+                          <div key={kind} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '.4px', width: 72, flexShrink: 0 }}>{kind}</span>
+                            <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.06)' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: color, opacity: 0.7 }} />
+                            </div>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(148,163,184,0.6)', width: 24, textAlign: 'right' }}>{count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Publish status ── */}
+              <div style={{ background: 'rgba(7,12,23,0.72)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 16px' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.6)', letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 8 }}>Publish</div>
+                {lastPublishedAt ? (
+                  <div style={{ fontSize: 10, color: '#4ade80' }}>✓ Published {new Date(lastPublishedAt).toLocaleString()}</div>
+                ) : (
+                  <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.5)' }}>Not yet published</div>
+                )}
+                {errorCount > 0 && <div style={{ fontSize: 10, color: '#f87171', marginTop: 4 }}>✗ {errorCount} blocking error(s) must be resolved before publishing</div>}
+                <button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={errorCount > 0}
+                  style={{ marginTop: 10, padding: '6px 14px', borderRadius: 8, border: '1px solid', background: errorCount > 0 ? 'transparent' : 'rgba(74,222,128,0.12)', borderColor: errorCount > 0 ? 'rgba(255,255,255,0.08)' : 'rgba(74,222,128,0.35)', color: errorCount > 0 ? 'rgba(100,116,139,0.4)' : '#4ade80', fontSize: 11, fontWeight: 600, cursor: errorCount > 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  ✓ Publish Workflow
+                </button>
+              </div>
+
             </div>
           )}
         </div>

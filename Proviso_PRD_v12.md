@@ -18,8 +18,7 @@
 | **Architecture** | 9-Module Contract-First Isolation · Docker Compose (local baseline) · Kubernetes (enterprise scale path) · XState Workflow Engine · n8n Event Spine |
 | **AI Stack** | Ollama · Flowise (Config-as-Code) · PaddleOCR · PP-Structure · @xyflow/react v12 (React Flow Pro baseline) |
 | **Data Layer** | PostgreSQL 16 (Platform Master) + SQLite (Local Workspace Client Cache) |
-
----
+| **Merge Basis** | Consolidated from PRD v11.0 + PRD v12.0 AI-First additions (single canonical PRD12) |
 
 ---
 
