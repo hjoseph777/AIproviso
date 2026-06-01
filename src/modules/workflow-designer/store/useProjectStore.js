@@ -52,41 +52,20 @@ const useProjectStore = create((set, get) => ({
     return [];
   },
 
-  // ── Set active project — isolated switch with draft protection ─────────────
+  // ── Set active project — signals a switch; UI layer handles dirty check ─────
+  // The project store deliberately knows NOTHING about the workflow store.
+  // Dirty-check and canvas-clear are the Shell's responsibility (avoids circular deps).
   setActiveProject: (projectId) => {
-    if (get().activeProjectId === projectId) return; // no-op: already on this project
-
-    // Check workflow store for unsaved changes before switching
-    let isDirty = false;
-    try {
-      isDirty = require('./useWorkflowStore').default.getState().isDirty;
-    } catch { /* safe */ }
-
-    if (isDirty) {
-      // Let the calling UI decide (returns false to signal pending save check needed)
-      set({ pendingProjectSwitch: projectId });
-      return;
-    }
-
-    // Clean switch: clear workflow canvas then load target project
-    set({ activeProjectId: projectId, pendingProjectSwitch: null });
-    try {
-      const wfStore = require('./useWorkflowStore').default;
-      wfStore.getState().resetAll?.();
-      wfStore.setState({ bootstrapReady: false });
-    } catch { /* safe */ }
+    if (get().activeProjectId === projectId) return;
+    // Always raise pendingProjectSwitch — Shell decides whether to prompt or auto-confirm
+    set({ pendingProjectSwitch: projectId });
   },
 
-  // ── Confirm a pending project switch (after save/discard) ─────────────────
+  // ── Confirm a pending project switch (called by Shell after save/discard) ──
   confirmProjectSwitch: () => {
     const { pendingProjectSwitch } = get();
     if (!pendingProjectSwitch) return;
     set({ activeProjectId: pendingProjectSwitch, pendingProjectSwitch: null });
-    try {
-      const wfStore = require('./useWorkflowStore').default;
-      wfStore.getState().resetAll?.();
-      wfStore.setState({ bootstrapReady: false });
-    } catch { /* safe */ }
   },
 
   cancelProjectSwitch: () => set({ pendingProjectSwitch: null }),

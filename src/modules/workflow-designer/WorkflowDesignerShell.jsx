@@ -242,6 +242,28 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
   const [centerView, setCenterView] = useState('canvas');
 
+  // ── Project-switch isolation — owns canvas-clear and bootstrap ────────────
+  // The project store never touches the workflow store (avoids circular dep).
+  // Shell is the coordinator: check isDirty, clear canvas, re-bootstrap.
+  useEffect(() => {
+    if (!pendingProjectSwitch) return;
+    if (isDirty) return; // dirty → dialog handles it (renders below)
+    // Clean switch: clear canvas, mark not ready, confirm, re-bootstrap
+    resetAll();
+    useWorkflowStore.setState({ bootstrapReady: false });
+    confirmProjectSwitch();
+  }, [pendingProjectSwitch, isDirty, resetAll, confirmProjectSwitch]);
+
+  // Re-bootstrap workflows whenever activeProjectId changes (after a clean switch)
+  const prevActiveProjectRef = useRef(activeProjectId);
+  useEffect(() => {
+    if (prevActiveProjectRef.current === activeProjectId) return;
+    prevActiveProjectRef.current = activeProjectId;
+    if (!activeProjectId) return;
+    // Project changed — load its workflows
+    bootstrapFromBackend().catch(() => {});
+  }, [activeProjectId, bootstrapFromBackend]);
+
   // ── Handle mode selector result ──────────────────────────────────────────────
   const handleModeSelect = ({ mode, template, parsed, name, preset }) => {
     const store = useWorkflowStore.getState();
@@ -1614,14 +1636,23 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
-              onClick={async () => { await saveActiveWorkflow(); confirmProjectSwitch(); }}
+              onClick={async () => {
+                await saveActiveWorkflow();
+                resetAll();
+                useWorkflowStore.setState({ bootstrapReady: false });
+                confirmProjectSwitch();
+              }}
               style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
             >
               ✓ Save &amp; Switch
             </button>
             <button
               type="button"
-              onClick={confirmProjectSwitch}
+              onClick={() => {
+                resetAll();
+                useWorkflowStore.setState({ bootstrapReady: false });
+                confirmProjectSwitch();
+              }}
               style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
             >
               ✕ Discard &amp; Switch
