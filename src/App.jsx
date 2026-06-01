@@ -520,6 +520,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .surface-collab-btn:hover{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.55);box-shadow:0 0 12px rgba(34,197,94,0.2)}
 .surface-collab-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);animation:collab-pulse 2s ease-in-out infinite;flex-shrink:0}
 @keyframes collab-pulse{0%,100%{box-shadow:0 0 4px rgba(34,197,94,.6)}50%{box-shadow:0 0 10px rgba(34,197,94,1)}}
+/* ── Project pill shake — fires when user tries to create workflow without a project ── */
+@keyframes project-pill-shake{
+  0%,100%{transform:translateX(0)}
+  15%{transform:translateX(-5px)}
+  30%{transform:translateX(5px)}
+  45%{transform:translateX(-4px)}
+  60%{transform:translateX(4px)}
+  75%{transform:translateX(-2px)}
+  90%{transform:translateX(2px)}
+}
+.project-pill-shake{animation:project-pill-shake 0.42s cubic-bezier(0.36,0.07,0.19,0.97) both}
 /* ── IngestionHub AI card pulsing border ── */
 @keyframes ai-border-pulse{
   0%,100%{box-shadow:0 0 0 1px rgba(139,92,246,0.28),0 0 12px rgba(139,92,246,0.08)}

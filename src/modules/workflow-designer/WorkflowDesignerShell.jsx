@@ -189,6 +189,17 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const [showProjectPanel, setShowProjectPanel] = useState(false);
   const [newProjectName, setNewProjectName]     = useState('');
   const [newProjectClient, setNewProjectClient] = useState('');
+  const [projectPillShaking, setProjectPillShaking] = useState(false);
+  const projectPillRef = useRef(null);
+
+  const requireProject = () => {
+    if (activeProjectId) return true;
+    // Shake the pill and open the dropdown
+    setProjectPillShaking(true);
+    setTimeout(() => setProjectPillShaking(false), 450);
+    setShowProjectPanel(true);
+    return false;
+  };
 
   const activeProject = getActiveProject();
 
@@ -649,8 +660,11 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                 className="cc-sec-add"
                 type="button"
                 style={{ marginLeft: 4, alignSelf: 'center' }}
-                onClick={() => { addWorkflow(); }}
-                title="Create a new blank workflow — the Ingestion Hub on the canvas will guide you"
+                onClick={() => {
+                  if (!requireProject()) return;
+                  try { addWorkflow(activeProjectId); } catch { /* NO_PROJECT caught above */ }
+                }}
+                title="Create a new blank workflow — requires an active project"
               >
                 + Workflow
               </button>
@@ -777,8 +791,10 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
             {/* Active project pill */}
             <button
+              ref={projectPillRef}
               type="button"
               onClick={() => setShowProjectPanel((p) => !p)}
+              className={projectPillShaking ? 'project-pill-shake' : ''}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '3px 10px', borderRadius: 99,
@@ -1155,7 +1171,11 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                     <span>Open Inspector</span>
                   </button>
                 )}
-                <CanvasSurface onModeSelect={handleModeSelect} />
+                <CanvasSurface
+                  onModeSelect={handleModeSelect}
+                  activeProjectId={activeProjectId}
+                  onRequireProject={requireProject}
+                />
               </div>
             </div>
           )}

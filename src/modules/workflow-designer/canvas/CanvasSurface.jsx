@@ -136,7 +136,7 @@ function ProRuntimeBridge({ onViewport, onNodesReady, onConnecting, onApi }) {
 }
 
 // ── Main CanvasSurface component ─────────────────────────────────────────────
-export default function CanvasSurface({ onOpenInspector, onModeSelect }) {
+export default function CanvasSurface({ onOpenInspector, onModeSelect, activeProjectId, onRequireProject }) {
   const rfNodes               = useWorkflowStore((s) => s.rfNodes);
   const rfEdges               = useWorkflowStore((s) => s.rfEdges);
   const applyCanvasNodeChanges = useWorkflowStore((s) => s.applyCanvasNodeChanges);
@@ -1587,6 +1587,8 @@ export default function CanvasSurface({ onOpenInspector, onModeSelect }) {
         rfNodes={rfNodes}
         visible={!isDropActive}
         onModeSelect={onModeSelect || (() => {})}
+        activeProjectId={activeProjectId}
+        onRequireProject={onRequireProject}
       />
 
       <ReactFlow

@@ -72,7 +72,7 @@ function HubCard({ color, icon, title, desc, active, onClick, children, classNam
   );
 }
 
-export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
+export default function IngestionHub({ rfNodes, onModeSelect, visible, activeProjectId, onRequireProject }) {
   const [aiText, setAiText] = useState('');
   const [activeMode, setActiveMode] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -93,6 +93,11 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
   };
 
   const handleConfirm = () => {
+    // Gate: require a project before any workflow creation
+    if (!activeProjectId) {
+      onRequireProject?.();
+      return;
+    }
     if (activeMode === 1 && selectedTemplate) {
       onModeSelect({ mode: 1, template: selectedTemplate, name: workflowName || selectedTemplate.name });
     } else if (activeMode === 2) {
@@ -146,8 +151,37 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
           </p>
         </div>
 
-        {/* ── 4 mode cards ── */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+        {/* ── Project Required guard — replaces 4 mode cards when no project is active ── */}
+        {!activeProjectId && (
+          <div style={{
+            ...GLASS,
+            padding: '28px 32px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 32, filter: 'drop-shadow(0 0 10px rgba(56,189,248,0.6))' }}>◆</div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#dde7f5', marginBottom: 6 }}>Project Required</div>
+              <div style={{ fontSize: 11, color: 'rgba(100,116,139,0.7)', lineHeight: 1.6, maxWidth: 360 }}>
+                Workflows must live inside a Project. Select or create a project using the{' '}
+                <strong style={{ color: '#38bdf8' }}>◆ Project</strong> selector in the header above, then return here to begin designing.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onRequireProject?.()}
+              style={{
+                padding: '9px 20px', borderRadius: 9, border: '1px solid rgba(56,189,248,0.4)',
+                background: 'rgba(56,189,248,0.1)', color: '#38bdf8',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: SPRING,
+              }}
+            >
+              ◆ Select or Create a Project
+            </button>
+          </div>
+        )}
+
+        {/* ── 4 mode cards — only shown when a project is active ── */}
+        {activeProjectId && <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
 
           {/* Mode 1: Templates */}
           <HubCard
@@ -266,7 +300,7 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
               </div>
             )}
           </HubCard>
-        </div>
+        </div>}
 
         {/* ── Name input + Confirm ── */}
         {activeMode !== null && (
@@ -315,10 +349,12 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible }) {
           </div>
         )}
 
-        {/* ── Footer hint ── */}
-        <div style={{ textAlign: 'center', marginTop: 18, fontSize: 10, color: 'rgba(100,116,139,0.4)' }}>
-          Or just drag any component from the left palette to skip this entirely
-        </div>
+        {/* ── Footer hint — only when project is active ── */}
+        {activeProjectId && (
+          <div style={{ textAlign: 'center', marginTop: 18, fontSize: 10, color: 'rgba(100,116,139,0.4)' }}>
+            Or just drag any component from the left palette to skip this entirely
+          </div>
+        )}
 
       </div>
     </div>

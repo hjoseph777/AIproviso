@@ -7,6 +7,17 @@ import {
   listWorkflows as apiList,
   publishWorkflow as apiPublish,
 } from './workflowPersistence';
+import { listProjectWorkflows as apiListProjectWorkflows } from './projectPersistence';
+
+// Lazy reference to avoid circular import — resolved at call time
+const getActiveProjectId = () => {
+  try {
+    // eslint-disable-next-line global-require
+    return require('./useProjectStore').default.getState().activeProjectId || null;
+  } catch {
+    return null;
+  }
+};
 
 const makeId = () => Math.random().toString(36).slice(2, 9);
 const DEFAULT_POSITION_STEP_Y = 180;
@@ -860,18 +871,20 @@ export const useWorkflowStore = create((set, get) => ({
   markSaved: () => set(s => ({ ...withEditorProjection(s, { isDirty: false, lastSavedAt: new Date().toISOString() }) })),
 
   // ── Backend persistence ───────────────────────────────────────────────────
-  // saveActiveWorkflow: debounced auto-save — safe to call on every isDirty change
+  // saveActiveWorkflow: debounced auto-save — always injects activeProjectId
   saveActiveWorkflow: async () => {
     const state = useWorkflowStore.getState();
     const { activeId, activeDefinition, workflows } = state;
     if (!activeId || !activeDefinition) return;
     const wf = workflows.find(w => w.id === activeId);
     if (!wf) return;
+    const projectId = getActiveProjectId();
     const result = await apiSave(activeId, {
       name:       wf.name || activeDefinition.name || 'Untitled',
       definition: activeDefinition,
       version:    activeDefinition.version || 1,
       tenantId:   activeDefinition.tenant_id,
+      projectId,
     });
     if (result?.ok) {
       useWorkflowStore.getState().markSaved();
@@ -1276,7 +1289,16 @@ export const useWorkflowStore = create((set, get) => ({
   // Called once on WorkflowDesignerShell mount.
   // Returns true if at least one workflow was loaded, false if canvas stays empty.
   bootstrapFromBackend: async (tenantId) => {
-    const stubs = await apiList(tenantId);
+    // Prefer project-scoped endpoint when an active project is known
+    const projectId = getActiveProjectId();
+    let stubs;
+    if (projectId) {
+      const result = await apiListProjectWorkflows(projectId);
+      stubs = result?.workflows;
+    } else {
+      const result = await apiList(tenantId);
+      stubs = result?.workflows ?? result; // handle both {workflows:[]} and []
+    }
     if (!stubs?.length) return false;               // no saved workflows → empty canvas
 
     // Sort by most recently updated and load the first one fully
@@ -1311,8 +1333,13 @@ export const useWorkflowStore = create((set, get) => ({
   },
 
   // ── Workflow CRUD ──────────────────────────────────────────
-  addWorkflow: () => {
-    const wf = { id: makeId(), name: 'New Workflow', states: [], transitions: [] };
+  addWorkflow: (projectId) => {
+    const pid = projectId || getActiveProjectId();
+    if (!pid) {
+      // Caller must handle this — no project = no workflow
+      throw new Error('NO_PROJECT');
+    }
+    const wf = { id: makeId(), name: 'New Workflow', project_id: pid, states: [], transitions: [] };
     set(s => ({ ...withEditorProjection(s, { workflows: [...s.workflows, wf], activeId: wf.id, isDirty: true }) }));
   },
   deleteWorkflow: (id) => set(s => {

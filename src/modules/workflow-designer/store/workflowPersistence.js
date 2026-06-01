@@ -35,10 +35,10 @@ export async function loadWorkflow(id) {
  * Upsert a workflow definition.
  * Called by the auto-save debounce — safe to call frequently.
  */
-export async function saveWorkflow(id, { name, definition, version = 1, tenantId } = {}) {
+export async function saveWorkflow(id, { name, definition, version = 1, tenantId, projectId } = {}) {
   return apiFetch(`${BASE}/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ name, definition, version, tenant_id: tenantId }),
+    body: JSON.stringify({ name, definition, version, tenant_id: tenantId, project_id: projectId }),
   });
 }
 
