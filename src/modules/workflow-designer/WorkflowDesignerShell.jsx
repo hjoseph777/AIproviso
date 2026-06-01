@@ -212,6 +212,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   };
 
   const activeProject = getActiveProject();
+  const selectableProjects = projects.filter((p) => p.status !== 'archived');
 
   // ── Bootstrap on mount: load from backend, or show Workflow Studio ─────────
   const [bootstrapping, setBootstrapping] = useState(true);
@@ -242,6 +243,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   }, [isDirty, activeId, saveActiveWorkflow]);
 
   const [centerView, setCenterView] = useState('canvas');
+  const [showWorkflowModeSelector, setShowWorkflowModeSelector] = useState(false);
 
   // ── Project-switch isolation — owns canvas-clear and bootstrap ────────────
   // The project store never touches the workflow store (avoids circular dep).
@@ -269,27 +271,16 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const handleModeSelect = ({ mode, template, parsed, name, preset }) => {
     const store = useWorkflowStore.getState();
 
-    if (mode === 4 && preset) {
-      // Preset Default — create a named COPY; the original preset is never modified
-      store.importWorkflow({
-        workflow: {
-          name: name || preset.name,
-          states: preset.states,
-          transitions: preset.transitions,
-        },
-      });
-      return;
-    }
+    // All workflow creation/import paths require an active project context.
+    if (!activeProjectId) { requireProject(); return; }
 
     if (mode === 2) {
-      // Draw from Scratch — requires active project
-      if (!activeProjectId) { requireProject(); return; }
+      // Draw from Scratch
       store.addWorkflow(activeProjectId);
       const newId = useWorkflowStore.getState().activeId;
       if (name?.trim()) store.renameWorkflow(newId, name.trim());
     } else if (mode === 1 && template) {
-      // Template — requires active project (all entry paths gated)
-      if (!activeProjectId) { requireProject(); return; }
+      // Template
       store.importWorkflow({
         workflow: {
           name: name || template.name,
@@ -299,8 +290,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
         },
       });
     } else if (mode === 3 && parsed) {
-      // AI Generated — requires active project
-      if (!activeProjectId) { requireProject(); return; }
+      // AI Generated
       store.importWorkflow({
         workflow: {
           name: name || 'AI Generated Workflow',
@@ -310,7 +300,15 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
         },
       });
     } else if (mode === 4 && preset) {
-      if (!activeProjectId) { requireProject(); return; }
+      // Preset Default — create a named COPY; the original preset is never modified
+      store.importWorkflow({
+        workflow: {
+          name: name || preset.name,
+          states: preset.states,
+          transitions: preset.transitions,
+          project_id: activeProjectId,
+        },
+      });
     }
   };
   const [viewMode, setViewMode] = useState('business');
@@ -884,74 +882,39 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                   minWidth: 280, maxWidth: 340,
                 }}
               >
-                {showProjectPanel === 'new' ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', marginBottom: 4 }}>New Project</div>
-                    <input
-                      autoFocus
-                      placeholder="Project name *"
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '6px 10px', fontSize: 11, color: '#c8d8ec', outline: 'none', fontFamily: 'inherit' }}
-                    />
-                    <input
-                      placeholder="Client name"
-                      value={newProjectClient}
-                      onChange={(e) => setNewProjectClient(e.target.value)}
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '6px 10px', fontSize: 11, color: '#c8d8ec', outline: 'none', fontFamily: 'inherit' }}
-                    />
-                    <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                      <button
-                        type="button"
-                        disabled={!newProjectName.trim()}
-                        onClick={async () => {
-                          const proj = await createNewProject({ name: newProjectName.trim(), clientName: newProjectClient.trim() });
-                          if (proj) setShowProjectPanel(false);
-                        }}
-                        style={{ flex: 1, padding: '6px', borderRadius: 7, border: '1px solid rgba(74,222,128,0.35)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        ✓ Create
-                      </button>
-                      <button type="button" onClick={() => setShowProjectPanel(false)} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                {/* Switcher-only — creation lives in the IngestionHub canvas */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.5)', letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 6 }}>
+                    {selectableProjects.length === 0 ? 'No projects yet' : 'Switch Project'}
+                  </div>
+                  {selectableProjects.length === 0 ? (
+                    <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.5)', padding: '6px 0', lineHeight: 1.5 }}>
+                      Use the canvas below to create your first project and workflow.
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.5)', letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 6 }}>Switch Project</div>
-                    {projects.length === 0 ? (
-                      <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.5)', padding: '8px 0' }}>No projects yet. Create one to begin.</div>
-                    ) : (
-                      projects.filter((p) => p.status !== 'archived').map((proj) => (
-                        <button
-                          key={proj.id}
-                          type="button"
-                          onClick={() => { setActiveProject(proj.id); setShowProjectPanel(false); }}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '7px 10px', borderRadius: 8, border: '1px solid',
-                            background: proj.id === activeProjectId ? 'rgba(56,189,248,0.1)' : 'rgba(255,255,255,0.03)',
-                            borderColor: proj.id === activeProjectId ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.07)',
-                            cursor: 'pointer', textAlign: 'left', transition: 'all .12s',
-                          }}
-                        >
-                          <span style={{ fontSize: 8, color: proj.id === activeProjectId ? '#38bdf8' : '#475569' }}>◆</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: proj.id === activeProjectId ? '#38bdf8' : '#94a3b8' }}>{proj.name}</div>
-                            {proj.client_name && <div style={{ fontSize: 9, color: '#475569' }}>{proj.client_name}</div>}
-                          </div>
-                          <span style={{ fontSize: 8, color: proj.status === 'active' ? '#4ade80' : '#fbbf24' }}>{proj.status}</span>
-                        </button>
-                      ))
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowProjectPanel('new')}
-                      style={{ marginTop: 6, padding: '6px', borderRadius: 7, border: '1px dashed rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(100,116,139,0.6)', fontSize: 10, cursor: 'pointer' }}
-                    >
-                      + New Project
-                    </button>
-                  </div>
-                )}
+                  ) : (
+                    selectableProjects.map((proj) => (
+                      <button
+                        key={proj.id}
+                        type="button"
+                        onClick={() => { setActiveProject(proj.id); setShowProjectPanel(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '7px 10px', borderRadius: 8, border: '1px solid',
+                          background: proj.id === activeProjectId ? 'rgba(56,189,248,0.1)' : 'rgba(255,255,255,0.03)',
+                          borderColor: proj.id === activeProjectId ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.07)',
+                          cursor: 'pointer', textAlign: 'left', transition: 'all .12s',
+                        }}
+                      >
+                        <span style={{ fontSize: 8, color: proj.id === activeProjectId ? '#38bdf8' : '#475569' }}>◆</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: proj.id === activeProjectId ? '#38bdf8' : '#94a3b8' }}>{proj.name}</div>
+                          {proj.client_name && <div style={{ fontSize: 9, color: '#475569' }}>{proj.client_name}</div>}
+                        </div>
+                        <span style={{ fontSize: 8, color: proj.status === 'active' ? '#4ade80' : '#fbbf24' }}>{proj.status}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1214,9 +1177,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                   </button>
                 )}
                 <CanvasSurface
-                  onModeSelect={handleModeSelect}
                   activeProjectId={activeProjectId}
-                  onRequireProject={requireProject}
                 />
               </div>
             </div>
@@ -1668,6 +1629,16 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
           </div>
         </div>
       </div>
+    )}
+    {showWorkflowModeSelector && (
+      <WorkflowModeSelector
+        onDismiss={() => setShowWorkflowModeSelector(false)}
+        onSelect={(selection) => {
+          handleModeSelect(selection);
+          setShowWorkflowModeSelector(false);
+        }}
+        existingWorkflows={workflows}
+      />
     )}
     </>
   );

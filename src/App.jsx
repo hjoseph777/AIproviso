@@ -1359,6 +1359,7 @@ export default function App() {
   // ── Project context — sourced from global Zustand store ───────────────────
   const activeProjectId   = useProjectStore((s) => s.activeProjectId);
   const activeProject     = useProjectStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
+  const hasAnyProjects    = useProjectStore((s) => s.projects.some((p) => p.status !== 'archived'));
   const openProjectPanel  = useProjectStore((s) => s.openProjectPanel);
   const pillNudgeAt       = useProjectStore((s) => s.pillNudgeAt);
   const [pillShaking, setPillShaking] = useState(false);
@@ -2156,7 +2157,9 @@ export default function App() {
                       onClick={openProjectPanel}
                       aria-label={activeProject
                         ? `Active project: ${activeProject.name}. Click to switch or manage projects.`
-                        : 'No project selected. Click to open or create a project.'}
+                        : hasAnyProjects
+                          ? 'No project selected. Click to open or create a project.'
+                          : 'No projects yet. Click to create a new project.'}
                       aria-expanded={false}
                       aria-haspopup="listbox"
                       style={{
@@ -2183,7 +2186,7 @@ export default function App() {
                           animation: !activeProject ? 'collab-pulse 2s ease-in-out infinite' : 'none',
                         }}
                       />
-                      {activeProject ? activeProject.name : 'Open or Create Project'}
+                      {activeProject ? activeProject.name : (hasAnyProjects ? 'Open or Create Project' : 'Create New Project')}
                     </button>
                   </div>
                   {integratorSubview === 'data' ? (

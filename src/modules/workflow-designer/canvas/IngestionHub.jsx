@@ -7,8 +7,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { AP_TEMPLATES } from './WorkflowModeSelector';
-import { parseScenario } from './WorkflowModeSelector';
+import { AP_TEMPLATES, parseScenario } from './WorkflowModeSelector';
+import useProjectStore from '../store/useProjectStore';
 
 // ── Glassmorphism base — slate-900/40, backdrop-blur-md, crisp white/10 border
 const GLASS = {
@@ -73,6 +73,38 @@ function HubCard({ color, icon, title, desc, active, onClick, children, classNam
 }
 
 export default function IngestionHub({ rfNodes, onModeSelect, visible, activeProjectId, onRequireProject }) {
+  // ── Project creation — embedded directly in the hub (continuous flow) ──────
+  const createProject    = useProjectStore((s) => s.createProject);
+  const projects         = useProjectStore((s) => s.projects);
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
+  const [hubProjectName,   setHubProjectName]   = useState('');
+  const [hubProjectClient, setHubProjectClient] = useState('');
+  const [hubCreating,      setHubCreating]      = useState(false);
+  const [hubCreated,       setHubCreated]       = useState(false);
+  const projectNameInputRef = useRef(null);
+
+  // Auto-focus project name input when hub shows and no project exists
+  useEffect(() => {
+    if (!activeProjectId && visible) {
+      setTimeout(() => projectNameInputRef.current?.focus(), 120);
+    }
+  }, [activeProjectId, visible]);
+
+  const handleCreateProject = async () => {
+    if (!hubProjectName.trim() || hubCreating) return;
+    setHubCreating(true);
+    try {
+      await createProject({ name: hubProjectName.trim(), clientName: hubProjectClient.trim() });
+      setHubCreated(true);
+      setHubProjectName('');
+      setHubProjectClient('');
+      setTimeout(() => setHubCreated(false), 2000);
+    } finally {
+      setHubCreating(false);
+    }
+  };
+
+  // ── Workflow mode state ────────────────────────────────────────────────────
   const [aiText, setAiText] = useState('');
   const [activeMode, setActiveMode] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -81,7 +113,6 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
 
   const isVisible = visible && rfNodes.length === 0;
 
-  // Auto-focus AI input when Mode 3 is selected
   useEffect(() => {
     if (activeMode === 3) setTimeout(() => aiInputRef.current?.focus(), 50);
   }, [activeMode]);
@@ -153,7 +184,108 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
           )}
         </div>
 
-        {/* ── 4 mode cards — passive dim only when no project; click nudges header pill ── */}
+        {/* ── Step 1: Inline project creation — only shown when no project exists ── */}
+        {!activeProjectId && (
+          <div style={{
+            ...GLASS,
+            padding: '16px 20px 18px',
+            marginBottom: 16,
+            border: hubCreated
+              ? '1px solid rgba(74,222,128,0.45)'
+              : '1px solid rgba(251,191,36,0.28)',
+            background: hubCreated
+              ? 'rgba(74,222,128,0.07)'
+              : 'rgba(15,23,42,0.55)',
+            transition: SPRING,
+          }}>
+            {hubCreated ? (
+              /* Success flash */
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18, filter: 'drop-shadow(0 0 8px rgba(74,222,128,0.8))' }}>✓</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4ade80' }}>Project created!</div>
+                  <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.7)', marginTop: 2 }}>Now choose how to start your workflow below.</div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: '#f59e0b',
+                    boxShadow: '0 0 6px rgba(245,158,11,0.8)',
+                    animation: 'collab-pulse 2s ease-in-out infinite',
+                    flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', letterSpacing: '.2px' }}>
+                    Name your project to get started
+                  </span>
+                  {projects.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onRequireProject?.()}
+                      style={{ marginLeft: 'auto', fontSize: 9, color: 'rgba(100,116,139,0.6)', background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
+                    >
+                      Switch existing →
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <input
+                      ref={projectNameInputRef}
+                      placeholder="Project name *"
+                      value={hubProjectName}
+                      onChange={(e) => setHubProjectName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProject(); }}
+                      aria-label="Project name"
+                      style={{
+                        background: 'rgba(255,255,255,0.07)',
+                        border: `1px solid ${hubProjectName.trim() ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                        borderRadius: 8, padding: '8px 12px',
+                        fontSize: 12, color: '#dde7f5', outline: 'none',
+                        fontFamily: 'inherit', transition: SPRING,
+                      }}
+                    />
+                    <input
+                      placeholder="Client name (optional)"
+                      value={hubProjectClient}
+                      onChange={(e) => setHubProjectClient(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProject(); }}
+                      aria-label="Client name"
+                      style={{
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8, padding: '7px 12px',
+                        fontSize: 11, color: '#94a3b8', outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!hubProjectName.trim() || hubCreating}
+                    onClick={handleCreateProject}
+                    aria-label="Create project and continue"
+                    style={{
+                      padding: '0 20px', height: 70, borderRadius: 9,
+                      border: `1px solid ${hubProjectName.trim() ? 'rgba(74,222,128,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                      background: hubProjectName.trim() ? 'rgba(74,222,128,0.14)' : 'rgba(255,255,255,0.04)',
+                      color: hubProjectName.trim() ? '#4ade80' : 'rgba(100,116,139,0.4)',
+                      fontSize: 12, fontWeight: 700, cursor: hubProjectName.trim() ? 'pointer' : 'not-allowed',
+                      transition: SPRING, flexShrink: 0, lineHeight: 1,
+                      boxShadow: hubProjectName.trim() ? '0 0 16px rgba(74,222,128,0.15)' : 'none',
+                    }}
+                  >
+                    {hubCreating ? '…' : '✓ Create'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Step 2: 4 mode cards — passive dim only when no project; click nudges header pill ── */}
         <div
           role={!activeProjectId ? 'button' : undefined}
           aria-label={!activeProjectId ? 'Open or create a project to enable workflow creation' : undefined}
