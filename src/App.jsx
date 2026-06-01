@@ -1360,13 +1360,16 @@ export default function App() {
   const activeProjectId   = useProjectStore((s) => s.activeProjectId);
   const activeProject     = useProjectStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
   const openProjectPanel  = useProjectStore((s) => s.openProjectPanel);
+  const pillNudgeAt       = useProjectStore((s) => s.pillNudgeAt);
   const [pillShaking, setPillShaking] = useState(false);
 
-  const shakeProjectPill = () => {
+  // Header pill shakes when any part of the app calls nudgeAndOpenPanel()
+  useEffect(() => {
+    if (!pillNudgeAt) return;
     setPillShaking(true);
-    setTimeout(() => setPillShaking(false), 450);
-    openProjectPanel();
-  };
+    const t = setTimeout(() => setPillShaking(false), 450);
+    return () => clearTimeout(t);
+  }, [pillNudgeAt]);
 
   const [workspaceMode, setWorkspaceMode] = useState('client');
   const [activeView, setActiveView] = useState('ap');

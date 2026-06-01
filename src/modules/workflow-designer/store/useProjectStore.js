@@ -23,6 +23,7 @@ const useProjectStore = create((set, get) => ({
   activeProjectId:      null,   // currently open project
   pendingProjectSwitch: null,   // projectId waiting for save/discard confirmation
   projectPanelOpen:     false,  // controls dropdown from any component
+  pillNudgeAt:          0,      // timestamp — App.jsx watches this to shake the header pill
   loading:              false,
   error:                null,
 
@@ -73,6 +74,8 @@ const useProjectStore = create((set, get) => ({
   openProjectPanel:  () => set({ projectPanelOpen: true }),
   closeProjectPanel: () => set({ projectPanelOpen: false }),
   toggleProjectPanel: () => set(s => ({ projectPanelOpen: !s.projectPanelOpen })),
+  // Called when a passive card is clicked — nudges the header pill AND opens panel
+  nudgeAndOpenPanel: () => set({ pillNudgeAt: Date.now(), projectPanelOpen: true }),
 
   // ── Create project ─────────────────────────────────────────────────────────
   createProject: async ({ name, clientName, description }, tenantId = DEV_TENANT_ID) => {

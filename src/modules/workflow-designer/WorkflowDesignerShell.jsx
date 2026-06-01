@@ -187,6 +187,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const bootstrapProjects     = useProjectStore((s) => s.bootstrapProjects);
   const projectPanelOpen      = useProjectStore((s) => s.projectPanelOpen);
   const openProjectPanel      = useProjectStore((s) => s.openProjectPanel);
+  const nudgeAndOpenPanel     = useProjectStore((s) => s.nudgeAndOpenPanel);
   const closeProjectPanel     = useProjectStore((s) => s.closeProjectPanel);
   const toggleProjectPanel    = useProjectStore((s) => s.toggleProjectPanel);
   const pendingProjectSwitch  = useProjectStore((s) => s.pendingProjectSwitch);
@@ -203,10 +204,10 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
   const requireProject = () => {
     if (activeProjectId) return true;
-    // Shake the pill and open the project panel (from store — visible in header too)
+    // nudgeAndOpenPanel: increments pillNudgeAt (App.jsx header pill reacts) + opens panel
     setProjectPillShaking(true);
     setTimeout(() => setProjectPillShaking(false), 450);
-    openProjectPanel();
+    nudgeAndOpenPanel();
     return false;
   };
 
