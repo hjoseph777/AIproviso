@@ -1434,8 +1434,230 @@ def mark_workflow_timer_webhook():
 # Falls back to an in-process dict when no DB is available.
 # ═════════════════════════════════════════════════════════════════════════════
 
-# In-memory fallback store (single-process dev mode)
-_wf_memory: dict = {}
+# ── In-memory fallback stores (single-process dev mode) ──────────────────────
+_proj_memory: dict = {}   # project_id → project record
+_wf_memory:   dict = {}   # workflow_id → workflow record
+
+
+# ─── Project Container Model — PRD v12 §2.3 ──────────────────────────────────
+
+def _ensure_projects_table():
+    """Create projects table and add project_id FK to workflow_definitions if needed."""
+    conn = get_db_conn()
+    if conn is None:
+        return
+    try:
+        with conn.cursor() as cur:
+            # projects table — one row = one client engagement
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS projects (
+                    id           TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    tenant_id    TEXT        NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+                    name         TEXT        NOT NULL,
+                    client_name  TEXT        NOT NULL DEFAULT '',
+                    description  TEXT        NOT NULL DEFAULT '',
+                    status       TEXT        NOT NULL DEFAULT 'draft',
+                    version      TEXT        NOT NULL DEFAULT '1.0.0',
+                    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            # Add project_id to workflow_definitions (nullable — migration safe)
+            cur.execute("""
+                ALTER TABLE workflow_definitions
+                ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id) ON DELETE CASCADE
+            """)
+        conn.commit()
+        log.info("projects table ready")
+    except Exception as exc:
+        log.warning("projects table init failed: %s", exc)
+        conn.rollback()
+
+
+def _projects_table_ready() -> bool:
+    conn = get_db_conn()
+    if conn is None:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'projects'")
+            return bool(cur.fetchone())
+    except Exception:
+        return False
+
+
+@app.route("/api/projects", methods=["GET"])
+def list_projects():
+    """List all projects for the current tenant."""
+    tenant_id = get_tenant_id()
+    if _projects_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, name, client_name, description, status, version,
+                           created_at, updated_at
+                    FROM projects
+                    WHERE tenant_id = %s
+                    ORDER BY updated_at DESC
+                """, (tenant_id,))
+                rows = cur.fetchall()
+            return jsonify({"ok": True, "projects": [dict(r) for r in rows]}), 200
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+    else:
+        projects = [p for p in _proj_memory.values() if p.get("tenant_id") == tenant_id]
+        return jsonify({"ok": True, "projects": sorted(projects, key=lambda p: p.get("updated_at",""), reverse=True)}), 200
+
+
+@app.route("/api/projects", methods=["POST"])
+def create_project():
+    """Create a new project container."""
+    _ensure_projects_table()
+    tenant_id = get_tenant_id()
+    body      = request.get_json(silent=True) or {}
+    name        = (body.get("name") or "").strip()
+    client_name = (body.get("client_name") or "").strip()
+    description = (body.get("description") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+
+    import uuid as _uuid
+    proj_id = body.get("id") or str(_uuid.uuid4())
+    now     = datetime.now(timezone.utc).isoformat()
+
+    if _projects_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO projects (id, tenant_id, name, client_name, description, status, version, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, 'draft', '1.0.0', NOW(), NOW())
+                    ON CONFLICT (id) DO UPDATE
+                        SET name=EXCLUDED.name, client_name=EXCLUDED.client_name,
+                            description=EXCLUDED.description, updated_at=NOW()
+                    RETURNING *
+                """, (proj_id, tenant_id, name, client_name, description))
+                row = cur.fetchone()
+            conn.commit()
+            return jsonify({"ok": True, "project": dict(row)}), 201
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        record = {"id": proj_id, "tenant_id": tenant_id, "name": name,
+                  "client_name": client_name, "description": description,
+                  "status": "draft", "version": "1.0.0",
+                  "created_at": now, "updated_at": now}
+        _proj_memory[proj_id] = record
+        return jsonify({"ok": True, "project": record}), 201
+
+
+@app.route("/api/projects/<project_id>", methods=["GET"])
+def get_project(project_id):
+    """Fetch a single project by id."""
+    if _projects_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM projects WHERE id = %s", (project_id,))
+                row = cur.fetchone()
+            if not row:
+                return jsonify({"error": "not found"}), 404
+            return jsonify({"ok": True, "project": dict(row)}), 200
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+    else:
+        proj = _proj_memory.get(project_id)
+        if not proj:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"ok": True, "project": proj}), 200
+
+
+@app.route("/api/projects/<project_id>", methods=["PUT"])
+def update_project(project_id):
+    """Update project metadata (name, client_name, description, status)."""
+    body = request.get_json(silent=True) or {}
+    if _projects_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    UPDATE projects SET
+                        name        = COALESCE(%s, name),
+                        client_name = COALESCE(%s, client_name),
+                        description = COALESCE(%s, description),
+                        status      = COALESCE(%s, status),
+                        updated_at  = NOW()
+                    WHERE id = %s
+                    RETURNING *
+                """, (body.get("name"), body.get("client_name"),
+                      body.get("description"), body.get("status"), project_id))
+                row = cur.fetchone()
+            conn.commit()
+            if not row:
+                return jsonify({"error": "not found"}), 404
+            return jsonify({"ok": True, "project": dict(row)}), 200
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        proj = _proj_memory.get(project_id)
+        if not proj:
+            return jsonify({"error": "not found"}), 404
+        for field in ("name", "client_name", "description", "status"):
+            if body.get(field) is not None:
+                proj[field] = body[field]
+        proj["updated_at"] = datetime.now(timezone.utc).isoformat()
+        return jsonify({"ok": True, "project": proj}), 200
+
+
+@app.route("/api/projects/<project_id>", methods=["DELETE"])
+def delete_project(project_id):
+    """Soft-delete a project (sets status → archived)."""
+    if _projects_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE projects SET status='archived', updated_at=NOW() WHERE id=%s",
+                    (project_id,)
+                )
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            return jsonify({"error": str(exc)}), 500
+    else:
+        if project_id in _proj_memory:
+            _proj_memory[project_id]["status"] = "archived"
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/api/projects/<project_id>/workflows", methods=["GET"])
+def list_project_workflows(project_id):
+    """List all workflow stubs belonging to a specific project."""
+    if _wf_table_ready():
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, name, status, version, updated_at
+                    FROM workflow_definitions
+                    WHERE project_id = %s
+                    ORDER BY updated_at DESC
+                """, (project_id,))
+                rows = cur.fetchall()
+            return jsonify({"ok": True, "workflows": [dict(r) for r in rows]}), 200
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+    else:
+        workflows = [
+            {"id": k, "name": v["name"], "status": v.get("status", "draft"),
+             "version": v.get("version", 1), "updated_at": v.get("updated_at", "")}
+            for k, v in _wf_memory.items()
+            if v.get("project_id") == project_id
+        ]
+        return jsonify({"ok": True, "workflows": workflows}), 200
 
 
 def _wf_table_ready() -> bool:

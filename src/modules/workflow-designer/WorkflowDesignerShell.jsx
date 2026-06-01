@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkflowStore } from './store/useWorkflowStore';
+import useProjectStore from './store/useProjectStore';
 import WorkflowModeSelector from './canvas/WorkflowModeSelector';
 import CanvasSurface from './canvas/CanvasSurface';
 import CanvasInspector from './canvas/CanvasInspector';
@@ -176,6 +177,21 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const rules = useWorkflowStore((s) => s.rules);
   const hasCanvasSelection = Boolean(selectedNodeId || selectedEdgeId);
 
+  // ── Project store ──────────────────────────────────────────────────────────
+  const projects           = useProjectStore((s) => s.projects);
+  const activeProjectId    = useProjectStore((s) => s.activeProjectId);
+  const projectLoading     = useProjectStore((s) => s.loading);
+  const getActiveProject   = useProjectStore((s) => s.getActiveProject);
+  const setActiveProject   = useProjectStore((s) => s.setActiveProject);
+  const createNewProject   = useProjectStore((s) => s.createProject);
+  const bootstrapProjects  = useProjectStore((s) => s.bootstrapProjects);
+
+  const [showProjectPanel, setShowProjectPanel] = useState(false);
+  const [newProjectName, setNewProjectName]     = useState('');
+  const [newProjectClient, setNewProjectClient] = useState('');
+
+  const activeProject = getActiveProject();
+
   // ── Bootstrap on mount: load from backend, or show Workflow Studio ─────────
   const [bootstrapping, setBootstrapping] = useState(true);
 
@@ -183,6 +199,8 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
     let cancelled = false;
     (async () => {
       try {
+        // Load projects first, then workflows scoped to active project
+        await bootstrapProjects();
         await bootstrapFromBackend();
       } catch {
         // backend unavailable — start on empty canvas, IngestionHub will show
@@ -748,6 +766,137 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
           >
             {inspectorVisible ? '›' : '‹'}
           </button>
+
+          {/* ── Project Bar ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '5px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+            background: 'rgba(5,10,20,0.9)', flexShrink: 0, minHeight: 32, position: 'relative',
+          }}>
+            <span style={{ fontSize: 8, fontWeight: 700, color: 'rgba(100,116,139,0.5)', letterSpacing: '.5px', textTransform: 'uppercase' }}>Project</span>
+
+            {/* Active project pill */}
+            <button
+              type="button"
+              onClick={() => setShowProjectPanel((p) => !p)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '3px 10px', borderRadius: 99,
+                border: `1px solid ${activeProject ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                background: activeProject ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.04)',
+                color: activeProject ? '#38bdf8' : 'rgba(100,116,139,0.6)',
+                fontSize: 10, fontWeight: 600, cursor: 'pointer', transition: 'all .14s',
+              }}
+            >
+              <span style={{ fontSize: 8 }}>◆</span>
+              {activeProject ? activeProject.name : 'No project selected'}
+              <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span>
+            </button>
+
+            {/* Project status badge */}
+            {activeProject?.status && (
+              <span style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: '.4px', textTransform: 'uppercase',
+                padding: '1px 6px', borderRadius: 99,
+                background: activeProject.status === 'active' ? 'rgba(74,222,128,0.1)' : 'rgba(251,191,36,0.08)',
+                border: `1px solid ${activeProject.status === 'active' ? 'rgba(74,222,128,0.3)' : 'rgba(251,191,36,0.2)'}`,
+                color: activeProject.status === 'active' ? '#4ade80' : '#fbbf24',
+              }}>
+                {activeProject.status}
+              </span>
+            )}
+
+            <div style={{ flex: 1 }} />
+
+            <button
+              type="button"
+              onClick={() => { setNewProjectName(''); setNewProjectClient(''); setShowProjectPanel('new'); }}
+              style={{ fontSize: 9, fontWeight: 600, color: 'rgba(100,116,139,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+              title="Create a new project"
+            >
+              + New Project
+            </button>
+
+            {/* Project panel dropdown */}
+            {showProjectPanel && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 8, zIndex: 100,
+                background: 'rgba(7,11,22,0.97)', backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)', padding: '10px',
+                minWidth: 280, maxWidth: 340,
+              }}>
+                {showProjectPanel === 'new' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', marginBottom: 4 }}>New Project</div>
+                    <input
+                      autoFocus
+                      placeholder="Project name *"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '6px 10px', fontSize: 11, color: '#c8d8ec', outline: 'none', fontFamily: 'inherit' }}
+                    />
+                    <input
+                      placeholder="Client name"
+                      value={newProjectClient}
+                      onChange={(e) => setNewProjectClient(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '6px 10px', fontSize: 11, color: '#c8d8ec', outline: 'none', fontFamily: 'inherit' }}
+                    />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                      <button
+                        type="button"
+                        disabled={!newProjectName.trim()}
+                        onClick={async () => {
+                          const proj = await createNewProject({ name: newProjectName.trim(), clientName: newProjectClient.trim() });
+                          if (proj) setShowProjectPanel(false);
+                        }}
+                        style={{ flex: 1, padding: '6px', borderRadius: 7, border: '1px solid rgba(74,222,128,0.35)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        ✓ Create
+                      </button>
+                      <button type="button" onClick={() => setShowProjectPanel(false)} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(100,116,139,0.5)', letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 6 }}>Switch Project</div>
+                    {projects.length === 0 ? (
+                      <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.5)', padding: '8px 0' }}>No projects yet. Create one to begin.</div>
+                    ) : (
+                      projects.filter((p) => p.status !== 'archived').map((proj) => (
+                        <button
+                          key={proj.id}
+                          type="button"
+                          onClick={() => { setActiveProject(proj.id); setShowProjectPanel(false); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '7px 10px', borderRadius: 8, border: '1px solid',
+                            background: proj.id === activeProjectId ? 'rgba(56,189,248,0.1)' : 'rgba(255,255,255,0.03)',
+                            borderColor: proj.id === activeProjectId ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.07)',
+                            cursor: 'pointer', textAlign: 'left', transition: 'all .12s',
+                          }}
+                        >
+                          <span style={{ fontSize: 8, color: proj.id === activeProjectId ? '#38bdf8' : '#475569' }}>◆</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: proj.id === activeProjectId ? '#38bdf8' : '#94a3b8' }}>{proj.name}</div>
+                            {proj.client_name && <div style={{ fontSize: 9, color: '#475569' }}>{proj.client_name}</div>}
+                          </div>
+                          <span style={{ fontSize: 8, color: proj.status === 'active' ? '#4ade80' : '#fbbf24' }}>{proj.status}</span>
+                        </button>
+                      ))
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowProjectPanel('new')}
+                      style={{ marginTop: 6, padding: '6px', borderRadius: 7, border: '1px dashed rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(100,116,139,0.6)', fontSize: 10, cursor: 'pointer' }}
+                    >
+                      + New Project
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="cc-col-head wf-col-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
