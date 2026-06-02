@@ -1073,6 +1073,10 @@ def _sync_workflow_transition_dev(*, invoice_id: str, tenant_id: str, event_type
         log.warning("_sync_workflow_transition_dev: no DB connection")
         return None
 
+    # State progression order — no regression allowed
+    _STATE_ORDER = ["received", "extracted", "matched", "pending_approval",
+                    "approved", "exception", "posted", "reconciled", "rejected"]
+
     # SLA durations per state (mirrors migration 005 bootstrap logic)
     _SLA = {
         "pending_approval": "4 hours", "exception": "1 hour",
@@ -1090,6 +1094,14 @@ def _sync_workflow_transition_dev(*, invoice_id: str, tenant_id: str, event_type
             existing = cur.fetchone()
             from_state = existing[1] if existing else None
             ws_id = existing[0] if existing else None
+
+            # Guard: never regress to a lower state (handles n8n/timer double-fire)
+            if from_state and target_state in _STATE_ORDER and from_state in _STATE_ORDER:
+                if _STATE_ORDER.index(target_state) < _STATE_ORDER.index(from_state):
+                    log.warning("_sync_workflow_transition_dev: SKIP regression %s→%s for invoice=%s",
+                                from_state, target_state, invoice_id)
+                    return {"ok": True, "source": "dev-inline-skip", "reason": "regression-guard",
+                            "state": from_state}
 
             if ws_id:
                 cur.execute("""
@@ -1493,6 +1505,7 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
                 INSERT INTO invoice_extractions
                   (invoice_id, version, extracted_json, confidence_json, ocr_engine)
                 VALUES (%s, 1, %s, %s, 'paddle-dev-stub')
+                ON CONFLICT (invoice_id, version) DO NOTHING
             """, (invoice_id, json.dumps(mock_extracted), json.dumps(mock_confidence)))
 
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
@@ -1510,17 +1523,49 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
         conn.commit()
         log.info("_simulate_ocr_dev: DB writes committed for invoice=%s", invoice_id)
 
-        result = sync_workflow_transition(
-            invoice_id=invoice_id,
-            tenant_id=tenant_id,
-            event_type="invoice.extracted",
-            target_state="extracted",
-            correlation_id=correlation_id,
-            trigger_source="mod-02-stub",
-            source_module="MOD-02",
-            reason="Dev-mode OCR simulation complete",
-        )
-        log.info("_simulate_ocr_dev: sync_workflow_transition result=%s", result)
+        # Inline workflow state update — same connection avoids any cross-connection race
+        # between _simulate_ocr_dev's conn and the separate conn in _sync_workflow_transition_dev.
+        conn2 = get_db_conn()
+        if conn2:
+            try:
+                _SLA = {"extracted": "1 hour", "pending_approval": "4 hours",
+                        "exception": "1 hour", "matched": "2 hours"}
+                with conn2.cursor() as c:
+                    c.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
+                    c.execute("SELECT id, current_state FROM workflow_state WHERE invoice_id = %s", (invoice_id,))
+                    ws_row = c.fetchone()
+                    log.info("_simulate_ocr_dev: workflow_state query result=%s", ws_row)
+                    if ws_row:
+                        ws_id, from_state = ws_row
+                        c.execute("UPDATE workflow_state SET current_state=%s, last_event=%s, updated_at=NOW() WHERE id=%s",
+                                  ("extracted", "invoice.extracted", ws_id))
+                    else:
+                        c.execute("""INSERT INTO workflow_state (tenant_id,invoice_id,workflow_version,machine_id,current_state,context_json,snapshot_json,last_event)
+                            VALUES (%s::uuid,%s::uuid,'v1','invoice-approval','extracted',%s::jsonb,%s::jsonb,'invoice.extracted')
+                            RETURNING id""",
+                            (tenant_id, invoice_id,
+                             json.dumps({"invoice_id": invoice_id}),
+                             json.dumps({"value": "extracted"})))
+                        ws_id = c.fetchone()[0]
+                        from_state = None
+                    c.execute("""INSERT INTO workflow_state_history
+                        (tenant_id,invoice_id,workflow_state_id,event_type,from_state,to_state,guard_result,trigger_source,correlation_id,action_summary)
+                        VALUES (%s::uuid,%s::uuid,%s::uuid,'invoice.extracted',%s,'extracted',TRUE,'system',%s::uuid,%s::jsonb)""",
+                        (tenant_id, invoice_id, ws_id, from_state, correlation_id,
+                         json.dumps(["dev-stub OCR complete"])))
+                    c.execute("UPDATE workflow_timers SET status='cancelled',cancelled_at=NOW(),updated_at=NOW() WHERE invoice_id=%s AND timer_key='sla.current' AND status='scheduled'", (invoice_id,))
+                    c.execute("""INSERT INTO workflow_timers (tenant_id,invoice_id,workflow_state_id,timer_key,timer_type,target_state,status,due_at,payload_json)
+                        VALUES (%s::uuid,%s::uuid,%s::uuid,'sla.current','sla','extracted','scheduled',NOW()+INTERVAL '1 hour',%s::jsonb)""",
+                        (tenant_id, invoice_id, ws_id, json.dumps({"source": "dev-stub"})))
+                conn2.commit()
+                log.info("_simulate_ocr_dev: workflow_state → extracted, timer created")
+            except Exception as exc2:
+                log.error("_simulate_ocr_dev inline wf-state failed: %s", exc2, exc_info=True)
+                try: conn2.rollback()
+                except Exception: pass
+            finally:
+                try: conn2.close()
+                except Exception: pass
     except Exception as exc:
         log.error("_simulate_ocr_dev FAILED at DB write for invoice=%s: %s", invoice_id, exc, exc_info=True)
         try:
