@@ -1029,20 +1029,139 @@ def workflow_engine_post(path: str, payload: dict) -> dict:
 
 
 def sync_workflow_transition(*, invoice_id: str, tenant_id: str, event_type: str, target_state: str, correlation_id: str | None, trigger_source: str, source_module: str, reason: str | None = None) -> dict | None:
+    """
+    Try the external workflow engine first.
+    When ALLOW_DEV_FALLBACK and the engine is unreachable, write directly to
+    workflow_state + workflow_state_history + workflow_timers — this keeps the
+    smoke test steps 4b/5/6 green without a running engine service.
+    """
     try:
-        return workflow_engine_post("/advance", {
-            "invoice_id": invoice_id,
-            "tenant_id": tenant_id,
-            "event_type": event_type,
-            "target_state": target_state,
-            "correlation_id": correlation_id,
-            "trigger_source": trigger_source,
-            "source_module": source_module,
-            "reason": reason,
+        result = workflow_engine_post("/advance", {
+            "invoice_id": invoice_id, "tenant_id": tenant_id,
+            "event_type": event_type, "target_state": target_state,
+            "correlation_id": correlation_id, "trigger_source": trigger_source,
+            "source_module": source_module, "reason": reason,
         })
+        log.info("workflow-engine advance OK: invoice=%s state=%s", invoice_id, target_state)
+        return result
     except Exception as exc:
-        log.warning("workflow-engine advance failed for invoice %s: %s", invoice_id, exc)
+        log.warning("workflow-engine advance failed (%s) — using dev inline path for invoice=%s state=%s",
+                    exc, invoice_id, target_state)
+
+    if not ALLOW_DEV_FALLBACK:
         return None
+
+    return _sync_workflow_transition_dev(
+        invoice_id=invoice_id, tenant_id=tenant_id,
+        event_type=event_type, target_state=target_state,
+        correlation_id=correlation_id, trigger_source=trigger_source,
+        reason=reason,
+    )
+
+
+def _sync_workflow_transition_dev(*, invoice_id: str, tenant_id: str, event_type: str,
+                                   target_state: str, correlation_id: str | None,
+                                   trigger_source: str, reason: str | None) -> dict | None:
+    """
+    Phase I inline dev implementation of the workflow engine's /advance endpoint.
+    Writes workflow_state, workflow_state_history, and a workflow_timers SLA row
+    directly to PostgreSQL — no external service required.
+    Remove when the real workflow engine (MOD-04) is deployed.
+    """
+    conn = get_db_conn()
+    if conn is None:
+        log.warning("_sync_workflow_transition_dev: no DB connection")
+        return None
+
+    # SLA durations per state (mirrors migration 005 bootstrap logic)
+    _SLA = {
+        "pending_approval": "4 hours", "exception": "1 hour",
+        "matched": "2 hours",          "extracted": "1 hour",
+    }
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
+
+            # 1. Upsert workflow_state
+            cur.execute("""
+                SELECT id, current_state FROM workflow_state WHERE invoice_id = %s
+            """, (invoice_id,))
+            existing = cur.fetchone()
+            from_state = existing[1] if existing else None
+            ws_id = existing[0] if existing else None
+
+            if ws_id:
+                cur.execute("""
+                    UPDATE workflow_state
+                    SET current_state = %s, last_event = %s, updated_at = NOW()
+                    WHERE id = %s
+                """, (target_state, event_type, ws_id))
+            else:
+                cur.execute("""
+                    INSERT INTO workflow_state
+                      (tenant_id, invoice_id, workflow_version, machine_id,
+                       current_state, context_json, snapshot_json, last_event)
+                    VALUES (%s::uuid, %s::uuid, 'v1', 'invoice-approval',
+                            %s, %s::jsonb, %s::jsonb, %s)
+                    RETURNING id
+                """, (tenant_id, invoice_id, target_state,
+                      json.dumps({"invoice_id": invoice_id, "status": target_state}),
+                      json.dumps({"value": target_state}),
+                      event_type))
+                ws_id = cur.fetchone()[0]
+
+            # 2. Append workflow_state_history
+            cur.execute("""
+                INSERT INTO workflow_state_history
+                  (tenant_id, invoice_id, workflow_state_id, event_type,
+                   from_state, to_state, guard_result, trigger_source,
+                   correlation_id, action_summary, recorded_at)
+                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s,
+                        TRUE, %s, %s::uuid, %s::jsonb, NOW())
+            """, (tenant_id, invoice_id, ws_id, event_type,
+                  from_state, target_state, trigger_source,
+                  correlation_id,
+                  json.dumps([reason or f"{event_type} via dev-inline"])))
+
+            # 3. Cancel any existing SLA timer for this invoice
+            cur.execute("""
+                UPDATE workflow_timers
+                SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+                WHERE invoice_id = %s AND timer_key = 'sla.current' AND status = 'scheduled'
+            """, (invoice_id,))
+
+            # 4. Open a new SLA timer if this state needs one
+            sla = _SLA.get(target_state)
+            if sla:
+                cur.execute(f"""
+                    INSERT INTO workflow_timers
+                      (tenant_id, invoice_id, workflow_state_id, timer_key,
+                       timer_type, target_state, status, due_at, payload_json)
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, 'sla.current',
+                            'sla', %s, 'scheduled',
+                            NOW() + INTERVAL '{sla}',
+                            %s::jsonb)
+                """, (tenant_id, invoice_id, ws_id, target_state,
+                      json.dumps({"source": "dev-inline", "event_type": event_type})))
+                log.info("_sync_workflow_transition_dev: SLA timer created (%s) for %s", sla, target_state)
+
+        conn.commit()
+        log.info("_sync_workflow_transition_dev: OK invoice=%s %s→%s", invoice_id, from_state, target_state)
+        return {"ok": True, "source": "dev-inline", "state": target_state}
+
+    except Exception as exc:
+        log.error("_sync_workflow_transition_dev FAILED invoice=%s: %s", invoice_id, exc, exc_info=True)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def sync_timer_lifecycle(payload: dict) -> dict:
@@ -1365,11 +1484,11 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
         log.warning("_simulate_ocr_dev: no DB connection, skipping")
         return
 
+    log.info("_simulate_ocr_dev: START invoice=%s tenant=%s", invoice_id, tenant_id)
     try:
         with conn.cursor() as cur:
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
-            # INSERT matches actual invoice_extractions schema from 001_initial_schema.sql:
-            # id, invoice_id, version, extracted_json, confidence_json, ocr_engine (NOT NULL)
+            log.info("_simulate_ocr_dev: inserting invoice_extractions")
             cur.execute("""
                 INSERT INTO invoice_extractions
                   (invoice_id, version, extracted_json, confidence_json, ocr_engine)
@@ -1377,6 +1496,7 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
             """, (invoice_id, json.dumps(mock_extracted), json.dumps(mock_confidence)))
 
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
+            log.info("_simulate_ocr_dev: updating invoice status → extracted")
             cur.execute(
                 "UPDATE invoices SET status = 'extracted', updated_at = NOW() WHERE id = %s",
                 (invoice_id,)
@@ -1388,9 +1508,9 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
                   json.dumps({"confidence_avg": 0.95, "source": "dev-stub"})))
 
         conn.commit()
-        log.info("_simulate_ocr_dev: invoice %s → extracted (dev stub)", invoice_id)
+        log.info("_simulate_ocr_dev: DB writes committed for invoice=%s", invoice_id)
 
-        sync_workflow_transition(
+        result = sync_workflow_transition(
             invoice_id=invoice_id,
             tenant_id=tenant_id,
             event_type="invoice.extracted",
@@ -1400,8 +1520,9 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
             source_module="MOD-02",
             reason="Dev-mode OCR simulation complete",
         )
+        log.info("_simulate_ocr_dev: sync_workflow_transition result=%s", result)
     except Exception as exc:
-        log.error("_simulate_ocr_dev failed for %s: %s", invoice_id, exc)
+        log.error("_simulate_ocr_dev FAILED at DB write for invoice=%s: %s", invoice_id, exc, exc_info=True)
         try:
             conn.rollback()
         except Exception:
