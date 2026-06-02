@@ -43,6 +43,8 @@ N8N_BASE_URL  = os.environ.get("N8N_BASE_URL", "http://n8n:5678")
 N8N_TOKEN     = os.environ.get("N8N_WEBHOOK_TOKEN", "")
 OCR_MODE      = os.environ.get("OCR_MODE", "stub")
 WORKFLOW_ENGINE_BASE_URL = os.environ.get("WORKFLOW_ENGINE_BASE_URL", "http://workflow-engine:5100")
+# Fallback: Flask backend /api/workflow/advance when engine is unavailable or errors
+BACKEND_API_BASE_URL = os.environ.get("BACKEND_API_BASE_URL", "http://backend-api:5000")
 
 QUEUE_KEY = "ocr:jobs"       # BullMQ-compatible Redis list
 DLQ_KEY   = "dlq:events"    # Dead Letter Queue after max retries
@@ -128,6 +130,12 @@ def fire_event(event: str, invoice_id: str, tenant_id: str, correlation_id: str,
 
 
 def sync_workflow_transition(invoice_id: str, tenant_id: str, correlation_id: str, event_type: str, target_state: str):
+    """
+    Advance workflow state — two-tier:
+      Tier 1: workflow-engine /advance (canonical MOD-04 path)
+      Tier 2: backend-api /api/workflow/advance (inline dev fallback)
+    Either tier success is sufficient.  Raises only if BOTH fail.
+    """
     body = {
         "invoice_id": invoice_id,
         "tenant_id": tenant_id,
@@ -137,14 +145,41 @@ def sync_workflow_transition(invoice_id: str, tenant_id: str, correlation_id: st
         "trigger_source": "worker",
         "source_module": "MOD-02",
     }
-    response = requests.post(
-        f"{WORKFLOW_ENGINE_BASE_URL}/advance",
-        json=body,
-        headers={"Content-Type": "application/json"},
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()
+    headers = {"Content-Type": "application/json"}
+
+    # Tier 1 — workflow engine
+    engine_error = None
+    try:
+        resp = requests.post(
+            f"{WORKFLOW_ENGINE_BASE_URL}/advance",
+            json=body, headers=headers, timeout=10,
+        )
+        resp.raise_for_status()
+        log.info("sync_workflow_transition: engine OK for invoice=%s state=%s",
+                 invoice_id, target_state)
+        return resp.json()
+    except Exception as exc:
+        engine_error = exc
+        log.warning("sync_workflow_transition: engine failed (%s: %s) — trying backend fallback",
+                    type(exc).__name__, exc)
+
+    # Tier 2 — Flask backend inline dev path
+    try:
+        resp2 = requests.post(
+            f"{BACKEND_API_BASE_URL}/api/workflow/advance",
+            json=body, headers=headers, timeout=10,
+        )
+        resp2.raise_for_status()
+        log.info("sync_workflow_transition: backend fallback OK for invoice=%s state=%s",
+                 invoice_id, target_state)
+        return resp2.json()
+    except Exception as exc2:
+        log.error("sync_workflow_transition: both engine and backend failed. "
+                  "Engine: %s  Backend: %s", engine_error, exc2)
+        raise RuntimeError(
+            f"Workflow advance failed for invoice {invoice_id}: "
+            f"engine={engine_error}, backend={exc2}"
+        ) from exc2
 
 # ── Extraction Engines ────────────────────────────────────────────────────────
 
