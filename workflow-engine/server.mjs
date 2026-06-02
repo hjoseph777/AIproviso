@@ -399,7 +399,7 @@ async function advanceWorkflow(payload) {
          tenant_id, invoice_id, workflow_state_id, workflow_definition_id,
          event_type, from_state, to_state, guard_name, rule_id, guard_result, action_summary,
          snapshot_json, triggered_by, trigger_source, correlation_id, recorded_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,now())`,
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,now())`,
       [
         payload.tenant_id,
         invoice.id,

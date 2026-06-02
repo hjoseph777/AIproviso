@@ -20,17 +20,118 @@ This is the session that makes the Michel LeBrun demo credible as an AI-first pl
 
 **File to touch first:** `src/modules/workflow-designer/canvas/IngestionHub.jsx` → `handleConfirm()` Mode 3 branch
 
+#### Session 1 — Definition of Done (DoD)
+
+| Check | Pass Criteria |
+|---|---|
+| Mode 3 API call is real | `handleConfirm()` Mode 3 branch performs HTTP call to Flowise endpoint (no `parseScenario()` fallback path for normal run) |
+| Response is mapped to workflow shape | Flowise response is transformed into workflow definition accepted by current canvas/store persistence path |
+| Failure path is safe | Timeout/network/invalid payload returns clear UI error and does not corrupt existing canvas state |
+| Smoke compatibility preserved | Existing 15/15 smoke test remains green after integration |
+| Demo path works end-to-end | Plain-language AP prompt produces a visible generated workflow in designer |
+
+#### Session 1 — Out of Scope
+
+- OCR pipeline replacement (`_simulate_ocr_dev()` to PaddleOCR + phi4-mini)
+- pgvector dataset seeding/scoring
+- Fastify migration and MOD-04 runtime engine replacement
+
+#### Session 1 — Blockers / Dependencies
+
+| Dependency | Expected | If missing |
+|---|---|---|
+| Flowise API | Reachable at `http://localhost:3001` | Stop and resolve service health first |
+| Model route | phi4-mini chain configured in Flowise | Use test chain with fixed output schema before wiring UI |
+| Response schema | Stable JSON contract for workflow generation | Add schema guard + user-facing error |
+| Timeout policy | Predictable response within agreed limit | Fail fast with actionable error text |
+
+#### Session 1 — Verification Commands
+
+```powershell
+# Verify backend baseline still healthy
+powershell -ExecutionPolicy Bypass -File scripts\smoke-test.ps1
+
+# Verify Flowise endpoint is reachable (adjust route if needed)
+curl http://localhost:3001
+```
+
 ### Session 2 — phi4-mini OCR recovery path
 Replace `_simulate_ocr_dev()` with real PaddleOCR PP-OCRv4 + phi4-mini two-stage pipeline.
 Rule: deterministic pdfplumber/PaddleOCR runs first; phi4-mini only for fields below confidence threshold.
 Validates PRD v12 §0.3 automation-first within AI-first.
 
+#### Session 2 — Implementation Checklist
+
+| Step | What must happen |
+|---|---|
+| 1 | Identify current `_simulate_ocr_dev()` call path and exact state transition side effects |
+| 2 | Insert deterministic extraction stage first (`pdfplumber`/PaddleOCR) with normalized field output |
+| 3 | Define field-level confidence threshold for escalation to phi4-mini |
+| 4 | Send only low-confidence or missing fields to phi4-mini recovery layer |
+| 5 | Merge deterministic + recovered fields into one canonical extraction payload |
+| 6 | Record provenance per field: deterministic vs AI-recovered |
+| 7 | Preserve current downstream runtime/state transitions so smoke behavior does not regress |
+| 8 | Fail safely: if phi4-mini is unavailable, deterministic OCR result still returns |
+
+#### Session 2 — Definition of Done (DoD)
+
+| Check | Pass Criteria |
+|---|---|
+| Deterministic-first path enforced | OCR pipeline never calls phi4-mini when all required fields are above threshold |
+| Recovery path selective | Only low-confidence or missing fields are sent to phi4-mini |
+| Output contract preserved | Final extracted payload matches current backend/runtime expectations |
+| Provenance visible in logs/data | It is possible to tell which fields came from OCR vs phi4-mini |
+| Failure path safe | If AI recovery fails, invoice still advances with deterministic output or flagged review path |
+| Runtime gate preserved | Existing smoke flow still passes or has an explicitly updated replacement check |
+
+#### Session 2 — Risks / Watch Items
+
+| Risk | Why it matters | Guardrail |
+|---|---|---|
+| Scope drift into full OCR rewrite | Can stall progress and break Phase I baseline | Keep focus on replacing stub with staged recovery only |
+| Confidence threshold too vague | Causes overuse or underuse of phi4-mini | Define threshold before wiring model fallback |
+| Latency spike | AI recovery on every field will slow intake badly | Restrict model calls to ambiguous fields only |
+| Payload shape drift | Downstream review/runtime may break | Preserve current extracted payload contract |
+| Missing provenance | Review/debug becomes opaque | Store source and confidence per field |
+| Hard dependency on model availability | Local demos become fragile | Deterministic OCR must remain valid without AI |
+
+#### Session 2 — Out of Scope
+
+- Vendor profile training
+- Full document understanding redesign
+- Dataset flywheel / similarity scoring
+- Fastify migration
+- MOD-04 engine replacement
+
+#### Session 2 — Verification Focus
+
+```powershell
+# Baseline runtime gate
+powershell -ExecutionPolicy Bypass -File scripts\smoke-test.ps1
+
+# Targeted manual check for OCR recovery path
+# Intake a document with at least one ambiguous field and confirm:
+# 1. deterministic extraction runs first
+# 2. only low-confidence fields hit phi4-mini
+# 3. final review payload remains valid
+```
+
+#### Session 2 — Sample Test Case
+
+| Item | Expected Behavior |
+|---|---|
+| Input document | 1 invoice PDF where vendor name and invoice number are clean, but total amount or invoice date is visually ambiguous |
+| Deterministic OCR result | Vendor name + invoice number extracted directly with high confidence |
+| Recovery trigger | Total amount and/or invoice date falls below threshold or is missing |
+| phi4-mini scope | Model sees only ambiguous field context, not a full unnecessary rewrite of already-confident fields |
+| Final payload | One merged extraction result preserving current review/runtime contract |
+| Provenance expectation | Clear indication that vendor/invoice number came from deterministic OCR and amount/date came from AI recovery |
+| Acceptable failure mode | If recovery fails, invoice still enters review with ambiguous fields flagged rather than blocking intake |
+
 ### Session 3 — pgvector seeding and similarity scoring
 Seed `workflows_dataset` with 142 records + embeddings. Wire four-dimensional similarity scoring (PRD v12 §7A).
 Full flywheel: scenario → candidates ranked → diff proposed → workflow activated.
 Completes the end-to-end AI-first demo story.
-
----
 
 ---
 
