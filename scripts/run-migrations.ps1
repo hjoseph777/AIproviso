@@ -28,6 +28,8 @@ if (-not $SkipSeed) {
 }
 $migrations += "005_workflow_runtime.sql"
 $migrations += "006_workflow_history_rule_id.sql"
+$migrations += "007_invoice_extractions_provenance.sql"
+$migrations += "008_dataset_v12.sql"
 
 Write-Host ""
 Write-Host "=== AI Proviso ??? MOD-00 Migrations ===" -ForegroundColor Cyan
@@ -94,7 +96,7 @@ foreach ($file in $migrations) {
     }
     Write-Host "  Running $file..." -NoNewline
     $ErrorActionPreference = "Continue"
-    $output = docker exec -i proviso-postgres psql -U $User -d postgres -v ON_ERROR_STOP=1 -f "/migrations/$file" 2>&1
+    $output = docker exec -i proviso-postgres psql -U $User -d $Database -v ON_ERROR_STOP=1 -f "/migrations/$file" 2>&1
     $exitCode = $LASTEXITCODE
     $ErrorActionPreference = "Stop"
     if ($exitCode -ne 0) {
@@ -105,6 +107,51 @@ foreach ($file in $migrations) {
     $recordApplied = "INSERT INTO schema_migrations (filename) VALUES ('$file') ON CONFLICT (filename) DO NOTHING"
     $null = docker exec -i proviso-postgres psql -U $User -d $Database -v ON_ERROR_STOP=1 -c $recordApplied 2>&1
     Write-Host " OK" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "=== Post-migration verification (target: $Database) ===" -ForegroundColor Cyan
+
+# Verify key tables and columns land in the correct database.
+# Any row returning 0 means the DDL ran somewhere other than $Database.
+$verifyQuery = @"
+SELECT
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema='public' AND table_name='project_version_history')   AS has_pvh,
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema='public' AND table_name='project_dataset_refs')      AS has_pdr,
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema='public' AND table_name='integrator_ai_access_log') AS has_iaal,
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_name='workflows_dataset' AND column_name='province')        AS has_province,
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_name='workflows_dataset' AND column_name='document_types')  AS has_doc_types,
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_name='workflows_dataset' AND column_name='compliance_tags') AS has_compliance;
+"@
+$verifyOut = docker exec -i proviso-postgres psql -U $User -d $Database -t -A -F '|' -c $verifyQuery 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  [WARN] Verification query failed: $verifyOut" -ForegroundColor Yellow
+} else {
+    $vals = ($verifyOut -split '\|')
+    $labels = @("project_version_history","project_dataset_refs","integrator_ai_access_log","province col","document_types col","compliance_tags col")
+    $allOk = $true
+    for ($i = 0; $i -lt $labels.Count; $i++) {
+        $v = $vals[$i].Trim()
+        if ($v -eq "1") {
+            Write-Host "  [OK]  $($labels[$i])" -ForegroundColor DarkGray
+        } else {
+            Write-Host "  [MISS] $($labels[$i]) not found in $Database — DDL may have run against the wrong DB" -ForegroundColor Red
+            $allOk = $false
+        }
+    }
+    if ($allOk) {
+        Write-Host "  All schema objects verified in $Database." -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "  One or more objects missing. Check that psql -d param is always '$Database'." -ForegroundColor Red
+        exit 1
+    }
 }
 
 Write-Host ""

@@ -39,6 +39,17 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [backend-api] %(levelname)s %(message)s")
 log = logging.getLogger("backend-api")
 
+try:
+    from similarity import SimilarityInput
+    from similarity import find_similar as dataset_find_similar_engine
+    from similarity import save_to_dataset as dataset_save_engine
+    _SIMILARITY_IMPORT_ERROR = None
+except Exception as exc:
+    SimilarityInput = None
+    dataset_find_similar_engine = None
+    dataset_save_engine = None
+    _SIMILARITY_IMPORT_ERROR = str(exc)
+
 app = Flask(__name__)
 CORS(app)
 
@@ -70,6 +81,7 @@ FLOWISE_API_KEY   = os.environ.get("FLOWISE_API_KEY", "")
 FLOWISE_WF_CHATFLOW_ID = os.environ.get("FLOWISE_WF_CHATFLOW_ID", "")   # set after creating chatflow in Flowise
 OLLAMA_BASE_URL   = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.environ.get("OLLAMA_MODEL", "mistral:7b-instruct")
+OLLAMA_EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 # OCR recovery threshold — PRD v12 §0.3: phi4-mini fires ONLY for fields below this value
 OCR_CONFIDENCE_THRESHOLD = float(os.environ.get("OCR_CONFIDENCE_THRESHOLD", "0.70"))
 N8N_WEBHOOK_TOKEN = os.environ.get("N8N_WEBHOOK_TOKEN", "")
@@ -2257,6 +2269,131 @@ def ai_generate_workflow():
     log.info("ai_generate_workflow: keyword fallback, %d states", len(result["states"]))
     return jsonify({"ok": True, "workflow": result, "source": "keyword-fallback",
                     "message": "Generated via keyword NLP (Flowise and Ollama unavailable)"}), 200
+
+
+def _log_ai_access(integrator_id, project_id, reason):
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO integrator_ai_access_log (integrator_id, project_id, access_reason)
+                VALUES (%s, %s, %s)
+                """,
+                (integrator_id, project_id, reason),
+            )
+        conn.commit()
+    except Exception:
+        # Logging must never block response flow.
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route("/api/dataset/status", methods=["GET"])
+def dataset_status_api():
+    if dataset_find_similar_engine is None:
+        return jsonify({"error": "dataset_similarity_unavailable", "detail": _SIMILARITY_IMPORT_ERROR}), 503
+
+    tenant_id = request.args.get("tenant_id") or get_tenant_id()
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM workflows_dataset WHERE tenant_id = %s", (tenant_id,))
+            total = int(cur.fetchone()[0])
+            cur.execute(
+                "SELECT COUNT(*) FROM workflows_dataset WHERE tenant_id = %s AND embedding IS NOT NULL",
+                (tenant_id,),
+            )
+            embedded = int(cur.fetchone()[0])
+
+        return jsonify({
+            "total_records": total,
+            "embedded_records": embedded,
+            "ready": total > 0 and embedded == total,
+            "embed_model": OLLAMA_EMBED_MODEL,
+        }), 200
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route("/api/dataset/find-similar", methods=["POST"])
+def dataset_find_similar_api():
+    if dataset_find_similar_engine is None or SimilarityInput is None:
+        return jsonify({"error": "dataset_similarity_unavailable", "detail": _SIMILARITY_IMPORT_ERROR}), 503
+
+    body = request.get_json(force=True, silent=True) or {}
+    scenario_text = (body.get("scenario_text") or "").strip()
+    if not scenario_text:
+        return jsonify({"error": "scenario_text required"}), 400
+
+    query = SimilarityInput(
+        scenario_text=scenario_text,
+        state_count_hint=body.get("state_count_hint"),
+        threshold_hint=body.get("threshold_hint"),
+        sla_hours_hint=body.get("sla_hours_hint"),
+        industry=body.get("industry"),
+        province=body.get("province"),
+        erp_type=body.get("erp_type"),
+    )
+    tenant_id = body.get("tenant_id") or get_tenant_id()
+
+    conn = get_db_conn()
+    try:
+        result = dataset_find_similar_engine(conn, tenant_id, query, top_n=3)
+    except Exception as exc:
+        log.exception("dataset_find_similar_api failed")
+        return jsonify({"error": "dataset_find_failed", "detail": str(exc)}), 500
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    for cand in result.get("candidates", []):
+        _log_ai_access(body.get("integrator_id"), cand.get("id"), "find-similar")
+
+    return jsonify({
+        "candidates": result.get("candidates", []),
+        "query": {
+            "scenario_text": scenario_text,
+            "embed_model": result.get("embed_model", OLLAMA_EMBED_MODEL),
+            "records_searched": result.get("records_searched", 0),
+        },
+    }), 200
+
+
+@app.route("/api/dataset/save", methods=["POST"])
+def dataset_save_api():
+    if dataset_save_engine is None:
+        return jsonify({"error": "dataset_similarity_unavailable", "detail": _SIMILARITY_IMPORT_ERROR}), 503
+
+    body = request.get_json(force=True, silent=True) or {}
+    tenant_id = body.get("tenant_id") or get_tenant_id()
+
+    conn = get_db_conn()
+    try:
+        row_id = dataset_save_engine(conn, tenant_id, body)
+        return jsonify({"id": row_id, "saved": True}), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        log.exception("dataset_save_api failed")
+        return jsonify({"error": "dataset_save_failed", "detail": str(exc)}), 500
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 @app.route("/api/events/fire", methods=["POST"])

@@ -118,6 +118,9 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSource, setAiSource] = useState(null);   // 'flowise' | 'ollama' | 'keyword-fallback'
   const [aiError, setAiError] = useState(null);
+  const [datasetCandidates, setDatasetCandidates] = useState([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesError, setCandidatesError] = useState(null);
   const aiInputRef = useRef(null);
 
   const isVisible = visible && rfNodes.length === 0;
@@ -128,8 +131,40 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
 
   // Reset AI state when mode changes away from 3
   useEffect(() => {
-    if (activeMode !== 3) { setAiSource(null); setAiError(null); }
+    if (activeMode !== 3) {
+      setAiSource(null);
+      setAiError(null);
+      setDatasetCandidates([]);
+      setCandidatesError(null);
+      setCandidatesLoading(false);
+    }
   }, [activeMode]);
+
+  const fetchDatasetCandidates = async (scenario, workflow) => {
+    setCandidatesLoading(true);
+    setCandidatesError(null);
+    try {
+      const res = await fetch('/api/dataset/find-similar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_text: scenario,
+          workflow_json: workflow,
+          limit: 5,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.detail || data?.error || 'similarity lookup failed');
+      }
+      setDatasetCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+    } catch (err) {
+      setCandidatesError(err?.message || 'Unable to load dataset candidates');
+      setDatasetCandidates([]);
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
 
   const handleTemplateSelect = (tpl) => {
     setSelectedTemplate(tpl);
@@ -157,6 +192,8 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
       if (data.ok && data.workflow) {
         setAiSource(data.source);
         const { name, states, transitions } = data.workflow;
+        const generatedWorkflow = { name, states, transitions };
+        fetchDatasetCandidates(aiText.trim(), generatedWorkflow);
         // Short delay so user sees the source badge before dismiss
         setTimeout(() => {
           onModeSelect({
@@ -169,6 +206,7 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
         // Endpoint returned error — local fallback
         setAiError('Backend unavailable — using keyword NLP');
         const parsed = parseScenario(aiText.trim());
+        fetchDatasetCandidates(aiText.trim(), parsed);
         setTimeout(() => {
           onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
         }, 1200);
@@ -177,6 +215,7 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
       // Network error — local fallback
       setAiError('Network error — using keyword NLP');
       const parsed = parseScenario(aiText.trim());
+      fetchDatasetCandidates(aiText.trim(), parsed);
       setTimeout(() => {
         onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
       }, 1200);
@@ -509,6 +548,71 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
                 {aiError && (
                   <div style={{ fontSize: 9, color: '#fbbf24', fontFamily: 'var(--mono)' }}>
                     ⚠ {aiError}
+                  </div>
+                )}
+
+                {(candidatesLoading || candidatesError || datasetCandidates.length > 0) && (
+                  <div
+                    style={{
+                      border: '1px solid rgba(56,189,248,0.22)',
+                      background: 'rgba(15,23,42,0.55)',
+                      borderRadius: 9,
+                      padding: '8px 9px',
+                    }}
+                  >
+                    <div style={{ fontSize: 9, color: 'rgba(56,189,248,0.9)', fontWeight: 700, marginBottom: 6 }}>
+                      Dataset candidates (Mode 3)
+                    </div>
+                    {candidatesLoading && (
+                      <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.75)' }}>
+                        Finding similar templates...
+                      </div>
+                    )}
+                    {candidatesError && !candidatesLoading && (
+                      <div style={{ fontSize: 9, color: '#fbbf24' }}>
+                        ⚠ {candidatesError}
+                      </div>
+                    )}
+                    {!candidatesLoading && !candidatesError && datasetCandidates.length === 0 && (
+                      <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.7)' }}>
+                        No close dataset records found yet.
+                      </div>
+                    )}
+                    {!candidatesLoading && datasetCandidates.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {datasetCandidates.slice(0, 3).map((c) => (
+                          <div
+                            key={c.id}
+                            style={{
+                              border: '1px solid rgba(255,255,255,0.10)',
+                              borderRadius: 7,
+                              padding: '6px 7px',
+                              display: 'grid',
+                              gridTemplateColumns: '1fr auto',
+                              gap: 6,
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: 9, color: '#dde7f5', fontWeight: 700 }}>
+                                {c.project_name || 'Dataset record'}
+                              </div>
+                              <div style={{ fontSize: 8, color: 'rgba(100,116,139,0.8)' }}>
+                                {[c.province, c.industry, c.erp_type].filter(Boolean).join(' · ')}
+                                {c.state_count ? ` · ${c.state_count} states` : ''}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: 9, fontFamily: 'var(--mono)', alignSelf: 'center',
+                              color: (c.similarity_pct >= 80) ? '#4ade80'
+                                   : (c.similarity_pct >= 60) ? '#fbbf24'
+                                   : '#94a3b8',
+                            }}>
+                              {c.similarity_pct ?? 0}%
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

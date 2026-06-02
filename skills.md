@@ -8,11 +8,65 @@
 
 ---
 
-## 🔴 NEXT SESSION — Start Here
+## ✅ AI-FIRST BUILD SEQUENCE — ALL 3 SESSIONS COMPLETE (2026-06-02)
 
-**CONFIRMED BUILD SEQUENCE (agreed 2026-06-01, do not reorder):**
+### Session 3 COMPLETE — pgvector seeding + four-dimensional similarity scoring
 
-### Session 1 — Wire Mode 3 to Flowise ← START HERE NEXT
+**What was built:**
+
+| Deliverable | File | Status |
+|---|---|---|
+| Schema v12 (§7A.6) | `core/migrations/008_dataset_v12.sql` | ✅ vector(768) + new tables |
+| Four-dimensional scoring engine | `backend/similarity.py` | ✅ semantic·structural·config·context |
+| 10 seed records (Canadian SME AP) | `backend/seed_dataset.py` | ✅ two-pass: insert → embed |
+| `/api/dataset/status` | `backend/app.py:2299` | ✅ |
+| `/api/dataset/find-similar` | `backend/app.py:2329` | ✅ |
+| `/api/dataset/save` (flywheel) | `backend/app.py:2375` | ✅ |
+| Mode 3 dataset candidates panel | `IngestionHub.jsx:554` | ✅ colour-coded similarity |
+| Migration DB target fix | `run-migrations.ps1:99` | ✅ was `-d postgres`, now `-d $Database` |
+| Post-migration verification | `run-migrations.ps1:112` | ✅ checks all §7A.6 objects in proviso |
+
+**Run sequence to activate:**
+
+```powershell
+# 1. Apply migration 008
+.\scripts\run-migrations.ps1
+
+# 2. Pull embedding model (if not already)
+ollama pull nomic-embed-text
+
+# 3. Seed 10 records (two-pass: insert then embed, ~1-2 min)
+python backend/seed_dataset.py
+
+# 4. Verify
+python backend/seed_dataset.py --status
+curl http://localhost:5000/api/dataset/status
+
+# 5. Test similarity search
+curl -X POST http://localhost:5000/api/dataset/find-similar `
+  -H "Content-Type: application/json" `
+  -d '{"scenario_text":"Ontario manufacturer SAP invoice approval"}'
+```
+
+**Scoring weights (PRD v12 §7A.3):**
+
+- Semantic × 0.40 — cosine similarity of nomic-embed-text vectors via pgvector
+- Structural × 0.30 — state count, approval tiers, optional states
+- Config × 0.20 — threshold amount + SLA hours proximity
+- Context × 0.10 — industry + province + ERP exact/family match
+
+**Dataset schema additions (§7A.6):**
+
+- `workflows_dataset`: `province`, `erp_type`, `touchless_rate`, `state_count`, `threshold_amount`, `sla_hours`, `approval_tiers`, `document_types`, `pain_points`, `metrics`, `compliance_tags`, `embedding vector(768)`
+- New tables: `project_version_history`, `project_dataset_refs`, `integrator_ai_access_log`
+
+---
+
+## 🔴 SESSIONS 1–3 HISTORY
+
+**CONFIRMED BUILD SEQUENCE (agreed 2026-06-01, completed 2026-06-02):**
+
+### Session 1 — Wire Mode 3 to Flowise ✅ COMPLETE
 Replace the `parseScenario()` NLP keyword stub in `IngestionHub.jsx` (Mode 3 AI Generated)
 with a real call to the Flowise API (`localhost:3001`). Goal: integrator describes an AP process
 in plain language → phi4-mini via Flowise generates a real workflow definition.
