@@ -73,7 +73,7 @@ $serviceDockerfiles = @{
 $repoRoot = Split-Path -Parent $PSScriptRoot
 foreach ($container in $serviceDockerfiles.Keys) {
     $srcDir = Join-Path $repoRoot (Split-Path -Parent $serviceDockerfiles[$container])
-    $srcMtime = (Get-ChildItem $srcDir -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1).LastWriteTimeUtc
+    $srcMtime = (Get-ChildItem $srcDir -File -Recurse -Exclude "*.log","node_modules","__pycache__" | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1).LastWriteTimeUtc
     try {
         $imageCreated = docker inspect $container --format '{{json .Created}}' 2>$null | ConvertFrom-Json
         $imageCreatedUtc = [datetime]::Parse($imageCreated).ToUniversalTime()
