@@ -2006,10 +2006,10 @@ def list_project_workflows(project_id):
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, name, status, version, updated_at
+                    SELECT id, name, version, active, created_at
                     FROM workflow_definitions
                     WHERE project_id = %s
-                    ORDER BY updated_at DESC
+                    ORDER BY created_at DESC
                 """, (project_id,))
                 rows = cur.fetchall()
             return jsonify({"ok": True, "workflows": [dict(r) for r in rows]}), 200
@@ -2077,10 +2077,10 @@ def list_workflows():
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, name, status, version, updated_at
+                    SELECT id, name, version, active, created_at
                     FROM workflow_definitions
                     WHERE tenant_id = %s
-                    ORDER BY updated_at DESC
+                    ORDER BY created_at DESC
                 """, (tenant_id,))
                 rows = cur.fetchall()
             return jsonify({"ok": True, "workflows": [dict(r) for r in rows]}), 200
@@ -2150,14 +2150,14 @@ def create_workflow():
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO workflow_definitions
-                        (id, tenant_id, name, status, version, definition, created_at, updated_at)
+                        (id, tenant_id, name, version, active, workflow_json, project_id, created_at)
                     VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s,%s)
                     ON CONFLICT (id) DO UPDATE SET
-                        name = EXCLUDED.name,
-                        definition = EXCLUDED.definition,
-                        updated_at = EXCLUDED.updated_at
-                """, (wf_id, tenant_id, name, "draft", 1,
-                      json.dumps(definition), now, now))
+                        name          = EXCLUDED.name,
+                        workflow_json = EXCLUDED.workflow_json,
+                        project_id    = EXCLUDED.project_id
+                """, (wf_id, tenant_id, name, 1, False,
+                      json.dumps(definition), record.get("project_id"), now))
             conn.commit()
         except Exception as exc:
             conn.rollback()
@@ -2185,15 +2185,14 @@ def save_workflow(workflow_id):
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     INSERT INTO workflow_definitions
-                        (id, tenant_id, name, status, version, definition, created_at, updated_at)
-                    VALUES (%s,%s,%s,'draft',%s,%s::jsonb,NOW(),%s)
+                        (id, tenant_id, name, version, active, workflow_json, created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s::jsonb,NOW())
                     ON CONFLICT (id) DO UPDATE SET
-                        name       = EXCLUDED.name,
-                        definition = EXCLUDED.definition,
-                        version    = EXCLUDED.version,
-                        updated_at = EXCLUDED.updated_at
-                    RETURNING id, name, status, version, updated_at
-                """, (workflow_id, tenant_id, name, version, json.dumps(definition), now))
+                        name          = EXCLUDED.name,
+                        workflow_json = EXCLUDED.workflow_json,
+                        version       = EXCLUDED.version
+                    RETURNING id, name, version, active, created_at
+                """, (workflow_id, tenant_id, name, version, False, json.dumps(definition)))
                 row = cur.fetchone()
             conn.commit()
             return jsonify({"ok": True, "workflow": dict(row)}), 200
