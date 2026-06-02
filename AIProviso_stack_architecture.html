@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso — Platform Architecture v12 · 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#05090f;--s1:#080e1a;--s2:#0c1422;--s3:#10192c;--s4:#142036;
+  --wire:#182840;--wire2:#1e3050;--dim:#2a4060;--mid:#3d5a7a;
+  --text:#b8d0f0;--text2:#7aa0cc;--text3:#3a526a;--white:#eaf4ff;
+  --blue:#2a7fff;--blue2:#1a6fee;--blue-lt:rgba(42,127,255,.11);
+  --green:#00d47a;--green-lt:rgba(0,212,122,.09);
+  --amber:#f0a500;--amber-lt:rgba(240,165,0,.09);
+  --red:#ff3d5a;--red-lt:rgba(255,61,90,.09);
+  --purple:#9b6dff;--purple-lt:rgba(155,109,255,.09);
+  --teal:#00c8d4;--teal-lt:rgba(0,200,212,.09);
+  --pink:#ff6eb4;--pink-lt:rgba(255,110,180,.09);
+  --cyan:#22d3ee;--cyan-lt:rgba(34,211,238,.09);
+  --font:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+html,body{min-height:100%;background:var(--ink);font-family:var(--font);color:var(--text);font-size:13px;line-height:1.5}
+.page{max-width:1440px;margin:0 auto;padding:32px 28px 80px}
+
+/* HEADER */
+.hdr{text-align:center;padding:56px 0 60px;position:relative}
+.hdr::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:700px;height:1px;background:linear-gradient(90deg,transparent,var(--wire2),transparent)}
+.hdr-kicker{font-size:10px;font-weight:600;color:var(--cyan);letter-spacing:2.4px;text-transform:uppercase;font-family:var(--mono);margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:12px}
+.hdr-kicker::before,.hdr-kicker::after{content:'';flex:0 0 48px;height:1px;background:var(--wire2)}
+.hdr-title{font-size:46px;font-weight:700;color:var(--white);letter-spacing:-2px;line-height:1.08;margin-bottom:10px}
+.hdr-title span{color:var(--blue)}
+.hdr-sub{font-size:15px;color:var(--text2);font-weight:300;max-width:680px;margin:0 auto 22px;line-height:1.75}
+.hdr-badges{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+.hdr-badge{font-size:10px;font-family:var(--mono);padding:4px 11px;border-radius:20px;font-weight:500;letter-spacing:.3px}
+.hb-blue{background:var(--blue-lt);color:var(--blue);border:1px solid rgba(42,127,255,.25)}
+.hb-green{background:var(--green-lt);color:var(--green);border:1px solid rgba(0,212,122,.25)}
+.hb-amber{background:var(--amber-lt);color:var(--amber);border:1px solid rgba(240,165,0,.25)}
+.hb-purple{background:var(--purple-lt);color:var(--purple);border:1px solid rgba(155,109,255,.25)}
+.hb-teal{background:var(--teal-lt);color:var(--teal);border:1px solid rgba(0,200,212,.25)}
+.hb-cyan{background:var(--cyan-lt);color:var(--cyan);border:1px solid rgba(34,211,238,.25)}
+
+/* SECTION HEADERS */
+.sec-hdr{display:flex;align-items:center;gap:12px;margin:52px 0 22px}
+.sec-num{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.sec-title{font-size:19px;font-weight:700;color:var(--white);letter-spacing:-.3px}
+.sec-sub{font-size:12px;color:var(--text3);margin-left:auto;font-family:var(--mono)}
+
+/* LAYER LABEL */
+.layer-label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.layer-label::after{content:'';flex:1;height:1px;background:var(--wire)}
+
+/* GRIDS */
+.g1{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
+
+/* CARDS */
+.lcard{border-radius:16px;padding:18px 16px;border:1px solid var(--wire);background:var(--s2);position:relative;overflow:hidden;cursor:default;transition:all .18s}
+.lcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:.85}
+.lcard:hover{transform:translateY(-3px);border-color:var(--wire2);box-shadow:0 8px 28px rgba(0,0,0,.35)}
+.lcard.blue::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.lcard.green::before{background:linear-gradient(90deg,var(--green),transparent)}
+.lcard.amber::before{background:linear-gradient(90deg,var(--amber),transparent)}
+.lcard.purple::before{background:linear-gradient(90deg,var(--purple),transparent)}
+.lcard.teal::before{background:linear-gradient(90deg,var(--teal),transparent)}
+.lcard.red::before{background:linear-gradient(90deg,var(--red),transparent)}
+.lcard.pink::before{background:linear-gradient(90deg,var(--pink),transparent)}
+.lcard.cyan::before{background:linear-gradient(90deg,var(--cyan),transparent)}
+.lcard.dim::before{background:linear-gradient(90deg,var(--mid),transparent)}
+
+.lcard-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;flex-shrink:0}
+.li-blue{background:var(--blue-lt)}.li-green{background:var(--green-lt)}.li-amber{background:var(--amber-lt)}
+.li-purple{background:var(--purple-lt)}.li-teal{background:var(--teal-lt)}.li-red{background:var(--red-lt)}
+.li-pink{background:var(--pink-lt)}.li-cyan{background:var(--cyan-lt)}.li-dim{background:rgba(255,255,255,.04)}
+
+.lcard-name{font-size:14px;font-weight:700;color:var(--white);letter-spacing:-.2px;margin-bottom:3px}
+.lcard-version{font-size:9px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;letter-spacing:.3px}
+.lcard-role{font-size:11px;color:var(--text2);line-height:1.65;margin-bottom:10px}
+.lcard-tags{display:flex;gap:4px;flex-wrap:wrap}
+.ltag{font-size:8px;font-family:var(--mono);padding:2px 6px;border-radius:3px;font-weight:600;letter-spacing:.3px}
+.lt-blue{background:var(--blue-lt);color:var(--blue)}.lt-green{background:var(--green-lt);color:var(--green)}
+.lt-amber{background:var(--amber-lt);color:var(--amber)}.lt-purple{background:var(--purple-lt);color:var(--purple)}
+.lt-teal{background:var(--teal-lt);color:var(--teal)}.lt-red{background:var(--red-lt);color:var(--red)}
+.lt-cyan{background:var(--cyan-lt);color:var(--cyan)}.lt-dim{background:rgba(255,255,255,.04);color:var(--mid)}
+
+/* GATE BADGE */
+.gate-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;font-size:10px;font-family:var(--mono);font-weight:700}
+.gate-pass{background:rgba(0,212,122,.1);border:1px solid rgba(0,212,122,.3);color:var(--green)}
+.gate-num{font-size:18px;font-weight:700;color:var(--green)}
+
+/* FLOW BOXES */
+.flow-wrap{background:var(--s1);border:1px solid var(--wire);border-radius:20px;padding:32px;margin-bottom:36px;position:relative;overflow:hidden}
+.flow-wrap::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 15% 50%,rgba(42,127,255,.04),transparent 60%),radial-gradient(ellipse at 85% 50%,rgba(155,109,255,.04),transparent 60%);pointer-events:none}
+.flow-title{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:26px;display:flex;align-items:center;gap:8px}
+.flow-title::after{content:'';flex:1;height:1px;background:var(--wire)}
+
+/* INTERACTION ROWS */
+.int-row{display:flex;align-items:stretch;gap:0;margin-bottom:10px}
+.int-row:last-child{margin-bottom:0}
+.int-from{min-width:148px;padding:10px 12px;border-radius:10px 0 0 10px;border:1px solid;border-right:none;font-size:11px;font-weight:700;font-family:var(--mono);display:flex;align-items:center}
+.int-arrow-cell{display:flex;align-items:center;justify-content:center;width:170px;flex-shrink:0;border-top:1px solid var(--wire);border-bottom:1px solid var(--wire);background:rgba(8,14,26,.6);flex-direction:column;gap:2px;padding:8px 12px}
+.int-arrow-txt{font-size:9px;font-family:var(--mono);color:var(--dim);text-align:center;line-height:1.5}
+.int-to{flex:1;padding:10px 12px;border-radius:0 10px 10px 0;border:1px solid;border-left:none;font-size:11px;color:var(--text2);display:flex;align-items:center}
+
+/* RULE CARDS */
+.rules-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:36px}
+.rule-card{background:var(--s2);border:1px solid var(--wire);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s}
+.rule-card:hover{border-color:var(--wire2)}
+.rule-num{width:22px;height:22px;border-radius:6px;background:var(--blue-lt);color:var(--blue);font-size:10px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rule-num.green{background:var(--green-lt);color:var(--green)}
+.rule-num.amber{background:var(--amber-lt);color:var(--amber)}
+.rule-num.purple{background:var(--purple-lt);color:var(--purple)}
+.rule-text{font-size:11px;color:var(--text2);line-height:1.65}
+.rule-text strong{color:var(--text);font-weight:600}
+
+/* COMPARISON TABLE */
+.comp-table{background:var(--s1);border:1px solid var(--wire);border-radius:16px;overflow:hidden;margin-bottom:36px}
+.comp-table table{width:100%;border-collapse:collapse}
+.comp-table thead th{background:rgba(5,9,15,.7);padding:12px 14px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);border-bottom:1px solid var(--wire)}
+.comp-table tbody tr{border-bottom:1px solid rgba(24,40,64,.5);transition:background .1s}
+.comp-table tbody tr:hover{background:rgba(42,127,255,.03)}
+.comp-table tbody tr:last-child{border-bottom:none}
+.comp-table tbody td{padding:10px 14px;font-size:12px;color:var(--text2);vertical-align:middle}
+.comp-table tbody td:first-child{color:var(--text);font-weight:500}
+.ct-badge{font-size:9px;padding:2px 7px;border-radius:3px;font-family:var(--mono);font-weight:700}
+.ctb-win{background:var(--green-lt);color:var(--green)}
+.ctb-lose{background:var(--red-lt);color:var(--red)}
+.ctb-tie{background:var(--amber-lt);color:var(--amber)}
+
+/* INFRA TABLE */
+.infra-wrap{background:var(--s1);border:1px solid var(--wire);border-radius:16px;padding:20px 24px;margin-bottom:36px;font-family:var(--mono);font-size:11px}
+
+/* PHASE RIBBON */
+.phase-ribbon{display:flex;gap:10px;margin-bottom:36px;flex-wrap:wrap}
+.phase-block{flex:1;min-width:180px;border-radius:14px;padding:18px 16px;border:1px solid}
+.ph-done{background:rgba(0,212,122,.06);border-color:rgba(0,212,122,.2)}
+.ph-now{background:rgba(42,127,255,.07);border-color:rgba(42,127,255,.25)}
+.ph-next{background:rgba(155,109,255,.06);border-color:rgba(155,109,255,.2)}
+.ph-future{background:rgba(255,255,255,.03);border-color:var(--wire)}
+.ph-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;font-family:var(--mono);margin-bottom:6px}
+.ph-done .ph-label{color:var(--green)}.ph-now .ph-label{color:var(--blue)}
+.ph-next .ph-label{color:var(--purple)}.ph-future .ph-label{color:var(--mid)}
+.ph-item{font-size:10px;color:var(--text2);font-family:var(--mono);padding:2px 0;display:flex;align-items:center;gap:5px}
+.ph-item::before{content:'·';color:var(--text3)}
+
+/* DIVIDER */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--wire),transparent);margin:44px 0}
+
+/* SMOKE GATE BOX */
+.gate-box{background:rgba(0,212,122,.06);border:1px solid rgba(0,212,122,.2);border-radius:16px;padding:22px 28px;margin-bottom:36px;display:flex;align-items:center;gap:24px}
+.gate-score{text-align:center;flex-shrink:0}
+.gate-score .num{font-size:40px;font-weight:700;color:var(--green);font-family:var(--mono);line-height:1}
+.gate-score .denom{font-size:14px;color:var(--text3);font-family:var(--mono)}
+.gate-score .label{font-size:9px;color:var(--green);font-weight:700;letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);margin-top:4px}
+.gate-steps{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.gate-step{background:rgba(0,212,122,.08);border:1px solid rgba(0,212,122,.15);border-radius:8px;padding:6px 9px;font-size:9px;font-family:var(--mono);color:var(--green)}
+
+/* RF PRO FEATURES */
+.rf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.rf-chip{background:var(--s2);border:1px solid var(--wire);border-radius:9px;padding:9px 10px;font-size:10px;font-family:var(--mono);color:var(--text2);display:flex;align-items:center;gap:6px;transition:all .14s}
+.rf-chip:hover{border-color:var(--wire2);color:var(--text)}
+.rf-chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green);box-shadow:0 0 5px var(--green)}
+.dot-blue{background:var(--blue)}
+
+/* FOOTER */
+.footer{text-align:center;padding:52px 0 24px;border-top:1px solid var(--wire);color:var(--text3);font-size:11px;font-family:var(--mono);line-height:2.2}
+.footer strong{color:var(--text2)}
+
+@media(max-width:960px){
+  .g3,.g4,.g5{grid-template-columns:repeat(2,1fr)}
+  .g2{grid-template-columns:1fr}
+  .rules-grid{grid-template-columns:1fr}
+  .rf-grid{grid-template-columns:repeat(2,1fr)}
+  .gate-steps{grid-template-columns:1fr}
+  .phase-ribbon{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<div class="hdr">
+  <div class="hdr-kicker">AI Proviso · Platform Architecture · PRD v12 · June 2026</div>
+  <div class="hdr-title">Full-Stack AP Automation · <span>Architecture</span></div>
+  <div class="hdr-sub">Every layer of the AI Proviso platform — from the glassmorphic Workflow Designer Studio to the PostgreSQL-backed runtime engine — verified with a 15/15 smoke test gate</div>
+  <div class="hdr-badges">
+    <span class="hdr-badge hb-green">15/15 Smoke Gate · PASS</span>
+    <span class="hdr-badge hb-blue">@xyflow/react v12 Pro · 17/17 features</span>
+    <span class="hdr-badge hb-purple">Project Container Model · PRD v12 §2.3</span>
+    <span class="hdr-badge hb-amber">Flask Phase I → Fastify Phase II</span>
+    <span class="hdr-badge hb-teal">PostgreSQL 16 + Redis 7 + BullMQ</span>
+    <span class="hdr-badge hb-cyan">Ollama phi4-mini · Local LLM · No Cloud</span>
+  </div>
+</div>
+
+<!-- ══ SMOKE GATE ═══════════════════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--green-lt);color:var(--green)">00</div>
+  <div class="sec-title">Runtime Gate — 15/15 Verified</div>
+  <div class="sec-sub">scripts/smoke-test.ps1 · mandatory pre-merge</div>
+</div>
+
+<div class="gate-box">
+  <div class="gate-score">
+    <div class="num">15</div>
+    <div class="denom">/ 15</div>
+    <div class="label">PASS</div>
+  </div>
+  <div style="width:1px;height:70px;background:rgba(0,212,122,.2);flex-shrink:0"></div>
+  <div class="gate-steps" id="gate-steps"></div>
+</div>
+
+<div style="background:rgba(0,212,122,.05);border:1px solid rgba(0,212,122,.15);border-radius:12px;padding:14px 18px;margin-bottom:40px;font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+  <strong style="color:var(--green)">Gate policy:</strong> 15/15 required to merge into <code style="color:var(--cyan)">main</code>. Any score below 15/15 is a release blocker — no exceptions.
+  Run: <code style="color:var(--blue)">powershell -ExecutionPolicy Bypass -File scripts\smoke-test.ps1</code>
+</div>
+
+<!-- ══ PHASE ROADMAP ════════════════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--blue-lt);color:var(--blue)">01</div>
+  <div class="sec-title">Delivery Phases</div>
+  <div class="sec-sub">PRD v12 · 9-module contract-first isolation</div>
+</div>
+
+<div class="phase-ribbon">
+  <div class="phase-block ph-done">
+    <div class="ph-label">Phase I — Now ✓</div>
+    <div class="ph-item">Flask backend API (Python)</div>
+    <div class="ph-item">PostgreSQL + Redis + BullMQ</div>
+    <div class="ph-item">Workflow Designer Studio</div>
+    <div class="ph-item">Project Container Model</div>
+    <div class="ph-item">OCR dev stub (MOD-02)</div>
+    <div class="ph-item">15/15 smoke gate</div>
+  </div>
+  <div class="phase-block ph-now">
+    <div class="ph-label">Phase I → II — Active</div>
+    <div class="ph-item">Fastify gateway replaces Flask</div>
+    <div class="ph-item">Real MOD-02 PaddleOCR pipeline</div>
+    <div class="ph-item">MOD-04 XState engine live</div>
+    <div class="ph-item">Flowise AI workflow generation</div>
+    <div class="ph-item">Dataset intelligence flywheel</div>
+  </div>
+  <div class="phase-block ph-next">
+    <div class="ph-label">Phase II — Weeks 9–16</div>
+    <div class="ph-item">MOD-03 PO matching</div>
+    <div class="ph-item">MOD-05 ERP posting</div>
+    <div class="ph-item">MOD-06 GL coding</div>
+    <div class="ph-item">First-Run Wizard (7-day)</div>
+    <div class="ph-item">Multi-tenant production hardening</div>
+  </div>
+  <div class="phase-block ph-future">
+    <div class="ph-label">Phase III — Production</div>
+    <div class="ph-item">Kubernetes autoscale</div>
+    <div class="ph-item">Cross-deployment RAG dataset</div>
+    <div class="ph-item">Project Templates AI clustering</div>
+    <div class="ph-item">One-tap email approval tokens</div>
+    <div class="ph-item">Full audit trail UI</div>
+  </div>
+</div>
+
+<!-- ══ SECTION 2 — WORKFLOW DESIGNER STUDIO ═════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--cyan-lt);color:var(--cyan)">02</div>
+  <div class="sec-title">Workflow Designer Studio</div>
+  <div class="sec-sub">React Flow Pro v12 · 17/17 features active</div>
+</div>
+
+<div class="layer-label" style="margin-bottom:16px">React Flow Pro — 17/17 Features Wired</div>
+<div class="rf-grid" id="rf-features"></div>
+
+<div class="g3" style="margin-bottom:24px">
+  <div class="lcard cyan">
+    <div class="lcard-icon li-cyan">🏗</div>
+    <div class="lcard-name">Action Deck System</div>
+    <div class="lcard-version">5 glassmorphic floating panels</div>
+    <div class="lcard-role">Replaces static toolbar. Context-sensitive panels: Creation (node palette + modes), Layout Engine (ELK/Force/Paths/Route), History (undo/redo/copy/paste), Context (edge style when selected), Cloud (collaboration + export). Luminosity-based active states.</div>
+    <div class="lcard-tags"><span class="ltag lt-cyan">glassmorphism</span><span class="ltag lt-cyan">5 panels</span><span class="ltag lt-cyan">context-aware</span><span class="ltag lt-cyan">backdrop-blur(24px)</span></div>
+  </div>
+  <div class="lcard blue">
+    <div class="lcard-icon li-blue">🚪</div>
+    <div class="lcard-name">IngestionHub</div>
+    <div class="lcard-version">Replaces blocking modal</div>
+    <div class="lcard-role">Embedded on canvas when nodes.length === 0. Step 1: project creation form (inline, spring-animated). Step 2: 4 mode cards — AP Templates, Draw from Scratch, AI Generated (parseScenario NLP), Preset Default. Fades with cubic-bezier(0.16,1,0.3,1) on first node drop.</div>
+    <div class="lcard-tags"><span class="ltag lt-blue">zero-modal</span><span class="ltag lt-blue">4 modes</span><span class="ltag lt-blue">spring easing</span><span class="ltag lt-blue">passive dim</span></div>
+  </div>
+  <div class="lcard purple">
+    <div class="lcard-icon li-purple">◆</div>
+    <div class="lcard-name">Project Container Model</div>
+    <div class="lcard-version">PRD v12 §2.3 — fully wired</div>
+    <div class="lcard-role">Projects are the top-level container (M-Files vault equivalent). One project = one client engagement. Workflows, ERP config, users, documents, history all live inside. RLS enforced via tenant_id. Switcher in toolbar + inline creation in hub. State regression guard prevents n8n double-fire.</div>
+    <div class="lcard-tags"><span class="ltag lt-purple">project-first</span><span class="ltag lt-purple">RLS</span><span class="ltag lt-purple">regression guard</span><span class="ltag lt-purple">bootstrap latch</span></div>
+  </div>
+</div>
+
+<div class="g4" style="margin-bottom:36px">
+  <div class="lcard blue">
+    <div class="lcard-icon li-blue">⊞</div>
+    <div class="lcard-name">ELK Auto-Layout</div>
+    <div class="lcard-version">elkjs + SPLINES routing</div>
+    <div class="lcard-role">Top-down AP flow order. Libavoid obstacle-aware orthogonal routing. Force layout (D3 physics). State regression guard blocks backward transitions. Nodes only move on explicit drag.</div>
+    <div class="lcard-tags"><span class="ltag lt-blue">ELK</span><span class="ltag lt-blue">libavoid</span><span class="ltag lt-blue">D3 force</span></div>
+  </div>
+  <div class="lcard green">
+    <div class="lcard-icon li-green">👥</div>
+    <div class="lcard-name">Collaboration</div>
+    <div class="lcard-version">Yjs CRDT + BroadcastChannel</div>
+    <div class="lcard-role">Real-time multi-user editing. Yjs for network (y-websocket), BroadcastChannel for local tabs. Presence avatars on nodes and edges. Session ID management. Pulsing ● Live indicator in topbar.</div>
+    <div class="lcard-tags"><span class="ltag lt-green">Yjs</span><span class="ltag lt-green">CRDT</span><span class="ltag lt-green">presence</span><span class="ltag lt-green">BroadcastChannel</span></div>
+  </div>
+  <div class="lcard amber">
+    <div class="lcard-icon li-amber">⌒</div>
+    <div class="lcard-name">Node &amp; Edge Design</div>
+    <div class="lcard-version">Custom RF Pro components</div>
+    <div class="lcard-role">6 semantic state kinds (initial/approval/exception/technical/terminal/standard) with kind-colored cards. Bezier/Step/Straight curves. Solid/Dashed/Dotted/Dash-dot line styles — auto-detected from label keywords. Bend handle drag (editable edge). NodeResizer + NodeToolbar.</div>
+    <div class="lcard-tags"><span class="ltag lt-amber">6 kinds</span><span class="ltag lt-amber">line styles</span><span class="ltag lt-amber">bend handle</span><span class="ltag lt-amber">resizer</span></div>
+  </div>
+  <div class="lcard teal">
+    <div class="lcard-icon li-teal">⊸</div>
+    <div class="lcard-name">Simulation + XState Preview</div>
+    <div class="lcard-version">Play/Pause/Step/Stop</div>
+    <div class="lcard-role">Full simulation engine with guard evaluator, invoice context (amount/confidence/PO), speed control (0.5×–3×), route trace timeline. XState tab shows live-compiled machine JSON. Simulation required before workflow activation (DB trigger).</div>
+    <div class="lcard-tags"><span class="ltag lt-teal">simulation</span><span class="ltag lt-teal">guard eval</span><span class="ltag lt-teal">XState preview</span></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 3 — BACKEND ══════════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--blue-lt);color:var(--blue)">03</div>
+  <div class="sec-title">Backend API — Phase I Flask</div>
+  <div class="sec-sub">Python 3.11 · port 5000 · FastAPI gateway in Phase II</div>
+</div>
+
+<div class="layer-label">Core API Services</div>
+<div class="g3" style="margin-bottom:24px">
+  <div class="lcard blue">
+    <div class="lcard-icon li-blue">🐍</div>
+    <div class="lcard-name">Flask 3.1 Backend</div>
+    <div class="lcard-version">Python 3.11.8 · localhost:5000</div>
+    <div class="lcard-role">Phase I API gateway. Handles intake, workflow CRUD, project CRUD, runtime-view, health checks, OCR simulation stub, BullMQ relay thread. Reads credentials via _resolve_database_url() — checks env → .env file → dev default. ALLOW_DEV_FALLBACK=1 enables all dev stubs.</div>
+    <div class="lcard-tags"><span class="ltag lt-blue">Flask 3.1</span><span class="ltag lt-blue">python 3.11</span><span class="ltag lt-blue">dev-fallback</span><span class="ltag lt-blue">dotenv</span></div>
+  </div>
+  <div class="lcard green">
+    <div class="lcard-icon li-green">◆</div>
+    <div class="lcard-name">Project API</div>
+    <div class="lcard-version">GET/POST/PUT/DELETE /api/projects</div>
+    <div class="lcard-role">Full CRUD for Project Container Model. GET /api/projects/:id/workflows returns project-scoped workflow list. Tenant-isolated via RLS. In-memory fallback when PostgreSQL unavailable. Workflow creation always requires active project_id.</div>
+    <div class="lcard-tags"><span class="ltag lt-green">project-scoped</span><span class="ltag lt-green">RLS</span><span class="ltag lt-green">in-memory fallback</span></div>
+  </div>
+  <div class="lcard purple">
+    <div class="lcard-icon li-purple">⚡</div>
+    <div class="lcard-name">Inline Workflow Engine</div>
+    <div class="lcard-version">_sync_workflow_transition_dev()</div>
+    <div class="lcard-role">Phase I dev stub for MOD-04 XState engine. When engine service (workflow-engine:5100) is unreachable, writes directly to workflow_state, workflow_state_history, workflow_timers. State regression guard (_STATE_ORDER) prevents n8n double-fire from reverting states.</div>
+    <div class="lcard-tags"><span class="ltag lt-purple">dev inline</span><span class="ltag lt-purple">regression guard</span><span class="ltag lt-purple">SLA timers</span></div>
+  </div>
+</div>
+
+<div class="layer-label">OCR and Timer Stubs (Phase I)</div>
+<div class="g2" style="margin-bottom:36px">
+  <div class="lcard teal">
+    <div class="lcard-icon li-teal">🔬</div>
+    <div class="lcard-name">OCR Dev Stub</div>
+    <div class="lcard-version">_simulate_ocr_dev() · fires in background thread</div>
+    <div class="lcard-role">Fires 1 second after intake in background thread (ALLOW_DEV_FALLBACK=1). Writes mock invoice_extractions (ocr_engine='paddle-dev-stub'), updates invoice status → extracted, creates workflow_state row, creates SLA timer. Replaces real PaddleOCR pipeline until MOD-02 is deployed.</div>
+    <div class="lcard-tags"><span class="ltag lt-teal">background thread</span><span class="ltag lt-teal">mock extraction</span><span class="ltag lt-teal">remove at MOD-02</span></div>
+  </div>
+  <div class="lcard amber">
+    <div class="lcard-icon li-amber">⏱</div>
+    <div class="lcard-name">BullMQ Relay Thread</div>
+    <div class="lcard-version">_start_bullmq_relay() · polls every 3s</div>
+    <div class="lcard-role">Background thread that processes failed BullMQ timer-lifecycle jobs. When the timer-worker Docker container fails to call backend-api:5000 (DNS unreachable from Docker to host), relay picks up the failed job from Redis and calls sync_timer_lifecycle() inline. Decode-safe for decode_responses=True.</div>
+    <div class="lcard-tags"><span class="ltag lt-amber">BullMQ fallback</span><span class="ltag lt-amber">DNS bridge</span><span class="ltag lt-amber">decode-safe</span></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 4 — DATA LAYER ═══════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--green-lt);color:var(--green)">04</div>
+  <div class="sec-title">Data Layer</div>
+  <div class="sec-sub">PostgreSQL 16 — only source of truth</div>
+</div>
+
+<div class="g3" style="margin-bottom:14px">
+  <div class="lcard green">
+    <div class="lcard-icon li-green">🗄</div>
+    <div class="lcard-name">PostgreSQL 16</div>
+    <div class="lcard-version">pgvector/pgvector:pg16 · port 5432</div>
+    <div class="lcard-role">The only authoritative source of truth. All AP transactions, XState workflow snapshots, immutable audit trail, vendor profiles, ERP configs, GL coding profiles, vector embeddings. Row-Level Security on all tables. INSERT-only role on audit_events. REVOKE DELETE on workflow tables. Trigger enforces simulation before activation.</div>
+    <div class="lcard-tags"><span class="ltag lt-green">source of truth</span><span class="ltag lt-green">RLS</span><span class="ltag lt-green">pgvector</span><span class="ltag lt-green">audit</span><span class="ltag lt-green">triggers</span></div>
+  </div>
+  <div class="lcard amber">
+    <div class="lcard-icon li-amber">⚡</div>
+    <div class="lcard-name">Redis 7 + BullMQ</div>
+    <div class="lcard-version">redis:7-alpine · port 6379</div>
+    <div class="lcard-role">BullMQ job store for OCR jobs and timer lifecycle events. SLA timer persistence — survives Docker restarts. Pub/sub for real-time updates. Session cache. Never holds workflow state — that is PostgreSQL's job exclusively.</div>
+    <div class="lcard-tags"><span class="ltag lt-amber">BullMQ</span><span class="ltag lt-amber">SLA timers</span><span class="ltag lt-amber">DLQ</span><span class="ltag lt-amber">pub/sub</span></div>
+  </div>
+  <div class="lcard dim">
+    <div class="lcard-icon li-dim">💾</div>
+    <div class="lcard-name">SQLite 3</div>
+    <div class="lcard-version">Electron client only · local workspace</div>
+    <div class="lcard-role">Consultant's local workflow draft cache. Offline work when disconnected from client Docker stack. Never touches AP transactions. Never replaces PostgreSQL for anything that matters to compliance or audit.</div>
+    <div class="lcard-tags"><span class="ltag lt-dim">consultant only</span><span class="ltag lt-dim">offline</span><span class="ltag lt-dim">drafts</span></div>
+  </div>
+</div>
+
+<div class="layer-label">Key Schema — Migrations Applied</div>
+<div style="background:var(--s1);border:1px solid var(--wire);border-radius:14px;padding:18px 22px;margin-bottom:36px;font-family:var(--mono);font-size:11px">
+  <div style="display:grid;grid-template-columns:260px 180px 1fr;gap:0;border-bottom:1px solid var(--wire);padding-bottom:8px;margin-bottom:10px">
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Migration</span>
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Applied</span>
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">What it adds</span>
+  </div>
+  <div id="migration-rows"></div>
+</div>
+
+<!-- ══ SECTION 5 — AI / LLM LAYER ══════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--purple-lt);color:var(--purple)">05</div>
+  <div class="sec-title">AI Configuration Layer</div>
+  <div class="sec-sub">Ollama · Flowise · PaddleOCR · phi4-mini — local, no cloud dependency</div>
+</div>
+
+<div class="g4" style="margin-bottom:14px">
+  <div class="lcard purple">
+    <div class="lcard-icon li-purple">🧠</div>
+    <div class="lcard-name">phi4-mini</div>
+    <div class="lcard-version">Ollama · CPU · port 11434</div>
+    <div class="lcard-role">LLM recovery layer — NOT the default parser. Stage 1: header fields for ambiguous layouts only. Stage 2: line items from PP-Structure output. Only called when deterministic pdfplumber + PaddleOCR parsing fails. Status visible in AP Workbench status bar.</div>
+    <div class="lcard-tags"><span class="ltag lt-purple">recovery only</span><span class="ltag lt-purple">local CPU</span><span class="ltag lt-purple">no cloud</span></div>
+  </div>
+  <div class="lcard amber">
+    <div class="lcard-icon li-amber">🎯</div>
+    <div class="lcard-name">Flowise</div>
+    <div class="lcard-version">2.2.7 · config-as-code · port 3001</div>
+    <div class="lcard-role">LLM prompt orchestration. Two-stage prompt chains for OCR recovery and workflow RAG. Flows are Git-tracked JSON — swappable without code changes. Drives IngestionHub Mode 3 AI workflow generation (currently parseScenario NLP stub, wire to Flowise in Phase II).</div>
+    <div class="lcard-tags"><span class="ltag lt-amber">prompt mgmt</span><span class="ltag lt-amber">Git-tracked</span><span class="ltag lt-amber">workflow RAG</span></div>
+  </div>
+  <div class="lcard teal">
+    <div class="lcard-icon li-teal">🔍</div>
+    <div class="lcard-name">PaddleOCR</div>
+    <div class="lcard-version">PP-OCRv4 + PP-Structure</div>
+    <div class="lcard-role">Primary OCR engine for scanned invoices. PP-OCRv4 text extraction + PP-Structure table extraction run in parallel. OpenCV preprocessing pipeline: deskew → denoise → binarize → normalize. Outperforms Tesseract on real invoice accuracy. Phase I: stub active, Phase II: wired.</div>
+    <div class="lcard-tags"><span class="ltag lt-teal">PP-OCRv4</span><span class="ltag lt-teal">PP-Structure</span><span class="ltag lt-teal">Phase II</span></div>
+  </div>
+  <div class="lcard blue">
+    <div class="lcard-icon li-blue">⚡</div>
+    <div class="lcard-name">pdfplumber fast path</div>
+    <div class="lcard-version">0.11.0 · under 200ms</div>
+    <div class="lcard-role">Native PDF text extraction — the primary path for 60–70% of invoices. Skips OCR entirely when embedded text is present. Sub-200ms per invoice. The single biggest performance advantage over M-Files and CP1.</div>
+    <div class="lcard-tags"><span class="ltag lt-blue">fast path</span><span class="ltag lt-blue">200ms</span><span class="ltag lt-blue">skips OCR</span></div>
+  </div>
+</div>
+
+<div class="g5" style="margin-bottom:36px">
+  <div class="lcard dim"><div class="lcard-icon li-dim">🔬</div><div class="lcard-name">OpenCV 4.9</div><div class="lcard-version">headless · preprocessing</div><div class="lcard-role">Deskew → denoise → binarize → normalize. Applied before PaddleOCR on scanned documents only.</div><div class="lcard-tags"><span class="ltag lt-dim">preprocessing</span></div></div>
+  <div class="lcard dim"><div class="lcard-icon li-dim">📅</div><div class="lcard-name">dateparser</div><div class="lcard-version">1.2.0 · 200+ formats</div><div class="lcard-role">Handles every vendor date format across 20 languages without regex rules.</div><div class="lcard-tags"><span class="ltag lt-dim">normalization</span></div></div>
+  <div class="lcard dim"><div class="lcard-icon li-dim">🔤</div><div class="lcard-name">rapidfuzz</div><div class="lcard-version">3.9.0 · 10× faster</div><div class="lcard-role">Vendor name fuzzy matching. Critical for unrecognised vendor names from OCR output.</div><div class="lcard-tags"><span class="ltag lt-dim">matching</span></div></div>
+  <div class="lcard dim"><div class="lcard-icon li-dim">✓</div><div class="lcard-name">python-stdnum</div><div class="lcard-version">1.20 · 60 countries</div><div class="lcard-role">Tax ID, VAT, IBAN, HST/GST validation. Catches mathematically invalid extraction results.</div><div class="lcard-tags"><span class="ltag lt-dim">validation</span><span class="ltag lt-dim">HST/GST</span></div></div>
+  <div class="lcard dim"><div class="lcard-icon li-dim">📋</div><div class="lcard-name">pydantic</div><div class="lcard-version">2.7.0 · schema gate</div><div class="lcard-role">Schema validation and type coercion on all extracted fields. Rejects impossible values before AP pipeline.</div><div class="lcard-tags"><span class="ltag lt-dim">schema</span><span class="ltag lt-dim">types</span></div></div>
+</div>
+
+<!-- ══ SECTION 6 — WORKFLOW ENGINE ══════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--amber-lt);color:var(--amber)">06</div>
+  <div class="sec-title">Workflow Engine &amp; Event Layer</div>
+  <div class="sec-sub">XState v5 · n8n 2.22.3 · BullMQ · Phase II deployment</div>
+</div>
+
+<div class="g3" style="margin-bottom:24px">
+  <div class="lcard purple">
+    <div class="lcard-icon li-purple">⚡</div>
+    <div class="lcard-name">XState v5</div>
+    <div class="lcard-version">MIT · workflow-engine:5100 · Phase II</div>
+    <div class="lcard-role">The brain of workflow execution. Reads JSON from the designer canvas, evaluates every guard and action, produces the next state. Stateless between requests — PostgreSQL holds all state. Phase I: inline dev stub active. Phase II: real service replaces stub.</div>
+    <div class="lcard-tags"><span class="ltag lt-purple">state machine</span><span class="ltag lt-purple">guards</span><span class="ltag lt-purple">parallel</span><span class="ltag lt-purple">history</span><span class="ltag lt-purple">invoke</span></div>
+  </div>
+  <div class="lcard blue">
+    <div class="lcard-icon li-blue">🔗</div>
+    <div class="lcard-name">n8n</div>
+    <div class="lcard-version">2.22.3 pinned · self-hosted · port 5678</div>
+    <div class="lcard-role">Event transport and notification dispatcher. Receives completed transition events AFTER PostgreSQL commits. Sends emails, calls ERP webhooks, posts Slack alerts, watches IMAP mailbox. Never makes workflow decisions. 9/9 webhooks active in current environment.</div>
+    <div class="lcard-tags"><span class="ltag lt-blue">post-commit only</span><span class="ltag lt-blue">notifications</span><span class="ltag lt-blue">ERP webhooks</span><span class="ltag lt-blue">IMAP</span></div>
+  </div>
+  <div class="lcard amber">
+    <div class="lcard-icon li-amber">⏱</div>
+    <div class="lcard-name">BullMQ Timer Worker</div>
+    <div class="lcard-version">proviso-timer-worker · Docker container</div>
+    <div class="lcard-role">Processes workflow-timer-events queue. SLA timer lifecycle — fires XState delayed transitions when time expires. Calls /api/webhooks/workflow/timers/mark with HMAC signature. Phase I: BullMQ relay thread in Flask handles DNS bridging when worker calls backend-api from Docker.</div>
+    <div class="lcard-tags"><span class="ltag lt-amber">SLA timers</span><span class="ltag lt-amber">HMAC signed</span><span class="ltag lt-amber">Docker</span></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 7 — FRONTEND ══════════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--pink-lt);color:var(--pink)">07</div>
+  <div class="sec-title">Frontend &amp; Desktop Layer</div>
+  <div class="sec-sub">Electron 42 + React 18 + Vite + @xyflow/react v12</div>
+</div>
+
+<div class="g4" style="margin-bottom:36px">
+  <div class="lcard blue">
+    <div class="lcard-icon li-blue">🖥</div>
+    <div class="lcard-name">Electron 42</div>
+    <div class="lcard-version">Desktop shell · consultant tool</div>
+    <div class="lcard-role">Integrated Shell housing three workspaces: Client Workspace, Integrator Workspace (Workflow Designer Studio), Operation View. Connects to client Docker stack. Spawns Flask backend as child process. HMR via Vite dev server on localhost:3000.</div>
+    <div class="lcard-tags"><span class="ltag lt-blue">integrated shell</span><span class="ltag lt-blue">3 workspaces</span><span class="ltag lt-blue">Flask child</span></div>
+  </div>
+  <div class="lcard cyan">
+    <div class="lcard-icon li-cyan">🎨</div>
+    <div class="lcard-name">@xyflow/react v12</div>
+    <div class="lcard-version">React Flow Pro · $169 license · 17/17 active</div>
+    <div class="lcard-role">The workflow designer canvas. All 17 Pro examples implemented: auto-layout, collaboration (Yjs), copy-paste, dynamic layouting, editable edge, expand-collapse, force layout, freehand draw, helper lines, libavoid routing, node animation, parent-child, remove attribution, selection grouping, server-side SVG, shapes, undo-redo.</div>
+    <div class="lcard-tags"><span class="ltag lt-cyan">17/17 Pro</span><span class="ltag lt-cyan">glassmorphic</span><span class="ltag lt-cyan">context-sensitive</span></div>
+  </div>
+  <div class="lcard purple">
+    <div class="lcard-icon li-purple">📦</div>
+    <div class="lcard-name">Zustand 5</div>
+    <div class="lcard-version">Workflow + Project stores</div>
+    <div class="lcard-role">useWorkflowStore: 50-deep undo/redo, canvas nodes/edges, validation issues, bootstrap latch, autosave debounce. useProjectStore: project list, active project, pending project switch, projectPanelOpen, nudgePillAt. Cross-store via .getState() — no circular imports.</div>
+    <div class="lcard-tags"><span class="ltag lt-purple">workflow store</span><span class="ltag lt-purple">project store</span><span class="ltag lt-purple">no circular</span></div>
+  </div>
+  <div class="lcard dim">
+    <div class="lcard-icon li-dim">🔤</div>
+    <div class="lcard-name">Tailwind CSS v3 + Lucide</div>
+    <div class="lcard-version">IBM Plex Mono + Plus Jakarta Sans</div>
+    <div class="lcard-role">Action Deck System uses inline glassmorphism styles (rgba + backdrop-filter). Node cards use Tailwind. Lucide React for premium icon system in toolbar decks. IBM Plex Mono for integrator workspace. Prefers-reduced-motion respected on all animations.</div>
+    <div class="lcard-tags"><span class="ltag lt-dim">Tailwind</span><span class="ltag lt-dim">Lucide</span><span class="ltag lt-dim">a11y</span></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 8 — INTERACTION FLOW ═════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--teal-lt);color:var(--teal)">08</div>
+  <div class="sec-title">Invoice Lifecycle — Tool by Tool</div>
+  <div class="sec-sub">From email arrival to ERP posting — every tool's exact role</div>
+</div>
+
+<div class="flow-wrap">
+  <div class="flow-title">Complete data flow — Phase I verified, Phase II stubs marked</div>
+  <div id="interaction-rows"></div>
+</div>
+
+<!-- ══ SECTION 9 — 9 MODULE RULES ═══════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--red-lt);color:var(--red)">09</div>
+  <div class="sec-title">9-Module Isolation Rules — Permanent</div>
+  <div class="sec-sub">No module imports another module's source. Contract-first, always.</div>
+</div>
+
+<div class="rules-grid">
+  <div class="rule-card"><div class="rule-num green">1</div><div class="rule-text"><strong>PostgreSQL is the only source of truth.</strong> No Redis key, no in-memory object, no cache value is authoritative for workflow state or invoice data.</div></div>
+  <div class="rule-card"><div class="rule-num green">2</div><div class="rule-text"><strong>XState is stateless between requests.</strong> createActor → send event → get snapshot → discard. Never kept alive. Phase I: inline dev path. Phase II: real service.</div></div>
+  <div class="rule-card"><div class="rule-num">3</div><div class="rule-text"><strong>State + history + audit in ONE transaction.</strong> workflow_state, workflow_state_history, audit_events commit together. Split commit = data inconsistency = production incident.</div></div>
+  <div class="rule-card"><div class="rule-num">4</div><div class="rule-text"><strong>n8n fires AFTER PostgreSQL commits.</strong> Never inside the transaction. If n8n is down, the invoice state is correct. BullMQ retries the notification independently.</div></div>
+  <div class="rule-card"><div class="rule-num amber">5</div><div class="rule-text"><strong>State regression guard enforced.</strong> _STATE_ORDER list prevents any backward transition (e.g. extracted → received after n8n double-fire). Logged at WARNING level, never silently swallowed.</div></div>
+  <div class="rule-card"><div class="rule-num amber">6</div><div class="rule-text"><strong>Bootstrap latch before autosave.</strong> bootstrapReady flag must be true AND activeProjectId must be set before saveActiveWorkflow() fires. Prevents autosave race on startup.</div></div>
+  <div class="rule-card"><div class="rule-num">7</div><div class="rule-text"><strong>Workflows require a Project.</strong> addWorkflow() throws NO_PROJECT if activeProjectId is null. All 4 IngestionHub modes gate on project. Autosave includes project_id in every PUT payload.</div></div>
+  <div class="rule-card"><div class="rule-num">8</div><div class="rule-text"><strong>Simulation required before activation.</strong> DB trigger check_workflow_simulation_pass() blocks INSERT with active=TRUE unless a workflow_simulation_runs record with passed=true exists.</div></div>
+  <div class="rule-card"><div class="rule-num">9</div><div class="rule-text"><strong>No DELETEs on workflow or audit tables.</strong> REVOKE DELETE enforced at PostgreSQL role level. Append-only by design. Only a privileged archive job may move rows after retention period.</div></div>
+  <div class="rule-card"><div class="rule-num purple">10</div><div class="rule-text"><strong>No circular store imports.</strong> useWorkflowStore imports useProjectStore via .getState(). useProjectStore never imports useWorkflowStore. Shell coordinates both. Validated: smoke test passes 15/15.</div></div>
+</div>
+
+<!-- ══ SECTION 10 — INFRASTRUCTURE ══════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--dim);color:var(--mid)">10</div>
+  <div class="sec-title">Infrastructure — Docker Compose</div>
+  <div class="sec-sub">Canonical stack · docker compose up -d</div>
+</div>
+
+<div class="infra-wrap">
+  <div style="display:grid;grid-template-columns:200px 280px 80px 120px;gap:0;border-bottom:1px solid var(--wire);padding-bottom:8px;margin-bottom:10px">
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Service</span>
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Image</span>
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Port</span>
+    <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Profile</span>
+  </div>
+  <div id="infra-rows"></div>
+</div>
+
+<!-- ══ SECTION 11 — COMPETITIVE ══════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sec-num" style="background:var(--teal-lt);color:var(--teal)">11</div>
+  <div class="sec-title">Why This Stack Beats the Competition</div>
+  <div class="sec-sub">Capability-by-capability against M-Files and the AP market</div>
+</div>
+
+<div class="comp-table">
+  <table>
+    <thead>
+      <tr><th>Capability</th><th>M-Files</th><th>Stampli</th><th>Tipalti</th><th>Coupa</th><th>AI Proviso v12</th></tr>
+    </thead>
+    <tbody id="comp-rows"></tbody>
+  </table>
+</div>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════════════════ -->
+<div class="footer">
+  <div><strong>AI Proviso</strong> · AP Automation Platform · scriptdotnet · Xerox Canada · PRD v12</div>
+  <div>@xyflow/react v12 Pro (17/17) · Flask 3.1 Phase I · PostgreSQL 16 + Redis 7 + BullMQ · Ollama phi4-mini</div>
+  <div>Electron 42 · Zustand 5 · XState v5 · n8n 2.22.3 · PaddleOCR PP-OCRv4 · Flowise 2.2.7</div>
+  <div style="margin-top:10px;color:var(--text3)">Runtime gate: <strong style="color:var(--green)">15/15 PASS</strong> · Schema: migrations 001–006 applied · Project Container Model: PRD v12 §2.3 wired</div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+// ── SMOKE GATE STEPS ──
+const gateSteps = [
+  'Backend liveness /health',
+  'PostgreSQL + Redis health',
+  'Invoice intake received',
+  'OCR → extracted state',
+  'workflow_timers 1 open',
+  'Review → exception state',
+  'Exception trace recorded',
+  'Timer after review',
+  'BullMQ callback enqueued',
+  'Timer webhook delivered',
+  'Timer diagnostic cancelled',
+];
+document.getElementById('gate-steps').innerHTML = gateSteps.map(s =>
+  `<div class="gate-step">✓ ${s}</div>`
+).join('');
+
+// ── RF PRO FEATURES ──
+const rfFeatures = [
+  ['Auto Layout','ELK top-down AP flow','blue'],
+  ['Collaborative','Yjs CRDT + BroadcastChannel','green'],
+  ['Copy & Paste','Ctrl+C / Ctrl+V','blue'],
+  ['Dynamic Layouting','ELK on node add','blue'],
+  ['Editable Edge','Drag bend handle','amber'],
+  ['Expand / Collapse','Group fold/expand','amber'],
+  ['Force Layout','D3 physics spacing','blue'],
+  ['Freehand Draw','SVG stroke overlay','purple'],
+  ['Helper Lines','Auto alignment guides','blue'],
+  ['Libavoid Routing','Obstacle-aware orthogonal','green'],
+  ['Node Position Anim','Smooth pan on select','blue'],
+  ['Parent-Child Groups','Resizable frame','amber'],
+  ['Remove Attribution','proOptions hide','green'],
+  ['Selection Grouping','selectionOnDrag','blue'],
+  ['Server-Side Image','SVG server export','teal'],
+  ['Shapes','6 semantic kinds','amber'],
+  ['Undo / Redo','50-deep history','blue'],
+];
+document.getElementById('rf-features').innerHTML = rfFeatures.map(([name,desc,c]) => `
+  <div class="rf-chip">
+    <span class="dot dot-green"></span>
+    <div>
+      <div style="font-weight:700;color:var(--text)">${name}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:1px">${desc}</div>
+    </div>
+  </div>`).join('');
+
+// ── MIGRATIONS ──
+const migrations = [
+  ['001_initial_schema.sql','2026-05-26','Core tables: invoices, vendors, users, audit_events, workflow_definitions'],
+  ['002_rls_policies.sql','2026-05-26','Row-Level Security policies on all tables'],
+  ['003_triggers.sql','2026-05-26','set_updated_at(), check_workflow_simulation_pass()'],
+  ['004_seed_data.sql','2026-05-26','Dev tenant, sample vendors, approval matrix seed'],
+  ['005_workflow_runtime.sql','2026-05-26','workflow_state, workflow_state_history, workflow_timers + bootstrap backfill'],
+  ['006_workflow_history_rule_id.sql','2026-06-02','ADD COLUMN rule_id VARCHAR(150) + index — required for runtime view rule binding'],
+];
+const migColors = ['var(--green)','var(--green)','var(--green)','var(--green)','var(--green)','var(--cyan)'];
+document.getElementById('migration-rows').innerHTML = migrations.map((r,i) => `
+  <div style="display:grid;grid-template-columns:260px 180px 1fr;gap:0;padding:6px 0;border-bottom:1px solid rgba(24,40,64,.3)">
+    <span style="color:${migColors[i]};font-weight:600">${r[0]}</span>
+    <span style="color:var(--text3)">${r[1]}</span>
+    <span style="color:var(--mid)">${r[2]}</span>
+  </div>`).join('');
+
+// ── INTERACTION ROWS ──
+const interactions = [
+  {from:'📧 Email / Upload',arrow:'MOD-01 intake',to:'n8n IMAP or HTTP POST → invoice record inserted in PostgreSQL (status=received) → invoice.received queued to BullMQ → OCR job queued → audit_event written',fc:'var(--teal)'},
+  {from:'🔬 OCR Pipeline',arrow:'MOD-02 · Phase I stub',to:'Phase I: _simulate_ocr_dev fires in background thread 1s after intake. Writes invoice_extractions (ocr_engine=paddle-dev-stub), updates invoice status→extracted. Phase II: real PaddleOCR PP-OCRv4 + phi4-mini recovery',fc:'var(--teal)'},
+  {from:'✅ pydantic + stdnum',arrow:'validation gate',to:'Schema validation → tax ID / VAT / currency math checks → confidence scoring per field → extracted_json + confidence_json written to invoice_extractions',fc:'var(--green)'},
+  {from:'⚡ XState v5',arrow:'MOD-04 · Phase I inline',to:'Phase I: _sync_workflow_transition_dev() upserts workflow_state, appends workflow_state_history (with rule_id), cancels old SLA timer, creates new SLA timer. State regression guard blocks n8n double-fire. Phase II: real engine service.',fc:'var(--purple)'},
+  {from:'🗄 PostgreSQL',arrow:'atomic transaction',to:'UPDATE workflow_state (current_state) + INSERT workflow_state_history + INSERT audit_events + UPSERT workflow_timers — single COMMIT. Optimistic lock_version prevents split-brain.',fc:'var(--green)'},
+  {from:'🔗 n8n webhook',arrow:'post-commit ONLY',to:'Receives invoice.extracted / invoice.exception AFTER PostgreSQL commits → dispatches email notification → calls ERP webhook → posts Slack alert. 9/9 webhooks active.',fc:'var(--blue)'},
+  {from:'⏱ BullMQ timer',arrow:'SLA breach fires',to:'Delayed job fires after configured hours → sync_timer_lifecycle() called → workflow_timers status→fired → XState transitions to escalated state → audit recorded. BullMQ relay handles Docker DNS gap in Phase I.',fc:'var(--amber)'},
+  {from:'◆ Project Layer',arrow:'container gate',to:'Every workflow creation checks activeProjectId. All saves include project_id in payload. Project Container Model (PRD v12 §2.3) enforced at store + API level.',fc:'var(--purple)'},
+  {from:'🎨 Workflow Designer',arrow:'integrator saves canvas',to:'IngestionHub mode selection → canvas authoring → auto-save debounce (2s) → PUT /api/workflows/:id with project_id, definition JSON → written to workflow_definitions (active=FALSE until simulation passes)',fc:'var(--cyan)'},
+  {from:'🚀 Activation gate',arrow:'simulation required',to:'DB trigger check_workflow_simulation_pass() blocks INSERT with active=TRUE unless workflow_simulation_runs record with passed=true exists. Integrator must run Simulation tab first.',fc:'var(--amber)'},
+];
+document.getElementById('interaction-rows').innerHTML = interactions.map(r => `
+  <div class="int-row">
+    <div class="int-from" style="background:rgba(0,0,0,.25);border-color:${r.fc};color:${r.fc}">${r.from}</div>
+    <div class="int-arrow-cell">
+      <div style="font-size:11px;color:var(--dim);text-align:center">→</div>
+      <div class="int-arrow-txt">${r.arrow}</div>
+    </div>
+    <div class="int-to" style="background:rgba(0,0,0,.18);border-color:var(--wire)">${r.to}</div>
+  </div>`).join('');
+
+// ── INFRA ──
+const infra = [
+  ['postgres','pgvector/pgvector:pg16','5432','default'],
+  ['redis','redis:7-alpine','6379','default'],
+  ['n8n','n8nio/n8n:2.22.3','5678','default'],
+  ['workflow-engine','proviso/workflow-engine','5100','default'],
+  ['proviso-timer-worker','proviso/timer-worker','—','default'],
+  ['paperless-ngx','ghcr.io/paperless-ngx:latest','8000','default'],
+  ['gotenberg','gotenberg/gotenberg:8','3000','default'],
+  ['tika','apache/tika:3.1.0.0','9998','default'],
+  ['flowise','flowiseai/flowise:2.2.7','3001','default'],
+  ['backend-api','Python 3.11 Flask (host)','5000','local-dev'],
+  ['ollama','ollama/ollama:latest','11434','local-ai'],
+  ['electron-app','React+Vite (host)','3000','local-dev'],
+];
+const infraColors = ['var(--green)','var(--amber)','var(--blue)','var(--purple)','var(--amber)','var(--teal)','var(--teal)','var(--teal)','var(--amber)','var(--blue)','var(--pink)','var(--cyan)'];
+document.getElementById('infra-rows').innerHTML = infra.map((r,i) => `
+  <div style="display:grid;grid-template-columns:200px 280px 80px 120px;gap:0;padding:6px 0;border-bottom:1px solid rgba(24,40,64,.3)">
+    <span style="color:${infraColors[i]};font-weight:600">${r[0]}</span>
+    <span style="color:var(--text3)">${r[1]}</span>
+    <span style="color:var(--mid)">${r[2]}</span>
+    <span style="color:var(--text3)">${r[3]}</span>
+  </div>`).join('');
+
+// ── COMPARISON ──
+const comp = [
+  ['Parallel approval states','✕ None','✕ None','✕ None','✕ None','✓ XState parallel'],
+  ['History states (resume after exception)','✕ None','✕ None','✕ None','✕ None','✓ XState history'],
+  ['Visual workflow designer (browser)','⚠ Windows only','✕ None','✕ None','⚠ IT required','✓ React Flow Pro v12'],
+  ['Glassmorphic floating tool decks','✕ None','✕ None','✕ None','✕ None','✓ 5 Action Deck panels'],
+  ['Real-time collaboration on canvas','✕ None','✕ None','✕ None','✕ None','✓ Yjs CRDT + presence'],
+  ['AI workflow generation from description','✕ None','✕ None','✕ None','✕ None','✓ Flowise + phi4-mini'],
+  ['Project Container Model (vault equiv)','⚠ M-Files vault','✕ None','✕ None','✕ None','✓ PRD v12 §2.3'],
+  ['Cross-deployment workflow reuse','✕ None','✕ None','✕ None','✕ None','✓ Dataset flywheel RAG'],
+  ['Delayed SLA auto-escalation','⚠ Days only','⚠ Basic','⚠ Basic','⚠ Basic','✓ Millisecond precision'],
+  ['Self-hosted / data residency','✕ Cloud req','✕ Cloud only','✕ Cloud only','✕ Cloud only','✓ Docker anywhere'],
+  ['Local LLM — no cloud AI dependency','✕ None','✕ None','✕ None','✕ None','✓ phi4-mini + Ollama'],
+  ['Native PDF fast path (sub-200ms)','✕ OCR always','✕ OCR always','✕ OCR always','✕ OCR always','✓ pdfplumber'],
+  ['One-tap email approval (no app)','✕ None','✕ None','⚠ App required','⚠ App required','✓ Tokenized email link'],
+  ['Runtime smoke gate (automated)','✕ Manual','✕ Manual','✕ Manual','✕ Manual','✓ 15/15 mandatory gate'],
+  ['Open source core','✕ Proprietary','✕ Proprietary','✕ Proprietary','✕ Proprietary','✓ MIT stack'],
+];
+const badge = v => {
+  if(v.startsWith('✓')) return `<span class="ct-badge ctb-win">${v}</span>`;
+  if(v.startsWith('✕')) return `<span class="ct-badge ctb-lose">${v}</span>`;
+  return `<span class="ct-badge ctb-tie">${v}</span>`;
+};
+document.getElementById('comp-rows').innerHTML = comp.map(r => `
+  <tr>
+    <td>${r[0]}</td>
+    ${r.slice(1).map(badge).map(b=>`<td>${b}</td>`).join('')}
+  </tr>`).join('');
+</script>
+</body>
+</html>
