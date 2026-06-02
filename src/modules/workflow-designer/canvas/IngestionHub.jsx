@@ -76,11 +76,11 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
   // ── Project creation — embedded directly in the hub (continuous flow) ──────
   const createProject    = useProjectStore((s) => s.createProject);
   const projects         = useProjectStore((s) => s.projects);
-  const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const [hubProjectName,   setHubProjectName]   = useState('');
   const [hubProjectClient, setHubProjectClient] = useState('');
   const [hubCreating,      setHubCreating]      = useState(false);
   const [hubCreated,       setHubCreated]       = useState(false);
+  const [hubProjectNudged, setHubProjectNudged] = useState(false);
   const projectNameInputRef = useRef(null);
 
   // Auto-focus project name input when hub shows and no project exists
@@ -102,6 +102,12 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     } finally {
       setHubCreating(false);
     }
+  };
+
+  const nudgeProjectForm = () => {
+    setHubProjectNudged(true);
+    setTimeout(() => setHubProjectNudged(false), 420);
+    setTimeout(() => projectNameInputRef.current?.focus(), 40);
   };
 
   // ── Workflow mode state ────────────────────────────────────────────────────
@@ -126,7 +132,7 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
   const handleConfirm = () => {
     // Gate: require a project before any workflow creation
     if (!activeProjectId) {
-      onRequireProject?.();
+      nudgeProjectForm();
       return;
     }
     if (activeMode === 1 && selectedTemplate) {
@@ -192,10 +198,15 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
             marginBottom: 16,
             border: hubCreated
               ? '1px solid rgba(74,222,128,0.45)'
-              : '1px solid rgba(251,191,36,0.28)',
+              : hubProjectNudged
+                ? '1px solid rgba(245,158,11,0.5)'
+                : '1px solid rgba(251,191,36,0.28)',
             background: hubCreated
               ? 'rgba(74,222,128,0.07)'
               : 'rgba(15,23,42,0.55)',
+            boxShadow: hubProjectNudged
+              ? '0 0 0 1px rgba(245,158,11,0.34), 0 0 26px rgba(245,158,11,0.28), 0 0 46px rgba(245,158,11,0.12)'
+              : GLASS.boxShadow,
             transition: SPRING,
           }}>
             {hubCreated ? (
@@ -286,20 +297,33 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
         )}
 
         {/* ── Step 2: 4 mode cards — passive dim only when no project; click nudges header pill ── */}
+        {!activeProjectId && (
+          <div
+            style={{
+              marginBottom: 8,
+              textAlign: 'center',
+              fontSize: 10,
+              color: 'rgba(148,163,184,0.68)',
+              letterSpacing: '.2px',
+            }}
+          >
+            Create a project above to unlock these options.
+          </div>
+        )}
         <div
           role={!activeProjectId ? 'button' : undefined}
           aria-label={!activeProjectId ? 'Open or create a project to enable workflow creation' : undefined}
           aria-disabled={!activeProjectId ? 'true' : undefined}
           tabIndex={!activeProjectId ? 0 : undefined}
-          onKeyDown={!activeProjectId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRequireProject?.(); } } : undefined}
+          onKeyDown={!activeProjectId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nudgeProjectForm(); } } : undefined}
           style={{
             display: 'flex', gap: 12, alignItems: 'stretch', position: 'relative',
-            opacity: activeProjectId ? 1 : 0.42,
-            filter: activeProjectId ? 'none' : 'saturate(0.35) brightness(0.85)',
+            opacity: activeProjectId ? 1 : 0.56,
+            filter: activeProjectId ? 'none' : 'saturate(0.55) brightness(0.9)',
             transition: SPRING,
             cursor: !activeProjectId ? 'pointer' : 'default',
           }}
-          onClick={!activeProjectId ? () => onRequireProject?.() : undefined}
+          onClick={!activeProjectId ? () => nudgeProjectForm() : undefined}
         >
 
           {/* Mode 1: Templates */}

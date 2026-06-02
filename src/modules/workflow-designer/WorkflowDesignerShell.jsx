@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkflowStore } from './store/useWorkflowStore';
 import useProjectStore from './store/useProjectStore';
-import WorkflowModeSelector from './canvas/WorkflowModeSelector';
 import CanvasSurface from './canvas/CanvasSurface';
 import CanvasInspector from './canvas/CanvasInspector';
 import { useExport } from '../../hooks/useExport';
@@ -182,14 +181,13 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const activeProjectId    = useProjectStore((s) => s.activeProjectId);
   const projectLoading     = useProjectStore((s) => s.loading);
   const getActiveProject   = useProjectStore((s) => s.getActiveProject);
+  const createProjectInStore = useProjectStore((s) => s.createProject);
   const setActiveProject      = useProjectStore((s) => s.setActiveProject);
-  const createNewProject      = useProjectStore((s) => s.createProject);
   const bootstrapProjects     = useProjectStore((s) => s.bootstrapProjects);
   const projectPanelOpen      = useProjectStore((s) => s.projectPanelOpen);
   const openProjectPanel      = useProjectStore((s) => s.openProjectPanel);
   const nudgeAndOpenPanel     = useProjectStore((s) => s.nudgeAndOpenPanel);
   const closeProjectPanel     = useProjectStore((s) => s.closeProjectPanel);
-  const toggleProjectPanel    = useProjectStore((s) => s.toggleProjectPanel);
   const pendingProjectSwitch  = useProjectStore((s) => s.pendingProjectSwitch);
   const confirmProjectSwitch  = useProjectStore((s) => s.confirmProjectSwitch);
   const cancelProjectSwitch   = useProjectStore((s) => s.cancelProjectSwitch);
@@ -197,9 +195,10 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   const showProjectPanel    = projectPanelOpen;
   const setShowProjectPanel = (val) => val === false ? closeProjectPanel() : openProjectPanel();
 
-  const [newProjectName, setNewProjectName]     = useState('');
-  const [newProjectClient, setNewProjectClient] = useState('');
   const [projectPillShaking, setProjectPillShaking] = useState(false);
+  const [panelProjectName, setPanelProjectName] = useState('');
+  const [panelProjectClient, setPanelProjectClient] = useState('');
+  const [panelCreatingProject, setPanelCreatingProject] = useState(false);
   const projectPillRef = useRef(null);
 
   const requireProject = () => {
@@ -213,6 +212,25 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
   const activeProject = getActiveProject();
   const selectableProjects = projects.filter((p) => p.status !== 'archived');
+
+  const handleCreateProjectFromPanel = async () => {
+    const name = panelProjectName.trim();
+    if (!name || panelCreatingProject) return;
+    setPanelCreatingProject(true);
+    try {
+      const created = await createProjectInStore({
+        name,
+        clientName: panelProjectClient.trim(),
+      });
+      if (created) {
+        setPanelProjectName('');
+        setPanelProjectClient('');
+        setShowProjectPanel(false);
+      }
+    } finally {
+      setPanelCreatingProject(false);
+    }
+  };
 
   // ── Bootstrap on mount: load from backend, or show Workflow Studio ─────────
   const [bootstrapping, setBootstrapping] = useState(true);
@@ -243,7 +261,6 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   }, [isDirty, activeId, saveActiveWorkflow]);
 
   const [centerView, setCenterView] = useState('canvas');
-  const [showWorkflowModeSelector, setShowWorkflowModeSelector] = useState(false);
 
   // ── Project-switch isolation — owns canvas-clear and bootstrap ────────────
   // The project store never touches the workflow store (avoids circular dep).
@@ -861,15 +878,6 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
 
             <div style={{ flex: 1 }} />
 
-            <button
-              type="button"
-              onClick={() => { setNewProjectName(''); setNewProjectClient(''); setShowProjectPanel('new'); }}
-              style={{ fontSize: 9, fontWeight: 600, color: 'rgba(100,116,139,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
-              title="Create a new project"
-            >
-              + New Project
-            </button>
-
             {/* Project panel dropdown — spring-animated entry */}
             {showProjectPanel && (
               <div
@@ -888,8 +896,61 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                     {selectableProjects.length === 0 ? 'No projects yet' : 'Switch Project'}
                   </div>
                   {selectableProjects.length === 0 ? (
-                    <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.5)', padding: '6px 0', lineHeight: 1.5 }}>
-                      Use the canvas below to create your first project and workflow.
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.62)', lineHeight: 1.5 }}>
+                        Create your first project here.
+                      </div>
+                      <input
+                        type="text"
+                        value={panelProjectName}
+                        onChange={(e) => setPanelProjectName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProjectFromPanel(); }}
+                        placeholder="Project name *"
+                        aria-label="New project name"
+                        style={{
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          color: '#cbd5e1',
+                          fontSize: 11,
+                          outline: 'none',
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={panelProjectClient}
+                        onChange={(e) => setPanelProjectClient(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProjectFromPanel(); }}
+                        placeholder="Client name (optional)"
+                        aria-label="New project client name"
+                        style={{
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          color: '#94a3b8',
+                          fontSize: 10,
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateProjectFromPanel}
+                        disabled={!panelProjectName.trim() || panelCreatingProject || projectLoading}
+                        style={{
+                          border: '1px solid rgba(74,222,128,0.35)',
+                          background: panelProjectName.trim() ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+                          color: panelProjectName.trim() ? '#4ade80' : 'rgba(100,116,139,0.6)',
+                          borderRadius: 8,
+                          padding: '7px 10px',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          cursor: panelProjectName.trim() ? 'pointer' : 'not-allowed',
+                        }}
+                      >
+                        {panelCreatingProject || projectLoading ? 'Creating...' : 'Create Project'}
+                      </button>
                     </div>
                   ) : (
                     selectableProjects.map((proj) => (
@@ -1177,7 +1238,9 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                   </button>
                 )}
                 <CanvasSurface
+                  onModeSelect={handleModeSelect}
                   activeProjectId={activeProjectId}
+                  onRequireProject={requireProject}
                 />
               </div>
             </div>
@@ -1629,16 +1692,6 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
           </div>
         </div>
       </div>
-    )}
-    {showWorkflowModeSelector && (
-      <WorkflowModeSelector
-        onDismiss={() => setShowWorkflowModeSelector(false)}
-        onSelect={(selection) => {
-          handleModeSelect(selection);
-          setShowWorkflowModeSelector(false);
-        }}
-        existingWorkflows={workflows}
-      />
     )}
     </>
   );

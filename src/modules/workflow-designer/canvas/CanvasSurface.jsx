@@ -20,6 +20,7 @@ import {
 import { KIND_COLORS, resolveEdgeColor } from './edges/WorkflowTransitionEdge';
 import { useElkLayout } from '../engine/useElkLayout';
 import CanvasContextMenu from './CanvasContextMenu';
+import IngestionHub from './IngestionHub';
 import {
   CreationDeck, LayoutDeck, HistoryDeck, ContextDeck, CloudDeck,
   ProPanel, ModeIndicator,
@@ -135,7 +136,7 @@ function ProRuntimeBridge({ onViewport, onNodesReady, onConnecting, onApi }) {
 }
 
 // ── Main CanvasSurface component ─────────────────────────────────────────────
-export default function CanvasSurface({ onOpenInspector }) {
+export default function CanvasSurface({ onOpenInspector, onModeSelect, activeProjectId, onRequireProject }) {
   const rfNodes               = useWorkflowStore((s) => s.rfNodes);
   const rfEdges               = useWorkflowStore((s) => s.rfEdges);
   const applyCanvasNodeChanges = useWorkflowStore((s) => s.applyCanvasNodeChanges);
@@ -1580,6 +1581,15 @@ export default function CanvasSurface({ onOpenInspector }) {
           })}
         </svg>
       )}
+
+      {/* In-canvas workflow bootstrap — shown only after a project is selected */}
+      <IngestionHub
+        rfNodes={rfNodes}
+        visible={!isDropActive && Boolean(activeProjectId)}
+        onModeSelect={onModeSelect || (() => {})}
+        activeProjectId={activeProjectId}
+        onRequireProject={onRequireProject}
+      />
 
       <ReactFlow
         style={{ width: '100%', height: '100%' }}
