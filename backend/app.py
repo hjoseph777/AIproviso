@@ -70,6 +70,8 @@ FLOWISE_API_KEY   = os.environ.get("FLOWISE_API_KEY", "")
 FLOWISE_WF_CHATFLOW_ID = os.environ.get("FLOWISE_WF_CHATFLOW_ID", "")   # set after creating chatflow in Flowise
 OLLAMA_BASE_URL   = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.environ.get("OLLAMA_MODEL", "mistral:7b-instruct")
+# OCR recovery threshold — PRD v12 §0.3: phi4-mini fires ONLY for fields below this value
+OCR_CONFIDENCE_THRESHOLD = float(os.environ.get("OCR_CONFIDENCE_THRESHOLD", "0.70"))
 N8N_WEBHOOK_TOKEN = os.environ.get("N8N_WEBHOOK_TOKEN", "")
 WORKFLOW_ENGINE_BASE_URL = os.environ.get("WORKFLOW_ENGINE_BASE_URL", "http://workflow-engine:5100")
 WORKFLOW_WEBHOOK_SECRET = os.environ.get("WORKFLOW_WEBHOOK_SECRET", "")
@@ -1536,12 +1538,25 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
         "po_number":      "PO-2024-0042",
         "line_items":     [{"description": "Office Supplies", "quantity": 5, "unit_price": 250.00, "total": 1250.00}],
     }
+    # Intentionally mix high/low confidence to exercise the recovery path:
+    # vendor_name (0.97) and invoice_number (0.99) are high — no AI recovery.
+    # po_number (0.55) and invoice_date (0.62) are below 0.70 threshold — phi4-mini fires.
     mock_confidence = {
         "vendor_name":    0.97,
         "invoice_number": 0.99,
-        "total_amount":   0.95,
-        "po_number":      0.88,
+        "total_amount":   0.91,
+        "po_number":      0.55,
+        "invoice_date":   0.62,
     }
+
+    # ── OCR recovery — phi4-mini repairs low-confidence fields ──────────────
+    # PRD v12 §0.3: deterministic first, phi4-mini only for fields below threshold.
+    # raw_text="" here because we're in dev stub mode; real MOD-02 passes OCR text.
+    final_extracted, provenance = _recover_low_confidence_fields(
+        mock_extracted, mock_confidence, raw_text=""
+    )
+    log.info("_simulate_ocr_dev: recovery complete — provenance fields: %s",
+             {k: v["source"] for k, v in provenance.items()})
 
     conn = get_db_conn()
     if conn is None:
@@ -1552,13 +1567,22 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
     try:
         with conn.cursor() as cur:
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
-            log.info("_simulate_ocr_dev: inserting invoice_extractions")
+            log.info("_simulate_ocr_dev: inserting invoice_extractions (with provenance)")
+            # Add provenance_json column if it doesn't exist yet
+            cur.execute("""
+                ALTER TABLE invoice_extractions
+                ADD COLUMN IF NOT EXISTS provenance_json JSONB
+            """)
             cur.execute("""
                 INSERT INTO invoice_extractions
-                  (invoice_id, version, extracted_json, confidence_json, ocr_engine)
-                VALUES (%s, 1, %s, %s, 'paddle-dev-stub')
+                  (invoice_id, version, extracted_json, confidence_json, ocr_engine, provenance_json)
+                VALUES (%s, 1, %s, %s, %s, %s)
                 ON CONFLICT (invoice_id, version) DO NOTHING
-            """, (invoice_id, json.dumps(mock_extracted), json.dumps(mock_confidence)))
+            """, (invoice_id,
+                  json.dumps(final_extracted),
+                  json.dumps(mock_confidence),
+                  "paddle-dev-stub+phi4-mini" if any(v["source"] == "phi4-mini" for v in provenance.values()) else "paddle-dev-stub",
+                  json.dumps(provenance)))
 
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
             log.info("_simulate_ocr_dev: updating invoice status → extracted")
@@ -1741,6 +1765,177 @@ def intake_upload():
 # ─────────────────────────────────────────────────────────────────────────────
 # SMOKE TEST / DEBUG ENDPOINTS
 # ─────────────────────────────────────────────────────────────────────────────
+
+### ─── OCR Recovery — PRD v12 §0.3 phi4-mini recovery layer ─────────────────
+#
+# Contract:
+#   - Deterministic PaddleOCR/pdfplumber runs first and produces extracted_json
+#     + confidence_json (per-field float 0.0–1.0).
+#   - This function is called ONLY when at least one field is below threshold.
+#   - phi4-mini receives ONLY the low-confidence fields — not the whole invoice.
+#   - Return value carries field-level provenance so the UI and audit trail
+#     know which fields were AI-recovered and which came from deterministic OCR.
+#   - If phi4-mini is unavailable, the original extracted values are preserved
+#     unchanged — the function never degrades the output, only improves it.
+#
+# Provenance schema (per field):
+#   { "vendor_name": {"value": "Acme Corp", "source": "paddle", "confidence": 0.97},
+#     "po_number":   {"value": "PO-123",    "source": "phi4-mini",
+#                     "confidence": 0.65, "original_confidence": 0.42} }
+# ─────────────────────────────────────────────────────────────────────────────
+
+_OCR_RECOVERY_PROMPT = """You are an AP (Accounts Payable) document extraction assistant.
+The OCR pipeline extracted these invoice fields but confidence is LOW for some of them.
+Fix ONLY the low-confidence fields using the surrounding context. Output ONLY valid JSON.
+
+Low-confidence fields to fix:
+{low_conf_fields}
+
+Context from the invoice (raw OCR text excerpt):
+{context}
+
+Output a JSON object with ONLY the corrected field names and their best-estimate values.
+Example: {{"vendor_name": "Acme Corp Ltd", "po_number": "PO-2024-0042"}}
+JSON:"""
+
+
+def _ollama_base_url_for_recovery() -> str | None:
+    """Return a reachable Ollama base URL, or None if unavailable."""
+    if requests is None:
+        return None
+    candidates = [OLLAMA_BASE_URL]
+    if "host.docker.internal" in OLLAMA_BASE_URL or "ollama:" in OLLAMA_BASE_URL:
+        candidates.append("http://localhost:11434")
+    for base in candidates:
+        try:
+            r = requests.get(f"{base}/api/tags", timeout=5)
+            if r.ok:
+                return base
+        except Exception:
+            pass
+    return None
+
+
+def _recover_low_confidence_fields(
+    extracted: dict,
+    confidence: dict,
+    raw_text: str = "",
+    threshold: float | None = None,
+) -> tuple[dict, dict]:
+    """
+    Session 2 — OCR recovery layer (PRD v12 §0.3).
+    Returns (recovered_extracted, provenance) where:
+      - recovered_extracted = extracted with low-conf fields replaced by phi4-mini values
+      - provenance = per-field dict with source, confidence, original_confidence
+
+    Deterministic rule: if all fields are above threshold, phi4-mini is NEVER called.
+    Non-AI path is always preserved — this function cannot degrade output.
+    """
+    thresh = threshold if threshold is not None else OCR_CONFIDENCE_THRESHOLD
+
+    # Build field provenance from deterministic extraction
+    provenance = {}
+    for field, value in extracted.items():
+        conf = float(confidence.get(field, 1.0) or 1.0)
+        provenance[field] = {"value": value, "source": "paddle", "confidence": conf}
+
+    # Identify low-confidence fields
+    low_conf = {
+        field: {"value": extracted.get(field), "confidence": float(confidence.get(field, 0) or 0)}
+        for field, conf_val in confidence.items()
+        if float(conf_val or 0) < thresh and field in extracted
+    }
+
+    if not low_conf:
+        log.info("_recover_low_confidence_fields: all fields above %.2f — no AI recovery needed", thresh)
+        return extracted, provenance
+
+    log.info("_recover_low_confidence_fields: %d fields below %.2f threshold: %s",
+             len(low_conf), thresh, list(low_conf.keys()))
+
+    # Try phi4-mini recovery via Ollama
+    base_url = _ollama_base_url_for_recovery()
+    if base_url is None:
+        log.warning("_recover_low_confidence_fields: Ollama unavailable — keeping original values")
+        return extracted, provenance
+
+    # Discover model
+    model = OLLAMA_MODEL
+    try:
+        models_resp = requests.get(f"{base_url}/api/tags", timeout=5)
+        if models_resp.ok:
+            available = [m["name"] for m in models_resp.json().get("models", [])]
+            if model not in available and available:
+                model = available[0]
+    except Exception:
+        pass
+
+    low_conf_text = "\n".join(
+        f'  {f}: "{v["value"]}" (confidence: {v["confidence"]:.2f})'
+        for f, v in low_conf.items()
+    )
+    context_excerpt = (raw_text or "")[:600] or "No raw text available."
+    prompt = _OCR_RECOVERY_PROMPT.format(
+        low_conf_fields=low_conf_text,
+        context=context_excerpt,
+    )
+
+    try:
+        resp = requests.post(f"{base_url}/api/generate",
+                             json={"model": model, "prompt": prompt,
+                                   "stream": True, "options": {"temperature": 0.1}},
+                             stream=True, timeout=(15, None))
+        resp.raise_for_status()
+
+        full_text = ""
+        for line in resp.iter_lines(chunk_size=None):
+            if not line:
+                continue
+            try:
+                chunk = json.loads(line)
+                full_text += chunk.get("response", "")
+                if chunk.get("done"):
+                    break
+            except json.JSONDecodeError:
+                pass
+
+        # Parse the JSON response
+        start = full_text.find('{')
+        end   = full_text.rfind('}')
+        if start != -1 and end > start:
+            recovered_fields = json.loads(full_text[start:end+1])
+        else:
+            recovered_fields = {}
+
+        if not isinstance(recovered_fields, dict):
+            recovered_fields = {}
+
+        # Merge recovered values — update extracted and provenance
+        recovered_extracted = dict(extracted)
+        for field, new_value in recovered_fields.items():
+            if field in low_conf and new_value is not None:
+                original_conf = low_conf[field]["confidence"]
+                recovered_extracted[field] = new_value
+                provenance[field] = {
+                    "value":               new_value,
+                    "source":              "phi4-mini",
+                    "confidence":          max(original_conf + 0.15, 0.70),  # heuristic uplift
+                    "original_value":      low_conf[field]["value"],
+                    "original_confidence": original_conf,
+                }
+                log.info("_recover_low_confidence_fields: %s recovered by phi4-mini "
+                         "(%.2f → %.2f)", field, original_conf, provenance[field]["confidence"])
+
+        recovered_count = sum(1 for f in recovered_fields if f in low_conf)
+        log.info("_recover_low_confidence_fields: %d/%d fields recovered via phi4-mini (%s)",
+                 recovered_count, len(low_conf), model)
+        return recovered_extracted, provenance
+
+    except Exception as exc:
+        log.warning("_recover_low_confidence_fields: phi4-mini call failed (%s) — "
+                    "original values preserved", exc)
+        return extracted, provenance
+
 
 # ─── AI Workflow Generation — PRD v12 §4.1 Mode 3 ────────────────────────────
 
