@@ -755,6 +755,8 @@ def fetch_invoices_from_db(tenant_id: str, status: str, search: str, limit: int 
 
 def fetch_runtime_view_from_db(tenant_id: str, invoice_id: str | None = None) -> dict:
     conn = get_db_conn()
+    if conn is None:
+        raise RuntimeError("No database connection available")
     try:
         with conn.cursor() as raw_cur:
             raw_cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
@@ -1216,20 +1218,32 @@ def send_invoice_to_review(invoice_id: str):
 
 @app.route("/api/runtime-view", methods=["GET"])
 def runtime_view():
+    """
+    Always returns a valid JSON payload.
+    Tries DB first; falls back to in-memory DEV payload on any failure.
+    Never returns 500 in dev mode — UI polling must not block on backend data gaps.
+    """
     tenant_id  = get_tenant_id()
     invoice_id = request.args.get("invoice_id")
+
+    # 1. Try full DB path
     try:
         return jsonify(fetch_runtime_view_from_db(tenant_id=tenant_id, invoice_id=invoice_id)), 200
-    except RuntimeError as exc:
-        # Empty result set (no invoice in DB yet) — always return dev fallback
-        log.info("runtime-view: no DB data, using fallback (%s)", exc)
+    except Exception as db_exc:
+        log.warning("runtime-view DB path failed (%s: %s) — trying fallback",
+                    type(db_exc).__name__, db_exc)
+
+    # 2. Always attempt fallback — never surface a 500 for missing data
+    try:
         return jsonify(fallback_runtime_view(tenant_id=tenant_id, invoice_id=invoice_id)), 200
-    except Exception as exc:
-        if should_fallback(exc):
-            log.warning("runtime-view fallback engaged: %s", exc)
-            return jsonify(fallback_runtime_view(tenant_id=tenant_id, invoice_id=invoice_id)), 200
-        log.error("runtime-view unrecoverable error: %s", exc, exc_info=True)
-        return jsonify({"error": "runtime_view_failed", "detail": str(exc)}), 500
+    except Exception as fallback_exc:
+        log.error("runtime-view fallback also failed: %s", fallback_exc, exc_info=True)
+        # Only true 500 if even the in-memory fallback is broken
+        return jsonify({
+            "error": "runtime_view_failed",
+            "detail": str(fallback_exc),
+            "original": str(db_exc) if 'db_exc' in locals() else "unknown",
+        }), 500
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HEALTH ENDPOINTS
