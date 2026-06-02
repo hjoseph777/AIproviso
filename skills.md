@@ -2,6 +2,7 @@
 
 > **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-02`
 > **Last verified green:** `15/15 smoke test PASS` · commit `38bf8a1` · full Docker stack including workflow-engine
+> **Session 3 commit:** `6ccb86b` · pgvector engine + 10-record seed + migration 008 + run-migrations fix
 > **PRD source:** `Proviso_PRD_v12.md` — canonical reference
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
