@@ -272,9 +272,15 @@ def numeric_confidence(confidence_json: dict | None) -> float:
 def to_invoice_payload(row: dict) -> dict:
     extracted = row.get("extracted_json") or {}
     confidence_json = row.get("confidence_json") or {}
+    provenance_json = row.get("provenance_json") or {}
     ui_status = db_status_to_ui(row.get("status", "received"))
     confidence = numeric_confidence(confidence_json)
     vendor_name = row.get("display_name") or row.get("vendor_name") or extracted.get("vendor_name") or "Unknown vendor"
+
+    # Summarise provenance for the UI: which fields were AI-recovered and which were missing
+    ai_recovered = [f for f, v in provenance_json.items() if isinstance(v, dict) and v.get("source") == "phi4-mini"]
+    missing_recovered = [f for f, v in provenance_json.items() if isinstance(v, dict) and v.get("was_missing")]
+
     return {
         "id": str(row["id"]),
         "invoiceNumber": extracted.get("invoice_number") or f"INV-{str(row['id'])[:8].upper()}",
@@ -297,6 +303,10 @@ def to_invoice_payload(row: dict) -> dict:
             "total_amount": float(confidence_json.get("total_amount", 0) or 0),
             "po_number": float(confidence_json.get("po_number", 0) or 0),
         },
+        # Provenance — available downstream for review UX and audit diagnostics
+        "provenance": provenance_json or None,
+        "aiRecoveredFields":  ai_recovered or None,
+        "missingRecoveredFields": missing_recovered or None,
     }
 
 def summarize_invoices(invoices: list[dict]) -> dict:
@@ -765,11 +775,12 @@ def fetch_invoices_from_db(tenant_id: str, status: str, search: str, limit: int 
                   v.name AS vendor_name,
                   v.display_name,
                   latest.extracted_json,
-                  latest.confidence_json
+                  latest.confidence_json,
+                  latest.provenance_json
                 FROM invoices i
                 LEFT JOIN vendors v ON v.id = i.vendor_id
                 LEFT JOIN LATERAL (
-                  SELECT extracted_json, confidence_json
+                  SELECT extracted_json, confidence_json, provenance_json
                   FROM invoice_extractions ie
                   WHERE ie.invoice_id = i.id
                   ORDER BY ie.version DESC
@@ -814,11 +825,12 @@ def fetch_runtime_view_from_db(tenant_id: str, invoice_id: str | None = None) ->
                   v.name AS vendor_name,
                   v.display_name,
                   latest.extracted_json,
-                  latest.confidence_json
+                  latest.confidence_json,
+                  latest.provenance_json
                 FROM invoices i
                 LEFT JOIN vendors v ON v.id = i.vendor_id
                 LEFT JOIN LATERAL (
-                  SELECT extracted_json, confidence_json
+                  SELECT extracted_json, confidence_json, provenance_json
                   FROM invoice_extractions ie
                   WHERE ie.invoice_id = i.id
                   ORDER BY ie.version DESC
@@ -1568,11 +1580,6 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
         with conn.cursor() as cur:
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
             log.info("_simulate_ocr_dev: inserting invoice_extractions (with provenance)")
-            # Add provenance_json column if it doesn't exist yet
-            cur.execute("""
-                ALTER TABLE invoice_extractions
-                ADD COLUMN IF NOT EXISTS provenance_json JSONB
-            """)
             cur.execute("""
                 INSERT INTO invoice_extractions
                   (invoice_id, version, extracted_json, confidence_json, ocr_engine, provenance_json)
@@ -1784,6 +1791,19 @@ def intake_upload():
 #                     "confidence": 0.65, "original_confidence": 0.42} }
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Fields that must be present in every AP invoice extraction.
+# Any field absent from extracted_json is treated as "missing" and sent to phi4-mini
+# for recovery — same pipeline as low-confidence, but flagged separately in provenance.
+EXPECTED_INVOICE_FIELDS = {
+    "vendor_name":    "required",
+    "invoice_number": "required",
+    "invoice_date":   "required",
+    "total_amount":   "required",
+    "po_number":      "optional",
+    "currency":       "optional",
+}
+
+
 _OCR_RECOVERY_PROMPT = """You are an AP (Accounts Payable) document extraction assistant.
 The OCR pipeline extracted these invoice fields but confidence is LOW for some of them.
 Fix ONLY the low-confidence fields using the surrounding context. Output ONLY valid JSON.
@@ -1825,38 +1845,60 @@ def _recover_low_confidence_fields(
     """
     Session 2 — OCR recovery layer (PRD v12 §0.3).
     Returns (recovered_extracted, provenance) where:
-      - recovered_extracted = extracted with low-conf fields replaced by phi4-mini values
-      - provenance = per-field dict with source, confidence, original_confidence
+      - recovered_extracted = extracted with low-conf AND missing fields recovered by phi4-mini
+      - provenance = per-field dict with source, confidence, original_confidence, was_missing
 
-    Deterministic rule: if all fields are above threshold, phi4-mini is NEVER called.
-    Non-AI path is always preserved — this function cannot degrade output.
+    Two recovery triggers (both use the same phi4-mini call):
+      1. Low-confidence: field present in extracted but confidence < threshold
+      2. Missing field: required/optional field absent from extracted entirely
+
+    Deterministic rule: phi4-mini is NEVER called if all expected fields are present
+    and all confidence scores are above threshold.
+    Non-AI path always preserved — this function cannot degrade output.
     """
     thresh = threshold if threshold is not None else OCR_CONFIDENCE_THRESHOLD
 
-    # Build field provenance from deterministic extraction
+    # Build provenance for all present fields from deterministic extraction
     provenance = {}
     for field, value in extracted.items():
         conf = float(confidence.get(field, 1.0) or 1.0)
         provenance[field] = {"value": value, "source": "paddle", "confidence": conf}
 
-    # Identify low-confidence fields
+    # Trigger 1: low-confidence fields (present but score below threshold)
     low_conf = {
-        field: {"value": extracted.get(field), "confidence": float(confidence.get(field, 0) or 0)}
+        field: {"value": extracted.get(field),
+                "confidence": float(confidence.get(field, 0) or 0),
+                "was_missing": False}
         for field, conf_val in confidence.items()
         if float(conf_val or 0) < thresh and field in extracted
     }
 
-    if not low_conf:
-        log.info("_recover_low_confidence_fields: all fields above %.2f — no AI recovery needed", thresh)
+    # Trigger 2: missing fields (expected but completely absent from extraction)
+    missing = {
+        field: {"value": None, "confidence": 0.0, "was_missing": True}
+        for field, requirement in EXPECTED_INVOICE_FIELDS.items()
+        if field not in extracted
+    }
+
+    needs_recovery = {**low_conf, **missing}
+
+    if not needs_recovery:
+        log.info("_recover_low_confidence_fields: all fields present and above %.2f — "
+                 "no AI recovery needed", thresh)
         return extracted, provenance
 
-    log.info("_recover_low_confidence_fields: %d fields below %.2f threshold: %s",
-             len(low_conf), thresh, list(low_conf.keys()))
+    if missing:
+        log.info("_recover_low_confidence_fields: %d missing field(s): %s",
+                 len(missing), list(missing.keys()))
+    if low_conf:
+        log.info("_recover_low_confidence_fields: %d low-confidence field(s): %s",
+                 len(low_conf), list(low_conf.keys()))
 
     # Try phi4-mini recovery via Ollama
     base_url = _ollama_base_url_for_recovery()
     if base_url is None:
-        log.warning("_recover_low_confidence_fields: Ollama unavailable — keeping original values")
+        log.warning("_recover_low_confidence_fields: Ollama unavailable — keeping original values, "
+                    "missing fields remain absent")
         return extracted, provenance
 
     # Discover model
@@ -1870,13 +1912,14 @@ def _recover_low_confidence_fields(
     except Exception:
         pass
 
-    low_conf_text = "\n".join(
-        f'  {f}: "{v["value"]}" (confidence: {v["confidence"]:.2f})'
-        for f, v in low_conf.items()
+    # Build the prompt — describe both low-conf and missing fields
+    needs_recovery_text = "\n".join(
+        f'  {f}: {"(MISSING — not extracted)" if v["was_missing"] else f\'"{v["value"]}" (confidence: {v["confidence"]:.2f})\'}'
+        for f, v in needs_recovery.items()
     )
     context_excerpt = (raw_text or "")[:600] or "No raw text available."
     prompt = _OCR_RECOVERY_PROMPT.format(
-        low_conf_fields=low_conf_text,
+        low_conf_fields=needs_recovery_text,
         context=context_excerpt,
     )
 
@@ -1910,25 +1953,37 @@ def _recover_low_confidence_fields(
         if not isinstance(recovered_fields, dict):
             recovered_fields = {}
 
-        # Merge recovered values — update extracted and provenance
+        # Merge recovered values — handles both low-conf and missing fields
         recovered_extracted = dict(extracted)
         for field, new_value in recovered_fields.items():
-            if field in low_conf and new_value is not None:
-                original_conf = low_conf[field]["confidence"]
-                recovered_extracted[field] = new_value
-                provenance[field] = {
-                    "value":               new_value,
-                    "source":              "phi4-mini",
-                    "confidence":          max(original_conf + 0.15, 0.70),  # heuristic uplift
-                    "original_value":      low_conf[field]["value"],
-                    "original_confidence": original_conf,
-                }
-                log.info("_recover_low_confidence_fields: %s recovered by phi4-mini "
-                         "(%.2f → %.2f)", field, original_conf, provenance[field]["confidence"])
+            if field not in needs_recovery or new_value is None:
+                continue
+            was_missing = needs_recovery[field]["was_missing"]
+            original_conf = needs_recovery[field]["confidence"]
+            recovered_extracted[field] = new_value
+            entry = {
+                "value":      new_value,
+                "source":     "phi4-mini",
+                "confidence": max(original_conf + 0.15, 0.60),
+            }
+            if was_missing:
+                entry["was_missing"] = True
+            else:
+                entry["original_value"]      = needs_recovery[field]["value"]
+                entry["original_confidence"] = original_conf
+            provenance[field] = entry
+            log.info("_recover_low_confidence_fields: %s %s by phi4-mini "
+                     "(conf %.2f → %.2f)",
+                     field,
+                     "recovered (was missing)" if was_missing else "corrected",
+                     original_conf, entry["confidence"])
 
-        recovered_count = sum(1 for f in recovered_fields if f in low_conf)
-        log.info("_recover_low_confidence_fields: %d/%d fields recovered via phi4-mini (%s)",
-                 recovered_count, len(low_conf), model)
+        recovered_count  = sum(1 for f in recovered_fields if f in needs_recovery)
+        missing_fixed    = sum(1 for f in recovered_fields if needs_recovery.get(f, {}).get("was_missing"))
+        low_conf_fixed   = recovered_count - missing_fixed
+        log.info("_recover_low_confidence_fields: %d/%d fields via phi4-mini (%s): "
+                 "%d missing recovered, %d low-conf corrected",
+                 recovered_count, len(needs_recovery), model, missing_fixed, low_conf_fixed)
         return recovered_extracted, provenance
 
     except Exception as exc:
