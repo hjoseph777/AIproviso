@@ -1368,23 +1368,13 @@ def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
     try:
         with conn.cursor() as cur:
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
-            # Ensure invoice_extractions table exists (Phase I migration may be pending)
+            # INSERT matches actual invoice_extractions schema from 001_initial_schema.sql:
+            # id, invoice_id, version, extracted_json, confidence_json, ocr_engine (NOT NULL)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS invoice_extractions (
-                    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    invoice_id      UUID NOT NULL,
-                    tenant_id       TEXT NOT NULL,
-                    version         INT  NOT NULL DEFAULT 1,
-                    source_module   TEXT NOT NULL DEFAULT 'MOD-02',
-                    extracted_json  JSONB,
-                    confidence_json JSONB,
-                    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-            """)
-            cur.execute("""
-                INSERT INTO invoice_extractions (invoice_id, tenant_id, version, source_module, extracted_json, confidence_json)
-                VALUES (%s, %s, 1, 'MOD-02', %s, %s)
-            """, (invoice_id, tenant_id, json.dumps(mock_extracted), json.dumps(mock_confidence)))
+                INSERT INTO invoice_extractions
+                  (invoice_id, version, extracted_json, confidence_json, ocr_engine)
+                VALUES (%s, 1, %s, %s, 'paddle-dev-stub')
+            """, (invoice_id, json.dumps(mock_extracted), json.dumps(mock_confidence)))
 
             cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
             cur.execute(
