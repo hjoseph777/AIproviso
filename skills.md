@@ -1,10 +1,36 @@
 # AI Proviso — Master Skills & Status Log
 
 > **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-01`
-> **Last verified green:** `15/15 smoke test PASS` · commit `1b4be64` → `f936c5f`
+> **Last verified green:** `15/15 smoke test PASS` · commit `edf4f04`
 > **PRD source:** `Proviso_PRD_v12.md` — canonical reference
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
+
+---
+
+## 🔴 NEXT SESSION — Start Here
+
+**CONFIRMED BUILD SEQUENCE (agreed 2026-06-01, do not reorder):**
+
+### Session 1 — Wire Mode 3 to Flowise ← START HERE NEXT
+Replace the `parseScenario()` NLP keyword stub in `IngestionHub.jsx` (Mode 3 AI Generated)
+with a real call to the Flowise API (`localhost:3001`). Goal: integrator describes an AP process
+in plain language → phi4-mini via Flowise generates a real workflow definition.
+This is the session that makes the Michel LeBrun demo credible as an AI-first platform.
+
+**File to touch first:** `src/modules/workflow-designer/canvas/IngestionHub.jsx` → `handleConfirm()` Mode 3 branch
+
+### Session 2 — phi4-mini OCR recovery path
+Replace `_simulate_ocr_dev()` with real PaddleOCR PP-OCRv4 + phi4-mini two-stage pipeline.
+Rule: deterministic pdfplumber/PaddleOCR runs first; phi4-mini only for fields below confidence threshold.
+Validates PRD v12 §0.3 automation-first within AI-first.
+
+### Session 3 — pgvector seeding and similarity scoring
+Seed `workflows_dataset` with 142 records + embeddings. Wire four-dimensional similarity scoring (PRD v12 §7A).
+Full flywheel: scenario → candidates ranked → diff proposed → workflow activated.
+Completes the end-to-end AI-first demo story.
+
+---
 
 ---
 
