@@ -25,6 +25,11 @@ except ImportError:  # Webhook features degrade gracefully without requests.
     requests = None
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+try:
+    from dotenv import load_dotenv
+    load_dotenv()          # loads .env from project root automatically
+except ImportError:
+    pass                   # python-dotenv optional — env vars set externally work too
 
 # =============================================================================
 # AI Proviso — Backend API (Phase I Flask Sandbox)
