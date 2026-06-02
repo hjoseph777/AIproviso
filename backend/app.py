@@ -906,18 +906,35 @@ def fetch_runtime_view_from_db(tenant_id: str, invoice_id: str | None = None) ->
 
 
 def fallback_runtime_view(tenant_id: str, invoice_id: str | None = None) -> dict:
-    invoice = next((item for item in DEV_INVOICES if item["id"] == invoice_id), None) if invoice_id else DEV_INVOICES[0]
+    # Find by ID, else first stub, else synthesise a minimal record
+    invoice = (
+        next((item for item in DEV_INVOICES if item["id"] == invoice_id), None)
+        if invoice_id else None
+    ) or (DEV_INVOICES[0] if DEV_INVOICES else None)
+
+    if invoice is None:
+        # Synthesise a minimal record so the UI always gets valid JSON
+        invoice = {
+            "id": invoice_id or "fallback-invoice",
+            "status": "received",
+            "correlation_id": None,
+            "receivedAt": None,
+            "vendorName": "Unknown Vendor",
+            "confidence": 0.0,
+        }
+
     table_availability = {
         "workflow_state": False,
         "workflow_state_history": False,
         "workflow_timers": False,
         "audit_events": False,
     }
-    audit_rows = [{"event_type": "invoice.received", "reason": "fallback payload", "recorded_at": invoice.get("receivedAt")}]
+    audit_rows = [{"event_type": "invoice.received", "reason": "fallback payload",
+                   "recorded_at": invoice.get("receivedAt")}]
     return {
         "source": "fallback",
         "tenant_id": tenant_id,
-        "invoice_id": invoice["id"],
+        "invoice_id": invoice.get("id", invoice_id),
         "table_availability": table_availability,
         "data": build_runtime_payload("fallback", invoice, audit_rows, table_availability, {}),
     }
@@ -1227,22 +1244,22 @@ def runtime_view():
     invoice_id = request.args.get("invoice_id")
 
     # 1. Try full DB path
+    db_error_msg = None
     try:
         return jsonify(fetch_runtime_view_from_db(tenant_id=tenant_id, invoice_id=invoice_id)), 200
-    except Exception as db_exc:
-        log.warning("runtime-view DB path failed (%s: %s) — trying fallback",
-                    type(db_exc).__name__, db_exc)
+    except Exception as exc:
+        db_error_msg = f"{type(exc).__name__}: {exc}"
+        log.warning("runtime-view DB path failed (%s) — trying fallback", db_error_msg)
 
     # 2. Always attempt fallback — never surface a 500 for missing data
     try:
         return jsonify(fallback_runtime_view(tenant_id=tenant_id, invoice_id=invoice_id)), 200
     except Exception as fallback_exc:
         log.error("runtime-view fallback also failed: %s", fallback_exc, exc_info=True)
-        # Only true 500 if even the in-memory fallback is broken
         return jsonify({
             "error": "runtime_view_failed",
             "detail": str(fallback_exc),
-            "original": str(db_exc) if 'db_exc' in locals() else "unknown",
+            "original": db_error_msg or "unknown",
         }), 500
 
 # ─────────────────────────────────────────────────────────────────────────────
