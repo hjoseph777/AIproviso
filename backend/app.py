@@ -65,6 +65,11 @@ def _resolve_database_url() -> str:
 DATABASE_URL      = _resolve_database_url()
 REDIS_URL         = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 N8N_BASE_URL      = os.environ.get("N8N_BASE_URL", "http://n8n:5678")
+FLOWISE_BASE_URL  = os.environ.get("FLOWISE_BASE_URL", "http://localhost:3001")
+FLOWISE_API_KEY   = os.environ.get("FLOWISE_API_KEY", "")
+FLOWISE_WF_CHATFLOW_ID = os.environ.get("FLOWISE_WF_CHATFLOW_ID", "")   # set after creating chatflow in Flowise
+OLLAMA_BASE_URL   = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL      = os.environ.get("OLLAMA_MODEL", "mistral:7b-instruct")
 N8N_WEBHOOK_TOKEN = os.environ.get("N8N_WEBHOOK_TOKEN", "")
 WORKFLOW_ENGINE_BASE_URL = os.environ.get("WORKFLOW_ENGINE_BASE_URL", "http://workflow-engine:5100")
 WORKFLOW_WEBHOOK_SECRET = os.environ.get("WORKFLOW_WEBHOOK_SECRET", "")
@@ -1736,6 +1741,234 @@ def intake_upload():
 # ─────────────────────────────────────────────────────────────────────────────
 # SMOKE TEST / DEBUG ENDPOINTS
 # ─────────────────────────────────────────────────────────────────────────────
+
+# ─── AI Workflow Generation — PRD v12 §4.1 Mode 3 ────────────────────────────
+
+_WF_GENERATION_PROMPT = """AP workflow JSON only. No explanation. Kinds: initial/technical/approval/exception/terminal/standard.
+
+Format: {{"name":"<name>","states":[{{"id":"s1","name":"<n>","state_kind":"<k>","canvas_position":{{"x":220,"y":80}}}}],"transitions":[{{"id":"t1","from_node_id":"s1","to_node_id":"s2","label":"<l>"}}]}}
+
+Scenario: {scenario}
+
+JSON:"""
+
+
+def _parse_workflow_json(raw: str) -> dict | None:
+    """Extract and validate workflow JSON from LLM output."""
+    if not raw:
+        return None
+    # Strip markdown code fences if present
+    text = raw.strip()
+    for fence in ['```json', '```JSON', '```']:
+        if text.startswith(fence):
+            text = text[len(fence):]
+            if '```' in text:
+                text = text[:text.rfind('```')]
+            break
+    text = text.strip()
+
+    # Find first { to last } — handles leading/trailing prose
+    start = text.find('{')
+    end   = text.rfind('}')
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        data = json.loads(text[start:end+1])
+    except json.JSONDecodeError:
+        return None
+
+    # Validate minimal structure
+    if not isinstance(data.get('states'), list) or not data['states']:
+        return None
+    if not isinstance(data.get('transitions'), list):
+        data['transitions'] = []
+
+    # Ensure required fields on each state
+    for i, s in enumerate(data['states']):
+        s.setdefault('id', f's{i+1}')
+        s.setdefault('state_kind', 'standard')
+        s.setdefault('canvas_position', {'x': 220, 'y': 80 + i * 175})
+    for j, t in enumerate(data['transitions']):
+        t.setdefault('id', f't{j+1}')
+        t.setdefault('label', 'transition')
+
+    return data
+
+
+def _generate_via_flowise(scenario: str) -> dict | None:
+    """Tier 1: Call Flowise chatflow for AP workflow generation."""
+    if not FLOWISE_WF_CHATFLOW_ID or requests is None:
+        return None
+    try:
+        url = f"{FLOWISE_BASE_URL}/api/v1/prediction/{FLOWISE_WF_CHATFLOW_ID}"
+        headers = {"Content-Type": "application/json"}
+        if FLOWISE_API_KEY:
+            headers["Authorization"] = f"Bearer {FLOWISE_API_KEY}"
+        resp = requests.post(url, json={"question": scenario}, headers=headers, timeout=60)
+        resp.raise_for_status()
+        text = resp.json().get("text") or resp.json().get("output") or ""
+        result = _parse_workflow_json(text)
+        if result:
+            result["_source"] = "flowise"
+        return result
+    except Exception as exc:
+        log.warning("Flowise workflow generation failed: %s", exc)
+        return None
+
+
+def _generate_via_ollama(scenario: str) -> dict | None:
+    """Tier 2: Call Ollama directly for AP workflow generation.
+    Tries configured OLLAMA_BASE_URL first, then localhost:11434 as fallback
+    (handles docker-internal vs host discrepancy when running Flask outside Docker).
+    """
+    if requests is None:
+        return None
+
+    prompt = _WF_GENERATION_PROMPT.format(scenario=scenario)
+    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
+               "options": {"temperature": 0.3, "top_p": 0.9}}
+
+    # Try configured URL, then localhost fallback
+    candidates = [OLLAMA_BASE_URL]
+    if "host.docker.internal" in OLLAMA_BASE_URL or "ollama:" in OLLAMA_BASE_URL:
+        candidates.append("http://localhost:11434")
+
+    for base_url in candidates:
+        try:
+            # Auto-discover first available model if configured one fails
+            model = OLLAMA_MODEL
+            try:
+                models_resp = requests.get(f"{base_url}/api/tags", timeout=5)
+                if models_resp.ok:
+                    available = [m["name"] for m in models_resp.json().get("models", [])]
+                    if model not in available and available:
+                        model = available[0]
+                        log.info("_generate_via_ollama: %s not found, using %s", OLLAMA_MODEL, model)
+            except Exception:
+                pass
+
+            url = f"{base_url}/api/generate"
+            log.info("_generate_via_ollama: trying %s model=%s (streaming)", url, model)
+            # streaming=True: (connect_timeout, read_timeout=None) — tokens arrive incrementally
+            resp = requests.post(url, json={**payload, "model": model, "stream": True},
+                                 stream=True, timeout=(15, None))
+            resp.raise_for_status()
+            # Collect streamed tokens into full text
+            full_text = ""
+            for line in resp.iter_lines(chunk_size=None):
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                    full_text += chunk.get("response", "")
+                    if chunk.get("done"):
+                        break
+                except json.JSONDecodeError:
+                    pass
+            log.info("_generate_via_ollama: received %d chars from %s", len(full_text), base_url)
+            result = _parse_workflow_json(full_text)
+            if result:
+                result["_source"] = f"ollama/{OLLAMA_MODEL}"
+                log.info("_generate_via_ollama: success via %s, %d states", base_url, len(result["states"]))
+                return result
+            log.warning("_generate_via_ollama: JSON parse failed. Raw: %s", full_text[:200])
+        except Exception as exc:
+            log.warning("_generate_via_ollama: %s failed: %s", base_url, type(exc).__name__)
+
+    return None
+
+
+def _generate_via_keyword_fallback(scenario: str) -> dict:
+    """Tier 3: Deterministic keyword NLP — always succeeds."""
+    t = scenario.lower()
+    make_id = lambda: __import__('uuid').uuid4().hex[:7]
+    states, transitions = [], []
+    y = 80
+
+    def add_state(name, kind):
+        sid = make_id()
+        states.append({"id": sid, "name": name, "state_kind": kind,
+                        "canvas_position": {"x": 220, "y": y}})
+        return sid
+
+    def add_trans(from_id, to_id, label):
+        transitions.append({"id": make_id(), "from_node_id": from_id,
+                             "to_node_id": to_id, "label": label})
+
+    rcv = add_state("Received", "initial"); y += 175
+
+    if any(w in t for w in ["ocr", "extract", "scan", "digitiz", "capture"]):
+        ext = add_state("OCR Extracted", "technical"); add_trans(rcv, ext, "auto-extract"); y += 175
+        prev = ext
+    else:
+        prev = rcv
+
+    if any(w in t for w in ["3-way", "three-way", "po match", "purchase order", "match"]):
+        mch = add_state("3-Way Match", "technical"); add_trans(prev, mch, "PO match"); y += 175
+        prev = mch
+
+    pend = add_state("Pending Approval", "approval"); add_trans(prev, pend, "submit"); y += 175
+
+    branches = []
+    if any(w in t for w in ["manager", "supervisor", "team lead"]):
+        mgr = add_state("Manager Approval", "approval")
+        branches.append(mgr); y += 175
+    if any(w in t for w in ["cfo", "director", "executive", "vp", "c-suite"]):
+        cfo = add_state("CFO Approval", "approval")
+        branches.append(cfo); y += 175
+
+    for i, b in enumerate(branches):
+        add_trans(pend, b, "≤ threshold" if i == 0 else "> threshold")
+
+    if any(w in t for w in ["exception", "escalat", "hold", "queue", "dispute"]):
+        exc = add_state("Exception Queue", "exception")
+        src = states[2]["id"] if len(states) > 2 else pend
+        add_trans(src, exc, "exception"); y += 175
+
+    approved = add_state("Approved", "terminal")
+    for b in (branches if branches else [pend]):
+        add_trans(b, approved, "approve")
+
+    # Derive a name from scenario
+    words = scenario.strip().split()
+    name = " ".join(w.capitalize() for w in words[:4]) if words else "AP Workflow"
+
+    return {"name": name, "states": states, "transitions": transitions, "_source": "keyword-fallback"}
+
+
+@app.route("/api/ai/generate-workflow", methods=["POST"])
+def ai_generate_workflow():
+    """
+    PRD v12 §4.1 Mode 3 — AI workflow generation from plain English.
+    Three-tier pipeline: Flowise → Ollama → keyword fallback.
+    Returns { ok, workflow: {name, states, transitions}, source, message }
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    scenario = (body.get("scenario") or body.get("description") or "").strip()
+    if not scenario:
+        return jsonify({"error": "scenario field required"}), 400
+
+    # Tier 1 — Flowise (full prompt chain, requires Docker stack)
+    result = _generate_via_flowise(scenario)
+    if result:
+        log.info("ai_generate_workflow: Flowise success, %d states", len(result["states"]))
+        return jsonify({"ok": True, "workflow": result, "source": "flowise",
+                        "message": "Generated via Flowise + phi4-mini"}), 200
+
+    # Tier 2 — Ollama direct (requires local Ollama)
+    result = _generate_via_ollama(scenario)
+    if result:
+        log.info("ai_generate_workflow: Ollama success (%s), %d states",
+                 OLLAMA_MODEL, len(result["states"]))
+        return jsonify({"ok": True, "workflow": result, "source": "ollama",
+                        "message": f"Generated via Ollama ({OLLAMA_MODEL})"}), 200
+
+    # Tier 3 — keyword NLP fallback (always available)
+    result = _generate_via_keyword_fallback(scenario)
+    log.info("ai_generate_workflow: keyword fallback, %d states", len(result["states"]))
+    return jsonify({"ok": True, "workflow": result, "source": "keyword-fallback",
+                    "message": "Generated via keyword NLP (Flowise and Ollama unavailable)"}), 200
+
 
 @app.route("/api/events/fire", methods=["POST"])
 def fire_event_direct():

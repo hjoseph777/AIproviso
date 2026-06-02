@@ -115,6 +115,9 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
   const [activeMode, setActiveMode] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [workflowName, setWorkflowName] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSource, setAiSource] = useState(null);   // 'flowise' | 'ollama' | 'keyword-fallback'
+  const [aiError, setAiError] = useState(null);
   const aiInputRef = useRef(null);
 
   const isVisible = visible && rfNodes.length === 0;
@@ -123,25 +126,73 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     if (activeMode === 3) setTimeout(() => aiInputRef.current?.focus(), 50);
   }, [activeMode]);
 
+  // Reset AI state when mode changes away from 3
+  useEffect(() => {
+    if (activeMode !== 3) { setAiSource(null); setAiError(null); }
+  }, [activeMode]);
+
   const handleTemplateSelect = (tpl) => {
     setSelectedTemplate(tpl);
     setActiveMode(1);
     setWorkflowName(tpl.name);
   };
 
-  const handleConfirm = () => {
-    // Gate: require a project before any workflow creation
-    if (!activeProjectId) {
-      nudgeProjectForm();
-      return;
+  // ── Mode 3: AI generation via backend (Flowise → Ollama → keyword fallback) ──
+  const handleAiGenerate = async () => {
+    if (!aiText.trim() || aiGenerating) return;
+    if (!activeProjectId) { nudgeProjectForm(); return; }
+
+    setAiGenerating(true);
+    setAiError(null);
+    setAiSource(null);
+
+    try {
+      const res = await fetch('/api/ai/generate-workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: aiText.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.workflow) {
+        setAiSource(data.source);
+        const { name, states, transitions } = data.workflow;
+        // Short delay so user sees the source badge before dismiss
+        setTimeout(() => {
+          onModeSelect({
+            mode: 3,
+            parsed: { states, transitions },
+            name: workflowName || name || 'AI Generated Workflow',
+          });
+        }, 800);
+      } else {
+        // Endpoint returned error — local fallback
+        setAiError('Backend unavailable — using keyword NLP');
+        const parsed = parseScenario(aiText.trim());
+        setTimeout(() => {
+          onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
+        }, 1200);
+      }
+    } catch {
+      // Network error — local fallback
+      setAiError('Network error — using keyword NLP');
+      const parsed = parseScenario(aiText.trim());
+      setTimeout(() => {
+        onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
+      }, 1200);
+    } finally {
+      setAiGenerating(false);
     }
+  };
+
+  const handleConfirm = () => {
+    if (!activeProjectId) { nudgeProjectForm(); return; }
     if (activeMode === 1 && selectedTemplate) {
       onModeSelect({ mode: 1, template: selectedTemplate, name: workflowName || selectedTemplate.name });
     } else if (activeMode === 2) {
       onModeSelect({ mode: 2, name: workflowName || 'New Workflow' });
     } else if (activeMode === 3 && aiText.trim()) {
-      const parsed = parseScenario(aiText.trim());
-      onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
+      handleAiGenerate();   // async — replaces old synchronous parseScenario call
     } else if (activeMode === 4) {
       onModeSelect({ mode: 4 });
     }
@@ -150,8 +201,15 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
   const handleAiKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && aiText.trim()) {
       e.preventDefault();
-      handleConfirm();
+      handleAiGenerate();
     }
+  };
+
+  // Source badge colours
+  const SOURCE_META = {
+    'flowise':          { label: '✦ Flowise + phi4-mini', color: '#a78bfa' },
+    'ollama':           { label: `✦ Ollama (${(aiSource||'').replace('ollama/','')})`, color: '#38bdf8' },
+    'keyword-fallback': { label: '⌁ Keyword NLP fallback', color: '#fbbf24' },
   };
 
   const KIND_COLORS = { initial: '#00C870', technical: '#20C3D8', approval: '#F0A500', exception: '#FF3D5A', terminal: '#9B7EFF', standard: '#4A9FFF' };
@@ -401,23 +459,64 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
                 <textarea
                   ref={aiInputRef}
                   value={aiText}
-                  onChange={(e) => setAiText(e.target.value)}
+                  onChange={(e) => { setAiText(e.target.value); setAiError(null); setAiSource(null); }}
                   onKeyDown={handleAiKeyDown}
                   onClick={(e) => e.stopPropagation()}
-                  placeholder="✨ Describe your AP process… e.g. 'invoice with 3-way match, manager approval over $25k, exception queue'"
+                  disabled={aiGenerating}
+                  placeholder="✨ Describe your AP process in plain language…&#10;e.g. 'invoice with 3-way match, manager approval over $25k, exception queue for failed matches'"
                   rows={3}
                   style={{
                     width: '100%', boxSizing: 'border-box',
-                    background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.30)',
+                    background: aiGenerating ? 'rgba(167,139,250,0.04)' : 'rgba(167,139,250,0.08)',
+                    border: '1px solid rgba(167,139,250,0.30)',
                     borderRadius: 9, padding: '8px 10px',
                     fontSize: 10, color: '#c8d8ec', outline: 'none', resize: 'none',
-                    fontFamily: 'inherit', lineHeight: 1.5,
-                    transition: SPRING,
+                    fontFamily: 'inherit', lineHeight: 1.5, transition: SPRING,
+                    opacity: aiGenerating ? 0.6 : 1,
                   }}
                 />
-                <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', textAlign: 'right' }}>
-                  Press Enter to generate
-                </div>
+
+                {/* Generating spinner */}
+                {aiGenerating && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                      border: '2px solid rgba(167,139,250,0.3)',
+                      borderTopColor: '#a78bfa',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                    <span style={{ fontSize: 10, color: '#a78bfa', fontFamily: 'var(--mono)' }}>
+                      Generating workflow…
+                    </span>
+                  </div>
+                )}
+
+                {/* Source badge after generation */}
+                {aiSource && !aiGenerating && (() => {
+                  const meta = SOURCE_META[aiSource] || SOURCE_META['keyword-fallback'];
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: meta.color,
+                        background: `${meta.color}18`, border: `1px solid ${meta.color}40`,
+                        borderRadius: 99, padding: '2px 9px', fontFamily: 'var(--mono)' }}>
+                        {meta.label.replace('${(aiSource||\'\')', aiSource || '')}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Error / fallback notice */}
+                {aiError && (
+                  <div style={{ fontSize: 9, color: '#fbbf24', fontFamily: 'var(--mono)' }}>
+                    ⚠ {aiError}
+                  </div>
+                )}
+
+                {!aiGenerating && !aiSource && (
+                  <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.5)', textAlign: 'right' }}>
+                    Press Enter or click Generate
+                  </div>
+                )}
               </div>
             )}
           </HubCard>
@@ -469,22 +568,30 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
             />
             <button
               type="button"
-              onClick={handleConfirm}
-              disabled={activeMode === 3 && !aiText.trim()}
+              onClick={activeMode === 3 ? handleAiGenerate : handleConfirm}
+              disabled={(activeMode === 3 && !aiText.trim()) || aiGenerating}
               style={{
                 padding: '9px 22px', borderRadius: 9, border: '1px solid',
-                fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .16s',
-                background: 'rgba(74,222,128,0.14)', borderColor: 'rgba(74,222,128,0.4)',
-                color: '#4ade80',
-                boxShadow: '0 0 12px rgba(74,222,128,0.2)',
-                opacity: activeMode === 3 && !aiText.trim() ? 0.4 : 1,
+                fontSize: 12, fontWeight: 700, cursor: (activeMode === 3 && !aiText.trim()) || aiGenerating ? 'not-allowed' : 'pointer',
+                transition: 'all .16s',
+                background: aiGenerating ? 'rgba(167,139,250,0.1)' : 'rgba(74,222,128,0.14)',
+                borderColor: aiGenerating ? 'rgba(167,139,250,0.4)' : 'rgba(74,222,128,0.4)',
+                color: aiGenerating ? '#a78bfa' : '#4ade80',
+                boxShadow: aiGenerating ? '0 0 12px rgba(167,139,250,0.2)' : '0 0 12px rgba(74,222,128,0.2)',
+                opacity: (activeMode === 3 && !aiText.trim()) ? 0.4 : 1,
+                display: 'flex', alignItems: 'center', gap: 8,
               }}
             >
-              ✓ Create Workflow
+              {aiGenerating ? (
+                <>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(167,139,250,0.3)', borderTopColor: '#a78bfa', animation: 'spin 0.7s linear infinite' }} />
+                  Generating…
+                </>
+              ) : activeMode === 3 ? '✨ Generate Workflow' : '✓ Create Workflow'}
             </button>
             <button
               type="button"
-              onClick={() => { setActiveMode(null); setSelectedTemplate(null); setAiText(''); }}
+              onClick={() => { setActiveMode(null); setSelectedTemplate(null); setAiText(''); setAiSource(null); setAiError(null); }}
               style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.08)', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: 'transparent', color: 'rgba(100,116,139,0.6)' }}
             >
               Cancel
