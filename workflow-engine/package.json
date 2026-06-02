@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Dedicated workflow engine service for AI Proviso using XState.",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "validate": "node validate-sql.mjs",
+    "prestart": "node validate-sql.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1",

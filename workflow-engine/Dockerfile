@@ -8,6 +8,7 @@ COPY package.json ./
 RUN npm install --omit=dev
 
 COPY server.mjs ./
+COPY validate-sql.mjs ./
 
 EXPOSE 5100
 

@@ -1,4 +1,6 @@
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { createActor, createMachine } from 'xstate';
 
@@ -553,6 +555,66 @@ async function handleRequest(req, res) {
 
   jsonResponse(res, 404, { error: 'not_found' });
 }
+
+// ── Boot-time SQL self-check (Fix 1) ─────────────────────────────────────────
+// Parses every INSERT in this file and asserts columns == values before the
+// server accepts a single request. Catches schema-drift bugs (42601) at startup.
+function selfCheckSql() {
+  const src = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  const issues = [];
+
+  // Character-by-character INSERT parser — correctly handles now(),now() and 'literal' values
+  function splitTokens(raw) {
+    const tokens = []; let depth = 0, cur = '';
+    for (const ch of raw) {
+      if      (ch === '(') { depth++; cur += ch; }
+      else if (ch === ')') { depth--; cur += ch; }
+      else if (ch === ',' && depth === 0) { tokens.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    if (cur.trim()) tokens.push(cur.trim());
+    return tokens.filter(Boolean);
+  }
+
+  const re = /INSERT\s+INTO\s+(\w+)\s*\(/gi;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const table = m[1]; let pos = m.index + m[0].length;
+    // Extract column list
+    let depth = 1, colStr = '';
+    while (pos < src.length && depth > 0) {
+      const ch = src[pos++];
+      if      (ch === '(') { depth++; colStr += ch; }
+      else if (ch === ')') { depth--; if (depth > 0) colStr += ch; }
+      else    { colStr += ch; }
+    }
+    // Find VALUES (
+    const vm = /VALUES\s*\(/i.exec(src.slice(pos));
+    if (!vm) continue;
+    pos += vm.index + vm[0].length;
+    depth = 1; let valStr = '';
+    while (pos < src.length && depth > 0) {
+      const ch = src[pos++];
+      if      (ch === '(') { depth++; valStr += ch; }
+      else if (ch === ')') { depth--; if (depth > 0) valStr += ch; }
+      else    { valStr += ch; }
+    }
+    const cols = splitTokens(colStr), vals = splitTokens(valStr);
+    if (cols.length !== vals.length) {
+      const lineNo = src.slice(0, m.index).split('\n').length;
+      issues.push(`L${lineNo} INSERT INTO ${table}: ${cols.length} cols vs ${vals.length} vals`);
+    }
+  }
+  if (issues.length) {
+    console.error('[FATAL] SQL column/value mismatch detected at startup:');
+    issues.forEach(i => console.error(' ', i));
+    console.error('Fix the INSERT statements in server.mjs, rebuild the container, and restart.');
+    process.exit(1);
+  }
+  console.log('[startup] SQL self-check: all INSERT statements balanced ✓');
+}
+selfCheckSql();
+// ─────────────────────────────────────────────────────────────────────────────
 
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch(error => {

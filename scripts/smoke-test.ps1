@@ -61,6 +61,44 @@ Write-Host "Tenant       : $TenantId"
 Write-Host "Timer Worker : $TimerWorkerContainer"
 Write-Host ""
 
+# ── Fix 3: Image freshness check ─────────────────────────────────────────────
+# Warns when a container image is older than its Dockerfile.
+# Caught the SQL 42601 recurrence: code fixed in source, container not rebuilt.
+Write-Host "[ 0 ] Container image freshness check..."
+$staleImages = 0
+$repoRoot    = Split-Path $PSScriptRoot -Parent
+$checks      = @(
+    @("proviso-workflow-engine", "workflow-engine/Dockerfile", "workflow-engine"),
+    @("proviso-ocr-worker",      "ocr-worker/Dockerfile",      "ocr-worker")
+)
+foreach ($chk in $checks) {
+    $cName = $chk[0]; $dfRel = $chk[1]; $rebuildKey = $chk[2]
+    $dfPath = Join-Path $repoRoot $dfRel
+    if (-not (Test-Path $dfPath)) {
+        Write-Host "  [SKIP] $cName - Dockerfile not found" -ForegroundColor DarkGray
+    } else {
+        $createdStr = docker inspect $cName --format "{{.Created}}" 2>$null
+        if (-not $createdStr) {
+            Write-Host "  [SKIP] $cName - not running" -ForegroundColor DarkGray
+        } else {
+            $dfMtime       = (Get-Item $dfPath).LastWriteTimeUtc
+            $containerTime = ([datetime]::Parse($createdStr)).ToUniversalTime()
+            if ($dfMtime -gt $containerTime) {
+                Write-Host "  [WARN] $cName - image STALE (Dockerfile newer than container)" -ForegroundColor Yellow
+                Write-Host "         Run: docker compose build $rebuildKey" -ForegroundColor DarkYellow
+                $staleImages++
+            } else {
+                Write-Host "  [OK]   $cName - image is current" -ForegroundColor DarkGreen
+            }
+        }
+    }
+}
+if ($staleImages -gt 0) {
+    Write-Host "  WARNING: $staleImages stale container(s) - results may not reflect latest code." -ForegroundColor Yellow
+}
+Write-Host ""
+# ─────────────────────────────────────────────────────────────────────────────
+
 Write-Host "[ 1 ] Backend liveness check..."
 try {
     $health = Invoke-RestMethod -Uri "$BackendUrl/health" -Method GET -TimeoutSec 10
