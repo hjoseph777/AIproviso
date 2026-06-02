@@ -1,7 +1,7 @@
 # AI Proviso — Master Skills & Status Log
 
-> **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-01`
-> **Last verified green:** `15/15 smoke test PASS` · commit `edf4f04`
+> **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-02`
+> **Last verified green:** `15/15 smoke test PASS` · commit `38bf8a1` · full Docker stack including workflow-engine
 > **PRD source:** `Proviso_PRD_v12.md` — canonical reference
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
@@ -300,6 +300,61 @@ The user is excited about this layer. Everything in place to wire it:
 | New Project form spring animation | Done — `project-panel-enter` keyframe |
 | Handle z-index fix | Done — `style={{ zIndex: 20 }}` on all 8 handles |
 | Passive IngestionHub hub | Done — `opacity: 0.42, saturate(0.35)` when no project |
+
+---
+
+## 🛑 Recurring Issue — SQL 42601 Workflow Engine (Read This Before Touching workflow-engine/)
+
+### What happened (twice)
+
+**Error:** `INSERT has more target columns than expressions` (Postgres error 42601)
+**File:** `workflow-engine/server.mjs` — `workflow_state_history` INSERT
+**Column list (16):** tenant_id, invoice_id, workflow_state_id, workflow_definition_id, event_type, from_state, to_state, guard_name, rule_id, guard_result, action_summary, snapshot_json, triggered_by, trigger_source, **correlation_id**, recorded_at
+**Before fix:** `VALUES ($1,...,$14,now())` — `correlation_id` ($15) was missing
+**After fix:** `VALUES ($1,...,$14,$15,now())` — now correct
+
+### Why it recurred
+
+The code was fixed in `server.mjs` but the Docker container was **not rebuilt**. The running container still had the old image with the broken SQL. The `worker.py` two-tier fallback masked it at the smoke test level — gateway passed, engine was still broken underneath.
+
+### Prevention checklist — mandatory after any `workflow-engine/` change
+
+```text
+[ ] 1. Edit server.mjs
+[ ] 2. Count INSERT columns vs VALUES manually for every changed INSERT
+[ ] 3. docker compose build workflow-engine
+[ ] 4. docker compose up -d workflow-engine
+[ ] 5. Wait for: docker ps shows (healthy) for proviso-workflow-engine
+[ ] 6. Run smoke test against full stack (not just Flask standalone)
+[ ] 7. Confirm no "workflow-engine advance failed" in Flask logs
+         — if fallback fires, the engine is still broken
+```
+
+### How to verify the engine is being used (not bypassed)
+
+In Flask logs after intake, you should see:
+
+```text
+# GOOD — engine responded directly:
+workflow-engine advance OK for invoice=... state=extracted
+
+# BAD — engine failed, fallback fired:
+workflow-engine advance failed (...) — using dev inline path
+```
+
+If you see the fallback firing, the engine container has the bug. Rebuild it.
+
+### Audit command — check all INSERTs in server.mjs
+
+```bash
+# Count $N params in each INSERT VALUES clause and compare to column count
+grep -n "INSERT INTO workflow_" workflow-engine/server.mjs
+# Then manually count: columns in the ( ) list vs $N params + literal values in VALUES ( )
+# now(),now() = 2 values | 'scheduled' = 1 value | $N = 1 value each
+```
+
+### Schema drift pattern
+When a migration adds a column to `workflow_state_history` (e.g., migration 006 added `rule_id`), any INSERT for that table that was written before the migration needs a corresponding `$N` added to the VALUES clause AND a value added to the params array. These must be done together — missing either one causes 42601.
 
 ---
 
