@@ -1310,6 +1310,95 @@ def health_db():
 # pushes an OCR job to Redis, and fires invoice.received → n8n.
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _simulate_ocr_dev(invoice_id: str, tenant_id: str, correlation_id: str):
+    """
+    Phase I MOD-02 stub — runs in background thread when ALLOW_DEV_FALLBACK=True.
+    Simulates PaddleOCR extraction: writes invoice_extractions row, updates
+    invoice status to 'extracted', and fires invoice.extracted → workflow.
+    Remove when the real OCR worker (MOD-02) is deployed.
+    """
+    import time
+    time.sleep(1)   # brief delay — mimics network + GPU latency
+
+    mock_extracted = {
+        "vendor_name":    "Acme Supplies Ltd",
+        "invoice_number": f"INV-{invoice_id[:8].upper()}",
+        "invoice_date":   datetime.now(timezone.utc).date().isoformat(),
+        "total_amount":   1250.00,
+        "currency":       "CAD",
+        "po_number":      "PO-2024-0042",
+        "line_items":     [{"description": "Office Supplies", "quantity": 5, "unit_price": 250.00, "total": 1250.00}],
+    }
+    mock_confidence = {
+        "vendor_name":    0.97,
+        "invoice_number": 0.99,
+        "total_amount":   0.95,
+        "po_number":      0.88,
+    }
+
+    conn = get_db_conn()
+    if conn is None:
+        log.warning("_simulate_ocr_dev: no DB connection, skipping")
+        return
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
+            # Ensure invoice_extractions table exists (Phase I migration may be pending)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS invoice_extractions (
+                    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    invoice_id      UUID NOT NULL,
+                    tenant_id       TEXT NOT NULL,
+                    version         INT  NOT NULL DEFAULT 1,
+                    source_module   TEXT NOT NULL DEFAULT 'MOD-02',
+                    extracted_json  JSONB,
+                    confidence_json JSONB,
+                    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                INSERT INTO invoice_extractions (invoice_id, tenant_id, version, source_module, extracted_json, confidence_json)
+                VALUES (%s, %s, 1, 'MOD-02', %s, %s)
+            """, (invoice_id, tenant_id, json.dumps(mock_extracted), json.dumps(mock_confidence)))
+
+            cur.execute("SET LOCAL app.current_tenant_id = %s", (tenant_id,))
+            cur.execute(
+                "UPDATE invoices SET status = 'extracted', updated_at = NOW() WHERE id = %s",
+                (invoice_id,)
+            )
+            cur.execute("""
+                INSERT INTO audit_events (event_type, invoice_id, source_module, tenant_id, correlation_id, new_value)
+                VALUES ('invoice.extracted', %s, 'MOD-02', %s, %s, %s)
+            """, (invoice_id, tenant_id, correlation_id,
+                  json.dumps({"confidence_avg": 0.95, "source": "dev-stub"})))
+
+        conn.commit()
+        log.info("_simulate_ocr_dev: invoice %s → extracted (dev stub)", invoice_id)
+
+        sync_workflow_transition(
+            invoice_id=invoice_id,
+            tenant_id=tenant_id,
+            event_type="invoice.extracted",
+            target_state="extracted",
+            correlation_id=correlation_id,
+            trigger_source="mod-02-stub",
+            source_module="MOD-02",
+            reason="Dev-mode OCR simulation complete",
+        )
+    except Exception as exc:
+        log.error("_simulate_ocr_dev failed for %s: %s", invoice_id, exc)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 @app.route("/api/intake/upload", methods=["POST"])
 def intake_upload():
     """
@@ -1366,7 +1455,17 @@ def intake_upload():
         log.info("OCR job queued: invoice_id=%s", invoice_id)
     except Exception as exc:
         log.error("Redis error queuing OCR job: %s", exc)
-        # Non-fatal for smoke test — log but continue
+
+    # Dev-mode Phase I stub: no real OCR worker running yet.
+    # Simulate MOD-02 extraction in a background thread so the smoke test
+    # and UI can observe the full intake → extracted → approval pipeline.
+    if ALLOW_DEV_FALLBACK:
+        import threading
+        threading.Thread(
+            target=_simulate_ocr_dev,
+            args=(invoice_id, tenant_id, correlation_id),
+            daemon=True,
+        ).start()
 
     # 4. Fire invoice.received → n8n
     event_payload = {
