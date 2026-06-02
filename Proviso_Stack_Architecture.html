@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Proviso — Complete Stack Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#060c1a;
+  --s1:#0a1020;
+  --s2:#0e1830;
+  --s3:#121e3a;
+  --s4:#172444;
+  --wire:#1a2d50;
+  --wire2:#223660;
+  --dim:#334d70;
+  --mid:#4a6a90;
+  --text:#b8d0f0;
+  --text2:#7aa0cc;
+  --text3:#3d5a7a;
+  --white:#e8f4ff;
+  /* accents */
+  --blue:#2a7fff;
+  --blue2:#1a6fee;
+  --blue-lt:rgba(42,127,255,.12);
+  --green:#00d47a;
+  --green-lt:rgba(0,212,122,.1);
+  --amber:#f0a500;
+  --amber-lt:rgba(240,165,0,.1);
+  --red:#ff3d5a;
+  --red-lt:rgba(255,61,90,.1);
+  --purple:#9b6dff;
+  --purple-lt:rgba(155,109,255,.1);
+  --teal:#00c8d4;
+  --teal-lt:rgba(0,200,212,.1);
+  --pink:#ff6eb4;
+  --pink-lt:rgba(255,110,180,.1);
+  --font:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+html,body{
+  min-height:100%;
+  background:var(--ink);
+  font-family:var(--font);
+  color:var(--text);
+  font-size:13px;
+  line-height:1.5;
+}
+
+/* ── PAGE ── */
+.page{max-width:1400px;margin:0 auto;padding:32px 28px 60px}
+
+/* ── HEADER ── */
+.hdr{text-align:center;padding:48px 0 52px;position:relative}
+.hdr::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:600px;height:1px;background:linear-gradient(90deg,transparent,var(--wire2),transparent)}
+.hdr-kicker{font-size:10px;font-weight:600;color:var(--blue);letter-spacing:2px;
+  text-transform:uppercase;font-family:var(--mono);margin-bottom:14px;
+  display:flex;align-items:center;justify-content:center;gap:10px}
+.hdr-kicker::before,.hdr-kicker::after{content:'';flex:0 0 40px;height:1px;background:var(--wire2)}
+.hdr-title{font-size:42px;font-weight:700;color:var(--white);letter-spacing:-1.5px;line-height:1.1;margin-bottom:8px}
+.hdr-title span{color:var(--blue)}
+.hdr-sub{font-size:15px;color:var(--text2);font-weight:300;max-width:600px;margin:0 auto 20px;line-height:1.7}
+.hdr-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.hdr-badge{font-size:10px;font-family:var(--mono);padding:4px 10px;border-radius:20px;font-weight:500;letter-spacing:.3px}
+.hb-blue{background:var(--blue-lt);color:var(--blue);border:1px solid rgba(42,127,255,.25)}
+.hb-green{background:var(--green-lt);color:var(--green);border:1px solid rgba(0,212,122,.25)}
+.hb-amber{background:var(--amber-lt);color:var(--amber);border:1px solid rgba(240,165,0,.25)}
+
+/* ── SECTION TITLES ── */
+.sec-hdr{
+  display:flex;align-items:center;gap:12px;
+  margin:48px 0 20px;
+}
+.sec-num{
+  width:28px;height:28px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;font-family:var(--mono);
+  flex-shrink:0;
+}
+.sec-title{font-size:18px;font-weight:700;color:var(--white);letter-spacing:-.3px}
+.sec-sub{font-size:12px;color:var(--text3);margin-left:auto;font-family:var(--mono)}
+
+/* ── FLOW DIAGRAM ── */
+.flow-diagram{
+  background:var(--s1);
+  border:1px solid var(--wire);
+  border-radius:20px;
+  padding:36px;
+  margin-bottom:40px;
+  position:relative;
+  overflow:hidden;
+}
+.flow-diagram::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 20% 50%,rgba(42,127,255,.04) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 50%,rgba(155,109,255,.04) 0%,transparent 60%);
+  pointer-events:none;
+}
+.flow-title{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1.2px;
+  text-transform:uppercase;font-family:var(--mono);margin-bottom:28px;
+  display:flex;align-items:center;gap:8px}
+.flow-title::after{content:'';flex:1;height:1px;background:var(--wire)}
+
+/* flow row */
+.flow-row{display:flex;align-items:center;gap:0;margin-bottom:16px}
+.flow-row:last-child{margin-bottom:0}
+.flow-node{
+  border-radius:12px;padding:14px 16px;
+  border:1px solid;min-width:140px;
+  flex-shrink:0;cursor:pointer;
+  transition:all .2s;position:relative;
+}
+.flow-node:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.fn-blue{background:rgba(42,127,255,.08);border-color:rgba(42,127,255,.3);color:var(--blue)}
+.fn-green{background:rgba(0,212,122,.08);border-color:rgba(0,212,122,.3);color:var(--green)}
+.fn-amber{background:rgba(240,165,0,.08);border-color:rgba(240,165,0,.3);color:var(--amber)}
+.fn-purple{background:rgba(155,109,255,.08);border-color:rgba(155,109,255,.3);color:var(--purple)}
+.fn-teal{background:rgba(0,200,212,.08);border-color:rgba(0,200,212,.3);color:var(--teal)}
+.fn-red{background:rgba(255,61,90,.08);border-color:rgba(255,61,90,.3);color:var(--red)}
+.fn-pink{background:rgba(255,110,180,.08);border-color:rgba(255,110,180,.3);color:var(--pink)}
+.fn-dim{background:rgba(255,255,255,.03);border-color:var(--wire2);color:var(--mid)}
+.fn-name{font-size:12px;font-weight:700;letter-spacing:-.1px;display:block}
+.fn-role{font-size:9px;font-family:var(--mono);opacity:.7;margin-top:2px;display:block;letter-spacing:.2px}
+.flow-arrow{
+  display:flex;align-items:center;justify-content:center;
+  padding:0 10px;flex-shrink:0;
+}
+.flow-arrow svg{width:32px;height:16px}
+.flow-arrow-label{font-size:8px;font-family:var(--mono);color:var(--text3);
+  text-align:center;margin-top:2px}
+.flow-arrow-wrap{display:flex;flex-direction:column;align-items:center;padding:0 8px}
+
+/* vertical flow */
+.flow-col{display:flex;flex-direction:column;align-items:center;gap:0}
+.flow-v-arrow{
+  width:1px;height:24px;
+  background:linear-gradient(to bottom,var(--wire2),var(--wire));
+  position:relative;margin:2px 0;
+}
+.flow-v-arrow::after{
+  content:'▼';font-size:8px;color:var(--wire2);
+  position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+}
+
+/* ── LAYER CARDS GRID ── */
+.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+.layers-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:14px}
+.layers-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.layers-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
+
+/* ── LAYER CARD ── */
+.lcard{
+  border-radius:16px;padding:18px 16px;
+  border:1px solid var(--wire);
+  background:var(--s2);
+  position:relative;overflow:hidden;
+  cursor:pointer;transition:all .2s;
+}
+.lcard::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.lcard:hover{transform:translateY(-3px);border-color:var(--wire2)}
+.lcard:hover::before{opacity:1}
+.lcard.blue::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.lcard.green::before{background:linear-gradient(90deg,var(--green),transparent)}
+.lcard.amber::before{background:linear-gradient(90deg,var(--amber),transparent)}
+.lcard.purple::before{background:linear-gradient(90deg,var(--purple),transparent)}
+.lcard.teal::before{background:linear-gradient(90deg,var(--teal),transparent)}
+.lcard.red::before{background:linear-gradient(90deg,var(--red),transparent)}
+.lcard.pink::before{background:linear-gradient(90deg,var(--pink),transparent)}
+.lcard.dim::before{background:linear-gradient(90deg,var(--mid),transparent)}
+
+.lcard-icon{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;margin-bottom:12px;flex-shrink:0;
+}
+.li-blue{background:var(--blue-lt)}
+.li-green{background:var(--green-lt)}
+.li-amber{background:var(--amber-lt)}
+.li-purple{background:var(--purple-lt)}
+.li-teal{background:var(--teal-lt)}
+.li-red{background:var(--red-lt)}
+.li-pink{background:var(--pink-lt)}
+.li-dim{background:rgba(255,255,255,.04)}
+
+.lcard-name{font-size:14px;font-weight:700;color:var(--white);letter-spacing:-.2px;margin-bottom:3px}
+.lcard-version{font-size:9px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;letter-spacing:.3px}
+.lcard-role{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.lcard-tags{display:flex;gap:4px;flex-wrap:wrap}
+.ltag{font-size:8px;font-family:var(--mono);padding:2px 6px;border-radius:3px;font-weight:600;letter-spacing:.3px}
+.lt-blue{background:var(--blue-lt);color:var(--blue)}
+.lt-green{background:var(--green-lt);color:var(--green)}
+.lt-amber{background:var(--amber-lt);color:var(--amber)}
+.lt-purple{background:var(--purple-lt);color:var(--purple)}
+.lt-teal{background:var(--teal-lt);color:var(--teal)}
+.lt-red{background:var(--red-lt);color:var(--red)}
+.lt-dim{background:rgba(255,255,255,.04);color:var(--mid)}
+
+/* dropped tag */
+.ltag.dropped{background:rgba(255,61,90,.08);color:var(--red);text-decoration:line-through}
+
+/* ── INTERACTION DIAGRAM ── */
+.interact-wrap{
+  background:var(--s1);border:1px solid var(--wire);
+  border-radius:20px;padding:32px;margin-bottom:40px;
+}
+.interact-grid{
+  display:grid;
+  grid-template-columns:1fr 80px 1fr 80px 1fr 80px 1fr;
+  gap:0;align-items:center;
+}
+.ig-col{display:flex;flex-direction:column;gap:8px}
+.ig-title{
+  font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  font-family:var(--mono);text-align:center;margin-bottom:4px;padding:6px 8px;
+  border-radius:6px;
+}
+.ig-box{
+  padding:8px 10px;border-radius:var(--r, 8px);border:1px solid;
+  font-size:10px;font-family:var(--mono);text-align:center;
+  transition:all .15s;cursor:pointer;line-height:1.5;
+}
+.ig-box:hover{filter:brightness(1.15)}
+.ig-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.ig-arrow-line{width:1px;flex:1;min-height:20px}
+.ig-arrow-label{font-size:8px;font-family:var(--mono);text-align:center;line-height:1.4;writing-mode:horizontal-tb}
+.ig-h-arrow{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px}
+.ig-h-line{height:1px;width:100%}
+.ig-h-lbl{font-size:8px;font-family:var(--mono);text-align:center;white-space:nowrap}
+
+/* ── RULE CARDS ── */
+.rules-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:40px}
+.rule-card{
+  background:var(--s2);border:1px solid var(--wire);
+  border-radius:12px;padding:14px 16px;
+  display:flex;gap:12px;align-items:flex-start;
+  transition:border-color .15s;
+}
+.rule-card:hover{border-color:var(--wire2)}
+.rule-num{
+  width:22px;height:22px;border-radius:6px;
+  background:var(--blue-lt);color:var(--blue);
+  font-size:10px;font-weight:700;font-family:var(--mono);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.rule-text{font-size:11px;color:var(--text2);line-height:1.6}
+.rule-text strong{color:var(--text);font-weight:600}
+
+/* ── COMPARISON TABLE ── */
+.comp-table{
+  background:var(--s1);border:1px solid var(--wire);
+  border-radius:16px;overflow:hidden;margin-bottom:40px;
+}
+.comp-table table{width:100%;border-collapse:collapse}
+.comp-table thead th{
+  background:rgba(8,12,24,.6);
+  padding:12px 16px;font-size:10px;font-weight:700;
+  color:var(--text3);text-align:left;
+  letter-spacing:.8px;text-transform:uppercase;
+  font-family:var(--mono);border-bottom:1px solid var(--wire);
+}
+.comp-table tbody tr{border-bottom:1px solid rgba(26,45,80,.5);transition:background .1s}
+.comp-table tbody tr:hover{background:rgba(42,127,255,.03)}
+.comp-table tbody tr:last-child{border-bottom:none}
+.comp-table tbody td{padding:11px 16px;font-size:12px;color:var(--text2);vertical-align:middle}
+.comp-table tbody td:first-child{color:var(--text);font-weight:500}
+.ct-win{color:var(--green);font-weight:600}
+.ct-lose{color:var(--red)}
+.ct-tie{color:var(--amber)}
+.ct-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-family:var(--mono);font-weight:700}
+.ctb-win{background:var(--green-lt);color:var(--green)}
+.ctb-lose{background:var(--red-lt);color:var(--red)}
+.ctb-tie{background:var(--amber-lt);color:var(--amber)}
+
+/* ── FOOTER ── */
+.footer{
+  text-align:center;padding:48px 0 20px;
+  border-top:1px solid var(--wire);
+  color:var(--text3);font-size:11px;font-family:var(--mono);
+  line-height:2;
+}
+.footer strong{color:var(--text2)}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--wire),transparent);margin:40px 0}
+
+/* ── TOOLTIP ── */
+.tooltip-wrap{position:relative;display:inline-block}
+.tooltip-content{
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:var(--s3);border:1px solid var(--wire2);
+  border-radius:8px;padding:8px 12px;font-size:10px;
+  color:var(--text2);white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .15s;z-index:100;font-family:var(--mono);
+}
+.tooltip-wrap:hover .tooltip-content{opacity:1}
+
+/* ── CANVAS EXPLAINER ── */
+.canvas-explainer{
+  background:var(--s1);border:1px solid var(--wire);
+  border-radius:20px;padding:32px;margin-bottom:40px;
+}
+.canvas-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.canvas-tool{
+  background:var(--s2);border-radius:14px;
+  padding:18px;border:1px solid var(--wire);
+  transition:all .2s;
+}
+.canvas-tool:hover{border-color:var(--wire2);transform:translateY(-2px)}
+.ct-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ct-icon{
+  width:32px;height:32px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;flex-shrink:0;
+}
+.ct-name{font-size:13px;font-weight:700;color:var(--white)}
+.ct-type{font-size:9px;font-family:var(--mono);color:var(--text3);margin-top:1px}
+.ct-desc{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.ct-does{margin-bottom:6px}
+.ct-does-lbl{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);margin-bottom:4px}
+.ct-item{font-size:10px;color:var(--text2);font-family:var(--mono);padding:2px 0;display:flex;align-items:center;gap:6px}
+.ct-item::before{content:'›';color:var(--blue)}
+.ct-not{color:var(--text3);text-decoration:line-through}
+.ct-not::before{content:'✕';color:var(--red);text-decoration:none!important}
+
+/* ── INTERACTION LINES ── */
+.interact-section{
+  background:var(--s1);border:1px solid var(--wire);
+  border-radius:20px;padding:32px;margin-bottom:40px;
+}
+.int-row{
+  display:flex;align-items:stretch;gap:0;
+  margin-bottom:12px;
+}
+.int-row:last-child{margin-bottom:0}
+.int-from{
+  min-width:130px;padding:10px 12px;
+  border-radius:10px 0 0 10px;
+  border:1px solid;border-right:none;
+  font-size:11px;font-weight:700;font-family:var(--mono);
+  display:flex;align-items:center;
+}
+.int-arrow-cell{
+  display:flex;align-items:center;justify-content:center;
+  width:160px;flex-shrink:0;
+  border-top:1px solid var(--wire);border-bottom:1px solid var(--wire);
+  background:rgba(10,16,32,.5);
+  flex-direction:column;gap:2px;padding:8px 12px;
+}
+.int-arrow-txt{font-size:9px;font-family:var(--mono);color:var(--dim);text-align:center;line-height:1.5}
+.int-to{
+  flex:1;padding:10px 12px;
+  border-radius:0 10px 10px 0;
+  border:1px solid;border-left:none;
+  font-size:11px;color:var(--text2);
+  display:flex;align-items:center;
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .layers,.layers-4,.layers-5{grid-template-columns:repeat(2,1fr)}
+  .layers-2{grid-template-columns:1fr}
+  .canvas-grid{grid-template-columns:1fr}
+  .rules-grid{grid-template-columns:1fr}
+  .interact-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-kicker">AI Proviso · Complete Platform Architecture</div>
+    <div class="hdr-title">Stack · Canvas · Design · <span>Interactions</span></div>
+    <div class="hdr-sub">Every tool, every layer, every interaction — how they connect to deliver an AP automation experience superior to M-Files and every competitor</div>
+    <div class="hdr-badges">
+      <span class="hdr-badge hb-blue">Self-hosted · Docker</span>
+      <span class="hdr-badge hb-green">Open Source Core</span>
+      <span class="hdr-badge hb-amber">Local LLM · No Cloud Dependency</span>
+      <span class="hdr-badge hb-blue">XState v5 + n8n 2.22.3</span>
+      <span class="hdr-badge hb-green">PostgreSQL · Source of Truth</span>
+    </div>
+  </div>
+
+  <!-- SECTION 1 — THE CANVAS AND DESIGN TOOLS -->
+  <div class="sec-hdr">
+    <div class="sec-num" style="background:var(--blue-lt);color:var(--blue)">01</div>
+    <div class="sec-title">Canvas & Design Tools</div>
+    <div class="sec-sub">What the integrator sees and draws</div>
+  </div>
+
+  <div class="canvas-explainer">
+    <div class="flow-title">Three tools — one canvas experience — the integrator never sees the technology underneath</div>
+    <div class="canvas-grid">
+
+      <div class="canvas-tool">
+        <div class="ct-header">
+          <div class="ct-icon li-blue">🎨</div>
+          <div><div class="ct-name">react-flow 11</div><div class="ct-type">CANVAS SURFACE</div></div>
+        </div>
+        <div class="ct-desc">The integrator's drawing board. Drag states, connect transitions, double-click to configure. Every interaction serialises to canonical JSON.</div>
+        <div class="ct-does">
+          <div class="ct-does-lbl">What it does</div>
+          <div class="ct-item">Drag-and-drop state nodes from palette</div>
+          <div class="ct-item">Draw transition edges between states</div>
+          <div class="ct-item">Display context-sensitive properties panel</div>
+          <div class="ct-item">Serialise canvas layout to workflow JSON</div>
+          <div class="ct-item">Read-only diagram mode for AP operators</div>
+        </div>
+        <div class="ct-does">
+          <div class="ct-does-lbl">What it does NOT do</div>
+          <div class="ct-item ct-not">Execute workflow logic</div>
+          <div class="ct-item ct-not">Send notifications</div>
+          <div class="ct-item ct-not">Store state</div>
+        </div>
+      </div>
+
+      <div class="canvas-tool">
+        <div class="ct-header">
+          <div class="ct-icon li-purple">⚡</div>
+          <div><div class="ct-name">XState v5</div><div class="ct-type">EXECUTION ENGINE</div></div>
+        </div>
+        <div class="ct-desc">The brain of the workflow. Reads the JSON the canvas produces, evaluates every guard and action, produces the next state. Stateless between requests.</div>
+        <div class="ct-does">
+          <div class="ct-does-lbl">What it does</div>
+          <div class="ct-item">Evaluate transition guards</div>
+          <div class="ct-item">Fire entry and exit actions</div>
+          <div class="ct-item">Handle delayed SLA transitions</div>
+          <div class="ct-item">Run parallel approval tracks</div>
+          <div class="ct-item">Invoke async services (OCR, GL, anomaly)</div>
+          <div class="ct-item">Produce persisted snapshot for PostgreSQL</div>
+        </div>
+        <div class="ct-does">
+          <div class="ct-does-lbl">What it does NOT do</div>
+          <div class="ct-item ct-not">Hold state in memory</div>
+          <div class="ct-item ct-not">Send emails or webhooks</div>
+          <div class="ct-item ct-not">Draw diagrams</div>
+        </div>
+      </div>
+
+      <div class="canvas-tool">
+        <div class="ct-header">
+          <div class="ct-icon li-green">🔷</div>
+          <div><div class="ct-name">Stately Studio</div><div class="ct-type">DESIGN-TIME VISUALISER</div></div>
+        </div>
+        <div class="ct-desc">Visual design and simulation for the integrator before going live. Draw the workflow, simulate test invoices, export clean XState JSON. Design-time only — never runs in production.</div>
+        <div class="ct-does">
+          <div class="ct-does-lbl">What it does</div>
+          <div class="ct-item">Visual state machine designer</div>
+          <div class="ct-item">Simulate workflow with test events</div>
+          <div class="ct-item">Export XState JSON directly</div>
+          <div class="ct-item">Validate machine definition before activation</div>
+        </div>
+        <div class="ct-does">
+          <div class="ct-does-lbl">What it does NOT do</div>
+          <div class="ct-item ct-not">Run in Docker or production</div>
+          <div class="ct-item ct-not">Replace react-flow canvas</div>
+          <div class="ct-item ct-not">Store workflow state</div>
+        </div>
+      </div>
+
+    </div><!-- /canvas-grid -->
+
+    <!-- MERMAID DROPPED NOTE -->
+    <div style="margin-top:20px;padding:12px 16px;background:rgba(255,61,90,.06);border:1px solid rgba(255,61,90,.2);border-radius:10px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:16px">⛔</span>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--red);font-family:var(--mono);margin-bottom:2px">Mermaid.js — DROPPED</div>
+        <div style="font-size:11px;color:var(--text3)">Was used in Proviso_App.jsx for SOW editor diagrams. Replaced entirely by react-flow (interactive canvas) and Stately Studio (simulation). No longer a dependency. Removes a 2MB CDN load.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2 — COMPLETE STACK BY LAYER -->
+  <div class="sec-hdr">
+    <div class="sec-num" style="background:var(--purple-lt);color:var(--purple)">02</div>
+    <div class="sec-title">Complete Stack by Layer</div>
+    <div class="sec-sub">Every tool and its precise role</div>
+  </div>
+
+  <!-- WORKFLOW ENGINE LAYER -->
+  <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    Workflow Engine Layer
+    <span style="flex:1;height:1px;background:var(--wire)"></span>
+  </div>
+  <div class="layers" style="margin-bottom:24px">
+    <div class="lcard purple">
+      <div class="lcard-icon li-purple">⚡</div>
+      <div class="lcard-name">XState v5</div>
+      <div class="lcard-version">MIT · 28k stars · 1M weekly downloads</div>
+      <div class="lcard-role">State machine engine. Transitions, guards, entry/exit actions, parallel states, history states, delayed SLA transitions, invoke async. Stateless between requests — PostgreSQL holds all state.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-purple">state machine</span>
+        <span class="ltag lt-purple">guards</span>
+        <span class="ltag lt-purple">parallel</span>
+        <span class="ltag lt-purple">history</span>
+        <span class="ltag lt-purple">invoke</span>
+        <span class="ltag lt-purple">delayed</span>
+      </div>
+    </div>
+    <div class="lcard blue">
+      <div class="lcard-icon li-blue">🔗</div>
+      <div class="lcard-name">n8n</div>
+      <div class="lcard-version">2.22.3 pinned · self-hosted · Docker</div>
+      <div class="lcard-role">Event transport and notification dispatcher. Receives completed transition events from XState/MOD-04 post-commit. Sends emails, calls ERP webhooks, posts Slack alerts, watches IMAP mailbox. Never makes workflow decisions.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-blue">event routing</span>
+        <span class="ltag lt-blue">notifications</span>
+        <span class="ltag lt-blue">ERP webhooks</span>
+        <span class="ltag lt-blue">IMAP intake</span>
+        <span class="ltag lt-blue">post-commit only</span>
+      </div>
+    </div>
+    <div class="lcard teal">
+      <div class="lcard-icon li-teal">⚙</div>
+      <div class="lcard-name">xstate-migrate</div>
+      <div class="lcard-version">npm · JSON Patch RFC 6902</div>
+      <div class="lcard-role">Snapshot migration when workflow definitions change. Writes JSON Patch migration files. Runs automatically on snapshot load when version mismatch detected. Prevents the 3am recovery incident.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-teal">migration</span>
+        <span class="ltag lt-teal">versioning</span>
+        <span class="ltag lt-teal">safety net</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENT AND QUEUE LAYER -->
+  <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    Event and Queue Layer
+    <span style="flex:1;height:1px;background:var(--wire)"></span>
+  </div>
+  <div class="layers-2" style="margin-bottom:24px">
+    <div class="lcard amber">
+      <div class="lcard-icon li-amber">⚡</div>
+      <div class="lcard-name">BullMQ + Redis 7</div>
+      <div class="lcard-version">Redis 7-alpine · production grade</div>
+      <div class="lcard-role">Critical path transactional event queue. Reliable delivery with retry and Dead Letter Queue. SLA timer jobs — fires XState delayed transition events when time expires. Decouples OCR worker from API. Survives server restarts.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-amber">reliable delivery</span>
+        <span class="ltag lt-amber">SLA timers</span>
+        <span class="ltag lt-amber">DLQ</span>
+        <span class="ltag lt-amber">retry</span>
+      </div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">📡</div>
+      <div class="lcard-name">Fastify 4</div>
+      <div class="lcard-version">Node.js · single entry point</div>
+      <div class="lcard-role">API gateway — the single entry point for all client requests. Routes to MOD-04 workflow engine, MOD-01 intake, MOD-02 OCR worker. Handles multipart invoice uploads. Validates authentication. Every module speaks through Fastify.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-dim">API gateway</span>
+        <span class="ltag lt-dim">multipart</span>
+        <span class="ltag lt-dim">auth</span>
+        <span class="ltag lt-dim">routing</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- OCR AND AI LAYER -->
+  <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    OCR and AI Extraction Layer
+    <span style="flex:1;height:1px;background:var(--wire)"></span>
+  </div>
+  <div class="layers-4" style="margin-bottom:10px">
+    <div class="lcard teal">
+      <div class="lcard-icon li-teal">⚡</div>
+      <div class="lcard-name">pdfplumber</div>
+      <div class="lcard-version">0.11.0 · fast path</div>
+      <div class="lcard-role">Native PDF text extraction. 60–70% of all invoices. Under 200ms. Skips OCR entirely. The single biggest performance advantage over CP1.</div>
+      <div class="lcard-tags"><span class="ltag lt-teal">fast path</span><span class="ltag lt-teal">native PDF</span></div>
+    </div>
+    <div class="lcard blue">
+      <div class="lcard-icon li-blue">🔍</div>
+      <div class="lcard-name">PaddleOCR</div>
+      <div class="lcard-version">2.7.3 · PP-OCRv4</div>
+      <div class="lcard-role">Primary OCR engine for scanned documents. PP-OCRv4 text extraction + PP-Structure table extraction running in parallel. Outperforms Tesseract on real invoice accuracy.</div>
+      <div class="lcard-tags"><span class="ltag lt-blue">primary OCR</span><span class="ltag lt-blue">PP-Structure</span><span class="ltag lt-blue">tables</span></div>
+    </div>
+    <div class="lcard purple">
+      <div class="lcard-icon li-purple">🧠</div>
+      <div class="lcard-name">phi4-mini</div>
+      <div class="lcard-version">Ollama · CPU only · no GPU</div>
+      <div class="lcard-role">LLM recovery layer — not the default parser. Stage 1: header fields for ambiguous layouts. Stage 2: line items from PP-Structure output. Only called when deterministic parsing fails.</div>
+      <div class="lcard-tags"><span class="ltag lt-purple">recovery layer</span><span class="ltag lt-purple">semantic</span><span class="ltag lt-purple">local</span></div>
+    </div>
+    <div class="lcard amber">
+      <div class="lcard-icon li-amber">🎯</div>
+      <div class="lcard-name">Flowise</div>
+      <div class="lcard-version">2.2.7 · config-as-code</div>
+      <div class="lcard-role">LLM prompt orchestration. Two-stage prompt management. Flows are Git-tracked JSON. Swappable without code changes. qwen2.5:14b for design-time RAG and workflow generation.</div>
+      <div class="lcard-tags"><span class="ltag lt-amber">prompt mgmt</span><span class="ltag lt-amber">Git-tracked</span><span class="ltag lt-amber">RAG</span></div>
+    </div>
+  </div>
+  <div class="layers-5" style="margin-bottom:24px">
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">🔬</div>
+      <div class="lcard-name">OpenCV</div>
+      <div class="lcard-version">4.9.0.80 headless</div>
+      <div class="lcard-role">Preprocessing pipeline. Deskew → denoise → binarize → normalize. In that exact order. Applied before OCR on scanned documents only.</div>
+      <div class="lcard-tags"><span class="ltag lt-dim">preprocessing</span></div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">📅</div>
+      <div class="lcard-name">dateparser</div>
+      <div class="lcard-version">1.2.0</div>
+      <div class="lcard-role">200+ date formats across 20 languages. Handles every vendor date format without regex rules.</div>
+      <div class="lcard-tags"><span class="ltag lt-dim">normalization</span></div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">🔤</div>
+      <div class="lcard-name">rapidfuzz</div>
+      <div class="lcard-version">3.9.0</div>
+      <div class="lcard-role">Vendor name fuzzy matching. 10x faster than fuzzywuzzy. Same API. Critical for unrecognised vendor names from OCR output.</div>
+      <div class="lcard-tags"><span class="ltag lt-dim">matching</span></div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">✓</div>
+      <div class="lcard-name">python-stdnum</div>
+      <div class="lcard-version">1.20 · 60 countries</div>
+      <div class="lcard-role">Tax ID, VAT, IBAN, HST/GST validation. Catches extraction errors that look plausible but are mathematically invalid.</div>
+      <div class="lcard-tags"><span class="ltag lt-dim">validation</span><span class="ltag lt-dim">HST/GST</span></div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">📋</div>
+      <div class="lcard-name">pydantic</div>
+      <div class="lcard-version">2.7.0</div>
+      <div class="lcard-role">Schema validation and type coercion on all extracted fields. Rejects impossible values before they enter the AP pipeline.</div>
+      <div class="lcard-tags"><span class="ltag lt-dim">schema</span><span class="ltag lt-dim">types</span></div>
+    </div>
+  </div>
+
+  <!-- DATA LAYER -->
+  <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    Data Layer
+    <span style="flex:1;height:1px;background:var(--wire)"></span>
+  </div>
+  <div class="layers" style="margin-bottom:24px">
+    <div class="lcard green">
+      <div class="lcard-icon li-green">🗄</div>
+      <div class="lcard-name">PostgreSQL 16 + pgvector</div>
+      <div class="lcard-version">pgvector/pgvector:pg16 · 5432</div>
+      <div class="lcard-role">The only source of truth. All AP transactions, XState workflow snapshots, immutable audit trail, vendor profiles, ERP configs, GL coding profiles, approval tokens, vector embeddings for RAG. Row-Level Security on all tables. INSERT-only role on audit. REVOKE DELETE on workflow tables.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-green">source of truth</span>
+        <span class="ltag lt-green">RLS</span>
+        <span class="ltag lt-green">pgvector</span>
+        <span class="ltag lt-green">RAG</span>
+        <span class="ltag lt-green">audit</span>
+      </div>
+    </div>
+    <div class="lcard amber">
+      <div class="lcard-icon li-amber">⚡</div>
+      <div class="lcard-name">Redis 7-alpine</div>
+      <div class="lcard-version">redis:7-alpine · 6379</div>
+      <div class="lcard-role">BullMQ job store. Session cache. Pub/sub for real-time workbench updates. SLA timer job persistence — survives Docker restarts. Never holds workflow state — that is PostgreSQL's job.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-amber">BullMQ store</span>
+        <span class="ltag lt-amber">cache</span>
+        <span class="ltag lt-amber">pub/sub</span>
+      </div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">💾</div>
+      <div class="lcard-name">SQLite 3</div>
+      <div class="lcard-version">Electron client only</div>
+      <div class="lcard-role">SOW editor draft workflows on the consultant's machine. Local dataset cache for offline work. Never touches AP transactions. Never replaces PostgreSQL for anything production.</div>
+      <div class="lcard-tags">
+        <span class="ltag lt-dim">consultant only</span>
+        <span class="ltag lt-dim">offline</span>
+        <span class="ltag lt-dim">drafts</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FRONTEND LAYER -->
+  <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    Frontend Layer
+    <span style="flex:1;height:1px;background:var(--wire)"></span>
+  </div>
+  <div class="layers-4" style="margin-bottom:24px">
+    <div class="lcard blue">
+      <div class="lcard-icon li-blue">🖥</div>
+      <div class="lcard-name">Electron + React</div>
+      <div class="lcard-version">Desktop · consultant tool</div>
+      <div class="lcard-role">Consultant's desktop application. COM bridge to M-Files. Full integrator workspace with workflow designer. Connects to client Docker stack remotely. SQLite local storage.</div>
+      <div class="lcard-tags"><span class="ltag lt-blue">consultant</span><span class="ltag lt-blue">COM bridge</span><span class="ltag lt-blue">offline</span></div>
+    </div>
+    <div class="lcard blue">
+      <div class="lcard-icon li-blue">🌐</div>
+      <div class="lcard-name">React + Vite</div>
+      <div class="lcard-version">Web · AP operator workbench</div>
+      <div class="lcard-role">Client-facing AP workbench served from Docker. Invoice queue, exception workbench, approval actions. Role-based sidebar — AP operators never see integrator panels.</div>
+      <div class="lcard-tags"><span class="ltag lt-blue">AP operators</span><span class="ltag lt-blue">role-based</span><span class="ltag lt-blue">browser</span></div>
+    </div>
+    <div class="lcard purple">
+      <div class="lcard-icon li-purple">🎨</div>
+      <div class="lcard-name">react-flow 11</div>
+      <div class="lcard-version">Workflow designer canvas</div>
+      <div class="lcard-role">Drag-and-drop integrator workflow designer. State nodes, transition edges, context-sensitive inspector. Serialises to XState JSON saved to PostgreSQL. Replaces Mermaid.</div>
+      <div class="lcard-tags"><span class="ltag lt-purple">canvas</span><span class="ltag lt-purple">drag-drop</span><span class="ltag lt-purple">inspector</span></div>
+    </div>
+    <div class="lcard dim">
+      <div class="lcard-icon li-dim">🔤</div>
+      <div class="lcard-name">Typography</div>
+      <div class="lcard-version">IBM Plex Mono + Plus Jakarta Sans</div>
+      <div class="lcard-role">IBM Plex Mono for integrator dark workspace — code precision aesthetic. Plus Jakarta Sans for AP workbench — clean, approachable, enterprise-grade. Both loaded from Google Fonts.</div>
+      <div class="lcard-tags"><span class="ltag lt-dim">IBM Plex Mono</span><span class="ltag lt-dim">Plus Jakarta</span></div>
+    </div>
+  </div>
+
+  <!-- INFRASTRUCTURE LAYER -->
+  <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    Infrastructure Layer — Docker Compose
+    <span style="flex:1;height:1px;background:var(--wire)"></span>
+  </div>
+  <div style="background:var(--s1);border:1px solid var(--wire);border-radius:16px;padding:20px 24px;margin-bottom:40px;font-family:var(--mono);font-size:11px">
+    <div style="display:grid;grid-template-columns:200px 280px 80px 120px;gap:0;border-bottom:1px solid var(--wire);padding-bottom:8px;margin-bottom:10px">
+      <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Service</span>
+      <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Image</span>
+      <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Port</span>
+      <span style="color:var(--text3);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Profile</span>
+    </div>
+    <div id="infra-rows"></div>
+  </div>
+
+  <!-- SECTION 3 — HOW THEY INTERACT -->
+  <div class="sec-hdr">
+    <div class="sec-num" style="background:var(--green-lt);color:var(--green)">03</div>
+    <div class="sec-title">How Every Tool Interacts</div>
+    <div class="sec-sub">The precise data flow from invoice arrival to ERP posting</div>
+  </div>
+
+  <div class="interact-section">
+    <div class="flow-title">Complete invoice lifecycle — tool by tool</div>
+    <div id="interaction-rows"></div>
+  </div>
+
+  <!-- SECTION 4 — THE DIVISION RULE -->
+  <div class="sec-hdr">
+    <div class="sec-num" style="background:var(--amber-lt);color:var(--amber)">04</div>
+    <div class="sec-title">The Division Rule — Permanent</div>
+    <div class="sec-sub">No tool crosses into another tool's lane. Ever.</div>
+  </div>
+
+  <div style="background:var(--s1);border:1px solid var(--wire);border-radius:20px;padding:28px;margin-bottom:40px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      <div style="text-align:center;padding:16px">
+        <div style="font-size:28px;margin-bottom:8px">⚡</div>
+        <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:6px;font-family:var(--mono)">XState</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--mono)">logic<br>conditions<br>actions<br>timing</div>
+      </div>
+      <div style="text-align:center;padding:16px">
+        <div style="font-size:28px;margin-bottom:8px">🗄</div>
+        <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px;font-family:var(--mono)">PostgreSQL</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--mono)">persistence<br>audit<br>snapshots<br>vendor profiles</div>
+      </div>
+      <div style="text-align:center;padding:16px">
+        <div style="font-size:28px;margin-bottom:8px">🔗</div>
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;font-family:var(--mono)">n8n</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--mono)">notifications<br>ERP calls<br>webhooks<br>email intake</div>
+      </div>
+      <div style="text-align:center;padding:16px">
+        <div style="font-size:28px;margin-bottom:8px">⚡</div>
+        <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:6px;font-family:var(--mono)">BullMQ</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--mono)">reliable delivery<br>SLA timers<br>retry / DLQ<br>OCR jobs</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:14px 16px;background:rgba(42,127,255,.06);border:1px solid rgba(42,127,255,.15);border-radius:10px;font-size:11px;color:var(--text2);font-family:var(--mono);text-align:center;line-height:1.8">
+      react-flow → canvas layout only &nbsp;·&nbsp; Stately Studio → design-time only &nbsp;·&nbsp; Fastify → API surface only<br>
+      OCR worker → extraction only &nbsp;·&nbsp; Flowise → prompt orchestration only &nbsp;·&nbsp; SQLite → consultant offline only
+    </div>
+  </div>
+
+  <!-- SECTION 5 — 10 DATABASE RULES -->
+  <div class="sec-hdr">
+    <div class="sec-num" style="background:var(--red-lt);color:var(--red)">05</div>
+    <div class="sec-title">10 Database Stability Rules</div>
+    <div class="sec-sub">Invariants — not guidelines — enforced by code review and PostgreSQL roles</div>
+  </div>
+
+  <div class="rules-grid">
+    <div class="rule-card"><div class="rule-num">1</div><div class="rule-text"><strong>PostgreSQL is the only source of truth.</strong> No cache, no in-memory object, no Redis key is authoritative for workflow state.</div></div>
+    <div class="rule-card"><div class="rule-num">2</div><div class="rule-text"><strong>XState is stateless between requests.</strong> Create actor, evaluate event, get snapshot, discard actor. Never kept alive between calls.</div></div>
+    <div class="rule-card"><div class="rule-num">3</div><div class="rule-text"><strong>State + history + audit in ONE transaction.</strong> If the state changes, the history record exists. They commit together or not at all.</div></div>
+    <div class="rule-card"><div class="rule-num">4</div><div class="rule-text"><strong>n8n calls happen AFTER commit.</strong> Never inside the transaction. If n8n is down, the invoice state is still correct. BullMQ retries the notification.</div></div>
+    <div class="rule-card"><div class="rule-num">5</div><div class="rule-text"><strong>Optimistic lock on every UPDATE.</strong> <code style="font-family:var(--mono);font-size:10px;color:var(--blue)">AND version = $expected_version</code> on every workflow_state write. Zero rows updated means retry.</div></div>
+    <div class="rule-card"><div class="rule-num">6</div><div class="rule-text"><strong>Terminal invoices never transition.</strong> Check <code style="font-family:var(--mono);font-size:10px;color:var(--blue)">is_terminal</code> before XState. Approved, Rejected, Reconciled are sealed forever.</div></div>
+    <div class="rule-card"><div class="rule-num">7</div><div class="rule-text"><strong>FOR UPDATE SKIP LOCKED on every snapshot load.</strong> Prevents two simultaneous events on the same invoice from both succeeding.</div></div>
+    <div class="rule-card"><div class="rule-num">8</div><div class="rule-text"><strong>Timer cancellation in SAME transaction as exit.</strong> Cancel BullMQ job and update workflow_timers atomically when leaving a timed state.</div></div>
+    <div class="rule-card"><div class="rule-num">9</div><div class="rule-text"><strong>No DELETEs on workflow tables.</strong> REVOKE DELETE enforced at PostgreSQL role level. Only a privileged archive job can move rows after 7-year retention.</div></div>
+    <div class="rule-card"><div class="rule-num">10</div><div class="rule-text"><strong>All workflow changes through WorkflowEngine.advance() only.</strong> No direct SQL writes to workflow_state from any module other than MOD-04.</div></div>
+  </div>
+
+  <!-- SECTION 6 — COMPETITIVE COMPARISON -->
+  <div class="sec-hdr">
+    <div class="sec-num" style="background:var(--teal-lt);color:var(--teal)">06</div>
+    <div class="sec-title">Why This Stack Beats the Competition</div>
+    <div class="sec-sub">Capability-by-capability against M-Files and the AP automation market</div>
+  </div>
+
+  <div class="comp-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>M-Files</th>
+          <th>Stampli</th>
+          <th>Tipalti</th>
+          <th>Coupa</th>
+          <th>AI Proviso</th>
+        </tr>
+      </thead>
+      <tbody id="comp-rows"></tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div><strong>AI Proviso</strong> · AP Automation Platform · scriptdotnet · Xerox Canada</div>
+    <div>XState v5 + n8n 2.22.3 + PostgreSQL 16 + React-flow 11 + PaddleOCR 2.7.3 + phi4-mini</div>
+    <div style="margin-top:8px;color:var(--text3)">Stack locked · Phase I Week 1 complete · 9/9 webhooks passing · Simulation gate enforced</div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── INFRA ROWS ──
+const infra = [
+  ['postgres','pgvector/pgvector:pg16','5432','default'],
+  ['redis','redis:7-alpine','6379','default'],
+  ['n8n','n8nio/n8n:2.22.3','5678','default'],
+  ['paperless-ngx','ghcr.io/paperless-ngx:latest','8000','default'],
+  ['gotenberg','gotenberg/gotenberg:8','3000','default'],
+  ['tika','apache/tika:3.1.0.0','9998','default'],
+  ['flowise','flowiseai/flowise:2.2.7','3001','default'],
+  ['backend-api','proviso/backend:latest','5000','default'],
+  ['ocr-worker','proviso/ocr-worker:latest','—','default'],
+  ['ollama','ollama/ollama:latest','11434','local-ai'],
+  ['com-bridge','host-native Python','5001','host-native'],
+];
+const colors=['var(--green)','var(--amber)','var(--blue)','var(--teal)','var(--teal)','var(--teal)','var(--amber)','var(--blue)','var(--purple)','var(--pink)','var(--red)'];
+document.getElementById('infra-rows').innerHTML=infra.map((r,i)=>`
+  <div style="display:grid;grid-template-columns:200px 280px 80px 120px;gap:0;padding:6px 0;border-bottom:1px solid rgba(26,45,80,.3)">
+    <span style="color:${colors[i]};font-weight:600">${r[0]}</span>
+    <span style="color:var(--text3)">${r[1]}</span>
+    <span style="color:var(--mid)">${r[2]}</span>
+    <span style="color:var(--text3)">${r[3]}</span>
+  </div>`).join('');
+
+// ── INTERACTION ROWS ──
+const interactions=[
+  {from:'📧 Email arrives',arrow:'MOD-01 / n8n IMAP',to:'PDF extracted from attachment → POST /api/intake/upload → invoice record created in PostgreSQL → invoice.received fired to BullMQ',fc:'var(--teal)',tc:'var(--wire2)'},
+  {from:'📄 python-magic',arrow:'file type detection',to:'Determines native PDF vs scanned → routes to pdfplumber fast path or OCR pipeline',fc:'var(--teal)',tc:'var(--wire2)'},
+  {from:'⚡ pdfplumber',arrow:'native PDF (60-70%)',to:'Extracts embedded text in under 200ms → skips entire OCR pipeline → goes directly to phi4-mini extraction',fc:'var(--teal)',tc:'var(--wire2)'},
+  {from:'🔍 PaddleOCR',arrow:'scanned PDF (30-40%)',to:'OpenCV preprocessing → PP-OCRv4 text extraction + PP-Structure table extraction in parallel → numpy reading order reconstruction',fc:'var(--blue)',tc:'var(--wire2)'},
+  {from:'🧠 phi4-mini',arrow:'semantic recovery only',to:'Stage 1: extract header fields for ambiguous layouts only. Stage 2: line items from PP-Structure output. NOT the default parser — only called when deterministic fails.',fc:'var(--purple)',tc:'var(--wire2)'},
+  {from:'✅ pydantic + stdnum',arrow:'validation gate',to:'Schema validation → tax ID / VAT / currency validation → math cross-check (line items = subtotal + tax = total) → confidence scoring per field',fc:'var(--green)',tc:'var(--wire2)'},
+  {from:'⚡ XState v5',arrow:'MOD-04 → evaluate',to:'Load XState snapshot from PostgreSQL → createActor(machine, {snapshot}) → send event → evaluate guards and actions → get new snapshot → discard actor',fc:'var(--purple)',tc:'var(--wire2)'},
+  {from:'🗄 PostgreSQL',arrow:'atomic transaction',to:'UPDATE workflow_state (optimistic lock) + INSERT workflow_state_history + INSERT audit_events + INSERT/UPDATE workflow_timers → single COMMIT',fc:'var(--green)',tc:'var(--wire2)'},
+  {from:'🔗 n8n webhook',arrow:'post-commit ONLY',to:'Receives invoice.approved / invoice.exception event AFTER PostgreSQL commits → dispatches approval email → calls ERP webhook → posts Slack alert',fc:'var(--blue)',tc:'var(--wire2)'},
+  {from:'⏱ BullMQ timer',arrow:'SLA breach fires',to:'Delayed job fires after configured hours → sends SLA_BREACH event to WorkflowEngine.advance() → XState transitions to escalated state → audit recorded',fc:'var(--amber)',tc:'var(--wire2)'},
+  {from:'🎨 react-flow',arrow:'integrator saves',to:'Canvas serialises to canonical JSON → xstate section + n8n section written to workflow_definitions in PostgreSQL → Stately Studio can import/export same format',fc:'var(--blue)',tc:'var(--wire2)'},
+  {from:'👤 AP operator',arrow:'one-tap email',to:'Clicks Approve in email → POST /api/invoices/:id/approve-token → token validated → XState transitions → PostgreSQL commits → n8n sends confirmation',fc:'var(--pink)',tc:'var(--wire2)'},
+];
+document.getElementById('interaction-rows').innerHTML=interactions.map(r=>`
+  <div class="int-row">
+    <div class="int-from" style="background:rgba(0,0,0,.2);border-color:${r.fc};color:${r.fc}">${r.from}</div>
+    <div class="int-arrow-cell">
+      <div style="font-size:10px;font-family:var(--mono);color:var(--dim);text-align:center">→</div>
+      <div class="int-arrow-txt">${r.arrow}</div>
+    </div>
+    <div class="int-to" style="background:rgba(0,0,0,.15);border-color:var(--wire)">${r.to}</div>
+  </div>`).join('');
+
+// ── COMPARISON ROWS ──
+const comp=[
+  ['Parallel approval states','✕ None','✕ None','✕ None','✕ None','✓ XState parallel'],
+  ['History states (resume after exception)','✕ None','✕ None','✕ None','✕ None','✓ XState history'],
+  ['Delayed SLA auto-escalation','⚠ Basic (days only)','⚠ Basic','⚠ Basic','⚠ Basic','✓ Millisecond precision'],
+  ['Visual workflow designer','⚠ Windows only','✕ None','✕ None','⚠ IT required','✓ Browser · react-flow'],
+  ['AI workflow generation from description','✕ None','✕ None','✕ None','✕ None','✓ qwen2.5:14b + RAG'],
+  ['Cross-deployment workflow reuse','✕ None','✕ None','✕ None','✕ None','✓ PostgreSQL RAG dataset'],
+  ['Export to open format','✕ Proprietary XML','✕ None','✕ None','✕ None','✓ Standard JSON'],
+  ['Self-hosted / data residency','✕ Requires server','✕ Cloud only','✕ Cloud only','✕ Cloud only','✓ Docker anywhere'],
+  ['Local LLM / no cloud AI dependency','✕ None','✕ None','✕ None','✕ None','✓ phi4-mini + Ollama'],
+  ['Native PDF fast path','✕ OCR everything','✕ OCR everything','✕ OCR everything','✕ OCR everything','✓ pdfplumber < 200ms'],
+  ['Email invoice intake native','✕ Bolt-on','✓ Yes','✓ Yes','✓ Yes','✓ n8n IMAP native'],
+  ['Zero onboarding per new vendor','✕ Template required','✕ Template required','✕ Template required','✕ Template required','✓ Extracts on first encounter'],
+  ['One-tap email approval (no app)','✕ None','✕ None','⚠ App required','⚠ App required','✓ Tokenized email link'],
+  ['7-day first invoice target','✕ Weeks','✓ Weeks','✕ Months','✕ Months','✓ First-Run Wizard'],
+  ['Open source core','✕ Proprietary','✕ Proprietary','✕ Proprietary','✕ Proprietary','✓ MIT licensed stack'],
+];
+const badge=(v)=>{
+  if(v.startsWith('✓')) return `<span class="ct-badge ctb-win">${v}</span>`;
+  if(v.startsWith('✕')) return `<span class="ct-badge ctb-lose">${v}</span>`;
+  return `<span class="ct-badge ctb-tie">${v}</span>`;
+};
+document.getElementById('comp-rows').innerHTML=comp.map(r=>`
+  <tr>
+    <td>${r[0]}</td>
+    <td>${badge(r[1])}</td>
+    <td>${badge(r[2])}</td>
+    <td>${badge(r[3])}</td>
+    <td>${badge(r[4])}</td>
+    <td>${badge(r[5])}</td>
+  </tr>`).join('');
+</script>
+</body>
+</html>
