@@ -704,6 +704,8 @@ def should_fallback(exc: Exception) -> bool:
         "failed to resolve",
         "timeout expired",
         "no such file",
+        "no invoice rows",          # empty DB — use dev fallback payload
+        "invoice rows available",   # same message, defensive alias
     ])
 
 def fetch_invoices_from_db(tenant_id: str, status: str, search: str, limit: int = 100) -> list[dict]:
@@ -1214,14 +1216,19 @@ def send_invoice_to_review(invoice_id: str):
 
 @app.route("/api/runtime-view", methods=["GET"])
 def runtime_view():
-    tenant_id = get_tenant_id()
+    tenant_id  = get_tenant_id()
     invoice_id = request.args.get("invoice_id")
     try:
         return jsonify(fetch_runtime_view_from_db(tenant_id=tenant_id, invoice_id=invoice_id)), 200
+    except RuntimeError as exc:
+        # Empty result set (no invoice in DB yet) — always return dev fallback
+        log.info("runtime-view: no DB data, using fallback (%s)", exc)
+        return jsonify(fallback_runtime_view(tenant_id=tenant_id, invoice_id=invoice_id)), 200
     except Exception as exc:
         if should_fallback(exc):
-            log.warning("runtime view fallback engaged: %s", exc)
+            log.warning("runtime-view fallback engaged: %s", exc)
             return jsonify(fallback_runtime_view(tenant_id=tenant_id, invoice_id=invoice_id)), 200
+        log.error("runtime-view unrecoverable error: %s", exc, exc_info=True)
         return jsonify({"error": "runtime_view_failed", "detail": str(exc)}), 500
 
 # ─────────────────────────────────────────────────────────────────────────────
