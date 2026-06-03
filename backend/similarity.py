@@ -253,7 +253,10 @@ def _extract_scenario_config(text: str) -> dict:
 
     # Feature flags
     cfg["has_compliance"] = bool(re.search(r'\bcompliance\b', text, re.IGNORECASE))
-    cfg["has_po_match"]   = bool(re.search(r'\b(?:po[\s-]?match|three[\s-]way[\s-]match|3[\s-]way[\s-]match)\b', text, re.IGNORECASE))
+    cfg["has_po_match"]   = bool(re.search(
+        r'\b(?:po[\s-]?match\w*|three[\s-]way[\s-]match\w*|3[\s-]way[\s-]match\w*)\b',
+        text, re.IGNORECASE,
+    ))
 
     return cfg
 
