@@ -19,30 +19,56 @@
 
 | # | Check | Pass Criteria |
 | --- | --- | --- |
-| 1 | Diff Panel appears only above threshold | Panel renders only when top candidate `similarity_pct >= 60`. Below 60 → AI generation proceeds without diff prompt |
-| 2 | At least one action required | "Apply approved diffs" button is **disabled** until integrator has explicitly Accepted or Rejected at least one diff item |
-| 3 | Single write path to `project_dataset_refs` | On "Apply", one INSERT writes `diff_proposed` (all items), `diff_accepted` (accepted items), `diff_rejected` (rejected items) together — no partial writes |
-| 4 | Safe fallback | If diff application fails for any reason, workflow is created from the base candidate JSON unchanged. No error shown to user beyond a passive badge. Source record in `workflows_dataset` is never mutated |
-| 5 | Glassmorphic panel matches existing design system | Diff Panel uses `GLASS` constant + `SPRING` easing from `IngestionHub.jsx`. No new design tokens |
-| 6 | Smoke gate preserved | Existing 15/15 smoke test remains green after Session 4 changes |
+| 1 | Threshold is server-traceable | `SIMILARITY_DIFF_THRESHOLD` env var (default 0.60) read at startup. `find-similar` response includes `"threshold": 0.60`. `apply-diff` endpoint enforces the threshold server-side — rejects if candidate score < threshold regardless of what the UI sends |
+| 2 | Diff Panel appears only above threshold | Panel renders only when top candidate `similarity_pct >= threshold`. Below threshold → AI generation proceeds without diff prompt |
+| 3 | At least one action required | "Apply approved diffs" button is **disabled** until integrator has explicitly Accepted or Rejected at least one diff item |
+| 4 | Single write path — replayable diff shape | On "Apply", one INSERT writes `diff_proposed` (all items), `diff_accepted` (accepted), `diff_rejected` (rejected). Each item stored as `{field, from_value, to_value, reason, field_type, apply_operation}` — shape that can be replayed for audit and regression without human intervention. No partial writes |
+| 5 | Safe fallback | If diff application fails for any reason, workflow is created from the base candidate JSON unchanged. No error shown to user beyond a passive badge. Source record in `workflows_dataset` is never mutated |
+| 6 | Glassmorphic panel matches existing design system | Diff Panel uses `GLASS` constant + `SPRING` easing from `IngestionHub.jsx`. No new design tokens |
+| 7 | Smoke gate preserved | Existing 15/15 smoke test remains green after Session 4 changes |
+
+**Replayable diff item shape** — every item in `diff_proposed`, `diff_accepted`, `diff_rejected` must carry:
+
+```json
+{
+  "field":           "threshold_amount",
+  "from_value":      25000,
+  "to_value":        30000,
+  "reason":          "higher threshold described in scenario",
+  "field_type":      "numeric",
+  "apply_operation": "replace"
+}
+```
+
+`field_type` is one of: `numeric`, `duration`, `state_add`, `state_remove`. `apply_operation` is one of: `replace`, `add`, `remove`. This shape allows a future replay pass to re-apply or reverse any diff without re-running the LLM.
 
 #### What to build
 
-**Backend — `POST /api/dataset/apply-diff`** (new, ~40 lines in `app.py`):
+**Config — `backend/app.py` startup:**
+
+```text
+SIMILARITY_DIFF_THRESHOLD = float(os.environ.get("SIMILARITY_DIFF_THRESHOLD", "0.60"))
+```
+
+Exposed in `find-similar` response: `{"candidates": [...], "threshold": 0.60, "records_searched": 16}`
+
+**Backend — `POST /api/dataset/apply-diff`** (~50 lines in `app.py`):
 
 ```text
 Input:  { base_record_id, diff_accepted: [...], diff_rejected: [...], tenant_id }
+Guards: reject if candidate similarity_score < SIMILARITY_DIFF_THRESHOLD
 Action: 1. Load base workflow_json from workflows_dataset
         2. Apply accepted diffs to a copy (threshold, SLA, state additions)
-        3. INSERT into project_dataset_refs (one write — proposed + accepted + rejected)
-        4. Return { workflow_json: <patched copy>, ref_id }
+        3. Build diff_proposed = diff_accepted + diff_rejected (full set)
+        4. INSERT into project_dataset_refs — one write, replayable shape
+        5. Return { workflow_json: <patched copy>, ref_id, threshold_used }
 On error: return base workflow_json unchanged, ref_id null
 ```
 
 **Frontend — `DiffPanel` component in `IngestionHub.jsx`:**
 
 ```text
-Trigger:  top candidate similarity_pct >= 60 after find-similar returns
+Trigger:  top candidate similarity_pct >= (threshold * 100) from response
 Shows:    - Candidate header: project_name · similarity % · province · ERP
           - Diff list: each item as a row
               field label | current value → proposed value | reason | [Accept] [Reject]
@@ -54,7 +80,7 @@ On Skip:  canvas loads base workflow_json directly
 
 #### Out of scope for Session 4
 
-- Growing the dataset (Session 5A)
+- Growing the dataset (Session 5B)
 - "Save to Dataset" flywheel button (Session 5A)
 - ERP connectors, MOD-03, MOD-05, MOD-06 (Phase II/III — frozen)
 - Any changes to the similarity scoring weights or seed records
@@ -63,9 +89,10 @@ On Skip:  canvas loads base workflow_json directly
 
 | File | Change |
 | --- | --- |
-| `backend/app.py` | Add `POST /api/dataset/apply-diff` after line 2396 |
+| `backend/app.py` | Add `SIMILARITY_DIFF_THRESHOLD` config var + `POST /api/dataset/apply-diff` |
+| `backend/similarity.py` | Expose `threshold` in `find_similar()` return dict |
 | `src/modules/workflow-designer/canvas/IngestionHub.jsx` | Add `DiffPanel` component + `handleApplyDiff()` handler |
-| `skills.md` | Mark Session 4 complete after DoD verified |
+| `skills.md` | Mark Session 4 complete after all 7 DoD checks pass |
 
 ---
 
