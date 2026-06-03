@@ -65,6 +65,25 @@
 
 **DB credentials (dev):** `postgresql://proviso:change-me@localhost:5432/proviso` · NOT `proviso_dev_password`
 
+---
+
+### Session 3 — Errors Encountered and Fixed
+
+| # | Error | Root Cause | Fix | File / Line |
+| --- | --- | --- | --- | --- |
+| 1 | Migration DDL ran against `postgres` DB instead of `proviso` | `run-migrations.ps1:99` had `-d postgres` hardcoded — DDL executed in wrong database while schema_migrations table was written to correct one | Changed to `-d $Database`; added post-migration verification block that queries `information_schema` directly | `run-migrations.ps1:99` → `6ccb86b` |
+| 2 | `semantic_score: 0.0` on all similarity results | `OLLAMA_BASE_URL=http://host.docker.internal:11434` in `.env` — socket times out after 45s when Flask runs directly on host (not in Docker) | Added `localhost:11434` as automatic fallback when URL contains `host.docker.internal`; reduced per-attempt timeout 45s → 15s | `backend/similarity.py:49` → `f5cfd35` |
+| 3 | Flask 404 on all `/api/dataset/*` routes | Flask process (PID 36636) had started at 11:02 AM before routes were added to `app.py`; no hot-reload in production mode | Kill stale process, restart Flask | `Stop-Process -Id 36636 -Force` |
+| 4 | Flask connection forcibly closed mid-request | Previous 30s PowerShell timeout left a broken pipe on the socket; Flask worker crashed on the next request | Restarted Flask; subsequent requests clean | Transient — resolved by restart |
+| 5 | Wrong DB password in conformance script | Other AI used `proviso_dev_password`; actual password is `change-me` from `.env` DATABASE_URL | Use `postgresql://proviso:change-me@localhost:5432/proviso` | `.env` → confirmed |
+| 6 | Other AI's conformance script: wrong column names | Script invented `dataset_record_id`, `similarity_pct` (int), `approved_by`, `diff_notes`, `version_label`, `change_summary`, `action`, `FROM projects` — none exist in migration 008 | Rewrote script against actual schema: `base_record_id`, `similarity_score` (DECIMAL 0–1), `diff_proposed/accepted/rejected`, `access_reason` | Conformance script rewritten inline |
+| 7 | `IngestionHub` Mode 3 candidates always showed `0%` similarity | `Math.round((c.similarity \|\| c.score \|\| 0) * 100)` — API returns `similarity_pct` (already 0–100 int), not a 0–1 float | Changed to `c.similarity_pct ?? 0` with green/amber/grey colour coding | `IngestionHub.jsx:604` → `6ccb86b` |
+| 8 | `IngestionHub` dataset fetch always threw "similarity lookup failed" | `fetchDatasetCandidates` checked `!data.ok` but endpoint returns `{candidates:[...]}` with no `ok` field | Removed `!data.ok` check; only check `!res.ok` (HTTP status) | `IngestionHub.jsx:157` → `6ccb86b` |
+| 9 | `.venv` missing `psycopg2` — seed script would have failed if venv was selected | VS Code created `.venv` with Python 3.14 but never installed `requirements.txt` | Used system Python 3.11 (`C:\...\Python311\python.exe`) which already had all packages; optionally: `".venv\bin\python.exe" -m pip install -r backend\requirements.txt` | `.venv\bin\python.exe` |
+| 10 | Ollama first-call latency ~35s even after fix | Model must load from disk into RAM on first inference call after Ollama restart (cold start) | Not a bug — expected behaviour; warm calls are 4–8s. To eliminate: keep Ollama running between sessions or pre-warm with a dummy embed call | `similarity.py` timeout chain |
+
+---
+
 **Run sequence to activate:**
 
 ```powershell
