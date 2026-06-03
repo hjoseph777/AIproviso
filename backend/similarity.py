@@ -196,6 +196,7 @@ def _fetch_candidates(conn, tenant_id: str, embed_vec: Optional[str], limit: int
                        1 - (embedding <=> %s::vector) AS semantic_score
                 FROM workflows_dataset
                 WHERE tenant_id = %s AND embedding IS NOT NULL
+                  AND province IS NOT NULL AND erp_type IS NOT NULL AND industry IS NOT NULL
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
@@ -210,6 +211,7 @@ def _fetch_candidates(conn, tenant_id: str, embed_vec: Optional[str], limit: int
                        0.0 AS semantic_score
                 FROM workflows_dataset
                 WHERE tenant_id = %s
+                  AND province IS NOT NULL AND erp_type IS NOT NULL AND industry IS NOT NULL
                 LIMIT %s
                 """,
                 (tenant_id, limit),

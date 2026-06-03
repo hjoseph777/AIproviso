@@ -57,13 +57,22 @@ ANCHORS = [
 def run_regression(min_records: int) -> None:
     print(f"=== Session 5B Regression Check  (backend: {BASE}) ===\n")
 
-    # Dataset size
-    print("--- Dataset size ---")
+    # Dataset size + metadata completeness
+    print("--- Dataset size + metadata quality ---")
     status = requests.get(f"{BASE}/api/dataset/status", timeout=10).json()
-    total = int(status.get("total_records", 0))
+    total    = int(status.get("total_records", 0))
     embedded = int(status.get("embedded_records", 0))
-    chk(f"total_records >= {min_records}", total >= min_records, total)
-    chk("all records embedded",           total == embedded, f"{embedded}/{total}")
+    complete = int(status.get("records_with_complete_metadata", 0))
+    incomplete = embedded - complete
+    chk(f"queryable records (complete metadata) >= {min_records}",
+        complete >= min_records,
+        f"{complete} queryable / {total} total")
+    chk("all records embedded", total == embedded, f"{embedded}/{total}")
+    if incomplete > 0:
+        # WARN only — NULL-metadata records are already excluded from find-similar
+        # by the WHERE province IS NOT NULL filter in similarity.py.
+        print(f"  [WARN] {incomplete} record(s) have blank province/erp_type/industry "
+              f"(flywheel test records). Excluded from find-similar — ranking unaffected.")
     print()
 
     # Anchor ranking

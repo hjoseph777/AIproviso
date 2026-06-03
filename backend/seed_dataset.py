@@ -654,6 +654,7 @@ SEED_RECORDS = [
     },
     {
         "project_name": "Ontario Law Firm - Dynamics Disbursement AP",
+
         "scenario_text": (
             "Bay Street law firm in Toronto using Microsoft Dynamics 365 processes 110 "
             "disbursement invoices and court-filing fees weekly. Trust accounting rules "
@@ -673,6 +674,374 @@ SEED_RECORDS = [
         "pain_points": ["trust vs general account misclassification", "court deadline pressure", "client matter code errors"],
         "metrics": {"error_reduction": "82%", "time_saved": "15 hours/week", "cost_savings": "$7,000/month"},
         "compliance": ["Law Society of Ontario", "CPA Canada trust rules"],
+    },
+
+    # ── Batch 3 — +19 expansion to reach 50 target (Session 5B) ─────────────
+
+    {
+        "project_name": "Saskatchewan Potash Mining - Dynamics AP Control",
+        "scenario_text": (
+            "Potash mining company in Saskatchewan using Microsoft Dynamics 365 processes "
+            "160 supplier invoices weekly for reagents, equipment parts, and contractor services. "
+            "Capital project invoices over $20,000 require dual approval and production continuity "
+            "tracking with 48-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "ocr_extraction", "capex_classification",
+                                    "production_validation", "ap_approval", "vp_approval", "dynamics_sync"]},
+        "industry": "manufacturing", "province": "SK", "erp_type": "dynamics",
+        "state_count": 7, "threshold_amount": 20000, "sla_hours": 48,
+        "approval_tiers": 2, "touchless_rate": 0.77, "complexity": "medium",
+        "tags": ["mining", "potash", "dynamics", "saskatchewan", "capex"],
+        "document_types": ["invoice", "purchase_order", "maintenance_record"],
+        "pain_points": ["capital vs operational expense classification", "production downtime invoices"],
+        "metrics": {"error_reduction": "80%", "time_saved": "20 hours/week", "cost_savings": "$9,500/month"},
+        "compliance": ["Saskatchewan Employment Act", "MSHA"],
+    },
+    {
+        "project_name": "Nova Scotia Accounting Firm - QuickBooks Client AP",
+        "scenario_text": (
+            "Regional accounting and advisory firm in Halifax using QuickBooks Online manages "
+            "AP for 12 SME clients on an outsourced basis. Mixed ERP environments and client "
+            "billing code isolation require automated segregation and single approval under "
+            "$5,000 per client with 72-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "client_segregation", "code_validation",
+                                    "approval", "quickbooks_sync"]},
+        "industry": "professional_services", "province": "NS", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 5000, "sla_hours": 72,
+        "approval_tiers": 1, "touchless_rate": 0.68, "complexity": "simple",
+        "tags": ["accounting", "outsourced-ap", "quickbooks", "nova-scotia", "multi-client"],
+        "document_types": ["invoice", "client_billing_code", "expense_report"],
+        "pain_points": ["multi-client code segregation", "mixed ERP environments"],
+        "metrics": {"error_reduction": "78%", "time_saved": "16 hours/week", "cost_savings": "$5,000/month"},
+        "compliance": ["CPA Nova Scotia", "CRA"],
+    },
+    {
+        "project_name": "New Brunswick Construction Group - Dynamics AP",
+        "scenario_text": (
+            "General contracting company in Fredericton using Microsoft Dynamics 365 processes "
+            "90 subcontractor and materials invoices weekly on institutional and residential "
+            "projects. Statutory holdback at 10%, WHSCC compliance certification, and "
+            "dual approval over $25,000 with 72-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_capture", "holdback_calculation", "whscc_compliance_check",
+                                    "project_manager_approval", "finance_approval", "payment"]},
+        "industry": "construction", "province": "NB", "erp_type": "dynamics",
+        "state_count": 6, "threshold_amount": 25000, "sla_hours": 72,
+        "approval_tiers": 2, "touchless_rate": 0.71, "complexity": "medium",
+        "tags": ["construction", "dynamics", "new-brunswick", "holdback", "whscc"],
+        "document_types": ["invoice", "progress_claim", "whscc_certificate"],
+        "pain_points": ["statutory holdback tracking", "WHSCC certificate validation"],
+        "metrics": {"error_reduction": "77%", "time_saved": "18 hours/week", "cost_savings": "$8,000/month"},
+        "compliance": ["NB Construction Act", "WHSCC"],
+    },
+    {
+        "project_name": "Ontario Financial Services Firm - SAP AP Compliance",
+        "scenario_text": (
+            "Mid-size asset management firm in Toronto regulated under OSFI uses SAP S/4HANA "
+            "and processes 130 vendor and custodian invoices monthly. OSFI audit requirements, "
+            "fund expense allocation, and 3-tier approval for invoices over $50,000 require "
+            "strict compliance tracking with 24-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "fund_expense_allocation", "osfi_compliance_check",
+                                    "manager_approval", "compliance_officer_approval", "cfo_approval",
+                                    "audit_logging", "sap_sync"]},
+        "industry": "professional_services", "province": "ON", "erp_type": "sap",
+        "state_count": 8, "threshold_amount": 50000, "sla_hours": 24,
+        "approval_tiers": 3, "touchless_rate": 0.85, "complexity": "complex",
+        "tags": ["financial-services", "asset-management", "sap", "ontario", "osfi", "compliance"],
+        "document_types": ["invoice", "fund_allocation_slip", "compliance_report"],
+        "pain_points": ["fund expense misallocation", "OSFI audit trail gaps", "multi-level approval delays"],
+        "metrics": {"error_reduction": "91%", "time_saved": "24 hours/week", "cost_savings": "$18,000/month"},
+        "compliance": ["OSFI", "NI 81-102", "AML"],
+    },
+    {
+        "project_name": "Quebec Government Agency - Oracle Public Sector AP",
+        "scenario_text": (
+            "Quebec provincial government agency using Oracle Fusion processes 200 contractor "
+            "and supplier invoices monthly under Act Respecting Contracting by Public Bodies. "
+            "Mandatory compliance review, Hydro-Quebec utility routing, dual approval over "
+            "$25,000, and 30-day statutory payment deadline with 24-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_capture", "rcpba_compliance_check", "utility_routing",
+                                    "department_approval", "director_approval",
+                                    "audit_logging", "oracle_sync", "payment"]},
+        "industry": "professional_services", "province": "QC", "erp_type": "oracle",
+        "state_count": 8, "threshold_amount": 25000, "sla_hours": 24,
+        "approval_tiers": 2, "touchless_rate": 0.82, "complexity": "complex",
+        "tags": ["government", "public-sector", "oracle", "quebec", "rcpba", "compliance"],
+        "document_types": ["invoice", "contract", "compliance_attestation"],
+        "pain_points": ["RCPBA compliance documentation", "30-day statutory payment tracking"],
+        "metrics": {"error_reduction": "88%", "time_saved": "28 hours/week", "cost_savings": "$14,000/month"},
+        "compliance": ["RCPBA", "Loi sur la gestion des finances publiques", "CAG"],
+    },
+    {
+        "project_name": "BC University - Dynamics Education AP",
+        "scenario_text": (
+            "Mid-size university in Vancouver using Microsoft Dynamics 365 processes 300 "
+            "vendor invoices weekly across research grants, facilities, and IT procurement. "
+            "Research grant fund segregation, tri-agency compliance (NSERC/SSHRC/CIHR), "
+            "dual approval over $10,000, and 48-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "grant_fund_segregation",
+                                    "tri_agency_compliance_check", "department_approval",
+                                    "research_finance_approval", "dynamics_sync"]},
+        "industry": "professional_services", "province": "BC", "erp_type": "dynamics",
+        "state_count": 6, "threshold_amount": 10000, "sla_hours": 48,
+        "approval_tiers": 2, "touchless_rate": 0.76, "complexity": "medium",
+        "tags": ["education", "university", "dynamics", "bc", "tri-agency", "research-grants"],
+        "document_types": ["invoice", "grant_allocation", "purchase_order"],
+        "pain_points": ["research grant fund misallocation", "tri-agency compliance"],
+        "metrics": {"error_reduction": "83%", "time_saved": "22 hours/week", "cost_savings": "$10,000/month"},
+        "compliance": ["NSERC/SSHRC/CIHR Tri-Agency", "BC FOIPPA"],
+    },
+    {
+        "project_name": "Alberta Investment Firm - NetSuite Portfolio AP",
+        "scenario_text": (
+            "Private equity investment firm in Calgary using NetSuite manages AP across "
+            "7 portfolio companies. Intercompany transactions, management fee invoices, and "
+            "due diligence expenses require fund-level approval with single sign-off under "
+            "$15,000 and 48-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "fund_classification",
+                                    "intercompany_validation", "partner_approval", "netsuite_sync"]},
+        "industry": "professional_services", "province": "AB", "erp_type": "netsuite",
+        "state_count": 5, "threshold_amount": 15000, "sla_hours": 48,
+        "approval_tiers": 1, "touchless_rate": 0.78, "complexity": "simple",
+        "tags": ["private-equity", "investment", "netsuite", "alberta", "intercompany", "portfolio"],
+        "document_types": ["invoice", "management_fee_agreement", "intercompany_memo"],
+        "pain_points": ["intercompany transaction misclassification", "fund-level segregation"],
+        "metrics": {"error_reduction": "82%", "time_saved": "15 hours/week", "cost_savings": "$8,000/month"},
+        "compliance": ["Alberta Securities Commission", "IFRS 10"],
+    },
+    {
+        "project_name": "Ontario Grocery Retailer - Dynamics Vendor AP",
+        "scenario_text": (
+            "Independent grocery retailer in Ontario with 12 locations uses Microsoft Dynamics 365 "
+            "and processes 400 vendor invoices weekly. Flyer promotion validation, seasonal vendor "
+            "contracts, and shrink claims require automated reconciliation with single approval "
+            "under $3,000 and 24-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "promo_contract_match",
+                                    "shrink_claim_validation", "approval", "dynamics_sync"]},
+        "industry": "retail", "province": "ON", "erp_type": "dynamics",
+        "state_count": 5, "threshold_amount": 3000, "sla_hours": 24,
+        "approval_tiers": 1, "touchless_rate": 0.82, "complexity": "simple",
+        "tags": ["retail", "grocery", "dynamics", "ontario", "promo", "vendor-contracts"],
+        "document_types": ["invoice", "promotional_agreement", "shrink_claim"],
+        "pain_points": ["promo price discrepancies", "shrink claim disputes", "seasonal contract validation"],
+        "metrics": {"error_reduction": "84%", "time_saved": "20 hours/week", "cost_savings": "$7,500/month"},
+        "compliance": ["CFIA", "Ontario Food Safety"],
+    },
+    {
+        "project_name": "Quebec AI Research Lab - NetSuite R&D AP",
+        "scenario_text": (
+            "AI research company in Montreal using NetSuite processes 85 vendor invoices "
+            "monthly for GPU compute, cloud services, and academic collaboration fees. "
+            "SR&ED expense tagging, compute cost centre allocation, and dual approval over "
+            "$20,000 with 48-hour SLA to maintain research velocity."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "sred_tagging", "compute_cost_allocation",
+                                    "pi_approval", "finance_approval", "netsuite_sync"]},
+        "industry": "technology", "province": "QC", "erp_type": "netsuite",
+        "state_count": 6, "threshold_amount": 20000, "sla_hours": 48,
+        "approval_tiers": 2, "touchless_rate": 0.79, "complexity": "medium",
+        "tags": ["ai", "research", "netsuite", "quebec", "sred", "compute", "academic"],
+        "document_types": ["invoice", "compute_invoice", "collaboration_agreement"],
+        "pain_points": ["SR&ED expense classification", "compute cost attribution", "academic collaboration billing"],
+        "metrics": {"error_reduction": "83%", "time_saved": "12 hours/week", "cost_savings": "$6,000/month"},
+        "compliance": ["SR&ED CRA", "NSERC", "CIFAR"],
+    },
+    {
+        "project_name": "Ontario Grain Farm - NetSuite Agricultural AP",
+        "scenario_text": (
+            "Large-scale grain farming operation in Ontario using NetSuite processes 120 "
+            "input supplier invoices seasonally for seed, fertilizer, and equipment. "
+            "Input cost classification for tax purposes, single approval under $10,000, "
+            "and 72-hour SLA during planting season."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "input_cost_classification",
+                                    "approval", "netsuite_sync"]},
+        "industry": "distribution", "province": "ON", "erp_type": "netsuite",
+        "state_count": 4, "threshold_amount": 10000, "sla_hours": 72,
+        "approval_tiers": 1, "touchless_rate": 0.72, "complexity": "simple",
+        "tags": ["agriculture", "grain", "netsuite", "ontario", "seasonal", "input-costs"],
+        "document_types": ["invoice", "purchase_order", "delivery_slip"],
+        "pain_points": ["seasonal volume spikes", "CRA input cost classification"],
+        "metrics": {"error_reduction": "75%", "time_saved": "14 hours/week", "cost_savings": "$5,500/month"},
+        "compliance": ["CFIA", "AgriInvest CRA"],
+    },
+    {
+        "project_name": "BC Community Health Clinic - QuickBooks AP",
+        "scenario_text": (
+            "Community health clinic in Kelowna using QuickBooks Online processes 60 vendor "
+            "and supplier invoices monthly for medical supplies and facility services. "
+            "HIBC billing reconciliation and single approval under $5,000 with 48-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "hibc_reconciliation",
+                                    "validation", "approval", "quickbooks_sync"]},
+        "industry": "healthcare", "province": "BC", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 5000, "sla_hours": 48,
+        "approval_tiers": 1, "touchless_rate": 0.65, "complexity": "simple",
+        "tags": ["healthcare", "community-clinic", "quickbooks", "bc", "hibc"],
+        "document_types": ["invoice", "hibc_billing_slip", "supply_receipt"],
+        "pain_points": ["HIBC billing reconciliation", "medical supply invoice validation"],
+        "metrics": {"error_reduction": "76%", "time_saved": "10 hours/week", "cost_savings": "$4,000/month"},
+        "compliance": ["HIBC", "PHIPA BC", "College of Physicians"],
+    },
+    {
+        "project_name": "Alberta Food Manufacturing - Dynamics AP",
+        "scenario_text": (
+            "Food processing company in Lethbridge using Microsoft Dynamics 365 processes "
+            "190 raw material and packaging invoices weekly. HACCP ingredient traceability, "
+            "lot-number matching to purchase orders, and dual approval over $15,000 with "
+            "24-hour SLA to maintain production schedule."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "ocr_extraction", "lot_number_validation",
+                                    "haccp_traceability_check", "ap_approval", "director_approval",
+                                    "dynamics_sync"]},
+        "industry": "manufacturing", "province": "AB", "erp_type": "dynamics",
+        "state_count": 7, "threshold_amount": 15000, "sla_hours": 24,
+        "approval_tiers": 2, "touchless_rate": 0.80, "complexity": "medium",
+        "tags": ["food-manufacturing", "dynamics", "alberta", "haccp", "lot-tracking"],
+        "document_types": ["invoice", "purchase_order", "lot_certificate"],
+        "pain_points": ["HACCP ingredient traceability", "lot-number PO mismatches"],
+        "metrics": {"error_reduction": "83%", "time_saved": "22 hours/week", "cost_savings": "$10,000/month"},
+        "compliance": ["HACCP", "CFIA Safe Food for Canadians", "ISO 22000"],
+    },
+    {
+        "project_name": "Ontario Distribution Centre - Oracle Logistics AP",
+        "scenario_text": (
+            "National consumer goods distribution centre in Mississauga using Oracle Fusion "
+            "processes 500 carrier and third-party logistics invoices weekly. Freight rate "
+            "auditing against contracts, fuel surcharge reconciliation, and dual approval for "
+            "invoices over $10,000 with 12-hour SLA to meet carrier payment terms."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "freight_rate_audit",
+                                    "fuel_surcharge_reconciliation", "contract_match",
+                                    "ap_approval", "logistics_director_approval", "oracle_sync"]},
+        "industry": "distribution", "province": "ON", "erp_type": "oracle",
+        "state_count": 7, "threshold_amount": 10000, "sla_hours": 12,
+        "approval_tiers": 2, "touchless_rate": 0.84, "complexity": "medium",
+        "tags": ["distribution", "logistics", "oracle", "ontario", "freight-audit", "carrier"],
+        "document_types": ["invoice", "carrier_contract", "rate_sheet"],
+        "pain_points": ["freight rate audit discrepancies", "fuel surcharge disputes"],
+        "metrics": {"error_reduction": "86%", "time_saved": "28 hours/week", "cost_savings": "$13,000/month"},
+        "compliance": ["Canadian Motor Vehicle Safety Act", "Transport Canada"],
+    },
+    {
+        "project_name": "Quebec Engineering Consultancy - NetSuite Project AP",
+        "scenario_text": (
+            "Civil engineering consultancy in Quebec City using NetSuite processes 100 "
+            "subcontractor and equipment rental invoices monthly across active infrastructure "
+            "projects. OIQ professional fees, project-code allocation, and dual approval "
+            "over $20,000 with 48-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "oiq_compliance_check",
+                                    "project_code_allocation", "project_manager_approval",
+                                    "finance_approval", "netsuite_sync"]},
+        "industry": "professional_services", "province": "QC", "erp_type": "netsuite",
+        "state_count": 6, "threshold_amount": 20000, "sla_hours": 48,
+        "approval_tiers": 2, "touchless_rate": 0.73, "complexity": "medium",
+        "tags": ["engineering", "consulting", "netsuite", "quebec", "oiq", "infrastructure"],
+        "document_types": ["invoice", "professional_fee_schedule", "project_contract"],
+        "pain_points": ["OIQ compliance documentation", "project code misallocation"],
+        "metrics": {"error_reduction": "79%", "time_saved": "18 hours/week", "cost_savings": "$8,500/month"},
+        "compliance": ["OIQ", "BNQ standards", "CNESST"],
+    },
+    {
+        "project_name": "BC Technology Firm - SAP Enterprise AP",
+        "scenario_text": (
+            "Enterprise software company in Vancouver using SAP S/4HANA processes 150 "
+            "vendor invoices monthly across global cloud, reseller, and professional service "
+            "agreements. Multi-currency processing, reseller margin validation, and 3-tier "
+            "approval over $75,000 with 24-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "multi_currency_conversion",
+                                    "reseller_margin_validation", "manager_approval",
+                                    "vp_approval", "cfo_approval", "sap_sync"]},
+        "industry": "technology", "province": "BC", "erp_type": "sap",
+        "state_count": 7, "threshold_amount": 75000, "sla_hours": 24,
+        "approval_tiers": 3, "touchless_rate": 0.81, "complexity": "complex",
+        "tags": ["technology", "software", "sap", "bc", "multi-currency", "reseller", "enterprise"],
+        "document_types": ["invoice", "reseller_agreement", "purchase_order"],
+        "pain_points": ["multi-currency reconciliation", "reseller margin disputes", "global vendor complexity"],
+        "metrics": {"error_reduction": "85%", "time_saved": "20 hours/week", "cost_savings": "$12,000/month"},
+        "compliance": ["IFRS", "PCI DSS", "SOX"],
+    },
+    {
+        "project_name": "Manitoba Healthcare Authority - Dynamics Regional AP",
+        "scenario_text": (
+            "Regional health authority in Winnipeg using Microsoft Dynamics 365 coordinates "
+            "AP across 6 community hospitals and clinics, processing 240 invoices weekly. "
+            "Shared services model with facility-level routing, dual approval for medical "
+            "equipment over $15,000, and 24-hour SLA for patient-care supplies."
+        ),
+        "workflow_json": {"steps": ["invoice_capture", "facility_routing", "vendor_validation",
+                                    "ap_approval", "clinical_director_approval",
+                                    "audit_logging", "dynamics_sync"]},
+        "industry": "healthcare", "province": "MB", "erp_type": "dynamics",
+        "state_count": 7, "threshold_amount": 15000, "sla_hours": 24,
+        "approval_tiers": 2, "touchless_rate": 0.79, "complexity": "medium",
+        "tags": ["healthcare", "regional-health", "dynamics", "manitoba", "shared-services"],
+        "document_types": ["invoice", "purchase_order", "vendor_certificate"],
+        "pain_points": ["multi-facility routing complexity", "shared services reconciliation"],
+        "metrics": {"error_reduction": "85%", "time_saved": "30 hours/week", "cost_savings": "$13,000/month"},
+        "compliance": ["PHIA Manitoba", "WRHA standards", "CCHSA"],
+    },
+    {
+        "project_name": "Saskatchewan Distribution Co - QuickBooks AP",
+        "scenario_text": (
+            "General merchandise distributor in Regina using QuickBooks Online processes "
+            "110 supplier invoices weekly for retail resale goods. Volume rebate tracking, "
+            "price protection claims, and single approval under $8,000 with 48-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "rebate_tracking",
+                                    "price_protection_validation", "approval", "quickbooks_sync"]},
+        "industry": "distribution", "province": "SK", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 8000, "sla_hours": 48,
+        "approval_tiers": 1, "touchless_rate": 0.69, "complexity": "simple",
+        "tags": ["distribution", "merchandise", "quickbooks", "saskatchewan", "rebates"],
+        "document_types": ["invoice", "rebate_agreement", "price_protection_claim"],
+        "pain_points": ["volume rebate miscalculation", "price protection disputes"],
+        "metrics": {"error_reduction": "76%", "time_saved": "14 hours/week", "cost_savings": "$5,500/month"},
+        "compliance": ["Competition Bureau Canada", "CRA GST/HST"],
+    },
+    {
+        "project_name": "Nova Scotia Retail Co-op - QuickBooks Multi-Store AP",
+        "scenario_text": (
+            "Consumer co-operative retailer in Nova Scotia with 8 locations uses QuickBooks "
+            "Online and processes 180 vendor invoices weekly. Member patronage allocation, "
+            "produce freshness routing, and single approval under $4,000 with 36-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "store_routing", "patronage_allocation",
+                                    "approval", "quickbooks_sync"]},
+        "industry": "retail", "province": "NS", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 4000, "sla_hours": 36,
+        "approval_tiers": 1, "touchless_rate": 0.66, "complexity": "simple",
+        "tags": ["retail", "co-op", "quickbooks", "nova-scotia", "multi-store", "patronage"],
+        "document_types": ["invoice", "purchase_order", "produce_delivery_note"],
+        "pain_points": ["patronage allocation accuracy", "multi-store routing delays"],
+        "metrics": {"error_reduction": "74%", "time_saved": "16 hours/week", "cost_savings": "$5,000/month"},
+        "compliance": ["Co-operatives Act NS", "CFIA"],
+    },
+    {
+        "project_name": "Ontario Small Contractor - QuickBooks Residential AP",
+        "scenario_text": (
+            "Residential renovation contractor in Ottawa using QuickBooks Online processes "
+            "55 subcontractor and materials invoices weekly. Lien waiver tracking, "
+            "homeowner billing markup, and single approval under $5,000 with 72-hour SLA."
+        ),
+        "workflow_json": {"steps": ["invoice_ingestion", "lien_waiver_check",
+                                    "markup_calculation", "approval", "quickbooks_sync"]},
+        "industry": "construction", "province": "ON", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 5000, "sla_hours": 72,
+        "approval_tiers": 1, "touchless_rate": 0.64, "complexity": "simple",
+        "tags": ["construction", "residential", "quickbooks", "ontario", "lien-waiver", "renovation"],
+        "document_types": ["invoice", "lien_waiver", "material_receipt"],
+        "pain_points": ["lien waiver collection", "markup billing accuracy"],
+        "metrics": {"error_reduction": "73%", "time_saved": "12 hours/week", "cost_savings": "$4,500/month"},
+        "compliance": ["Construction Act Ontario", "WSIB"],
     },
 ]
 

@@ -2314,10 +2314,18 @@ def dataset_status_api():
                 (tenant_id,),
             )
             embedded = int(cur.fetchone()[0])
+            cur.execute(
+                """SELECT COUNT(*) FROM workflows_dataset
+                   WHERE tenant_id = %s AND embedding IS NOT NULL
+                     AND province IS NOT NULL AND erp_type IS NOT NULL AND industry IS NOT NULL""",
+                (tenant_id,),
+            )
+            complete = int(cur.fetchone()[0])
 
         return jsonify({
-            "total_records": total,
-            "embedded_records": embedded,
+            "total_records":                 total,
+            "embedded_records":              embedded,
+            "records_with_complete_metadata": complete,
             "ready": total > 0 and embedded == total,
             "embed_model": OLLAMA_EMBED_MODEL,
         }), 200
