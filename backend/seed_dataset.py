@@ -455,6 +455,225 @@ SEED_RECORDS = [
         "metrics": {"error_reduction": "86%", "time_saved": "35 hours/week", "cost_savings": "$22,000/month"},
         "compliance": ["CNESST", "CCQ", "RBQ"],
     },
+
+    # ── Batch 2 — +10 expansion (Session 5B) ─────────────────────────────────
+
+    {
+        "project_name": "Ontario Automotive Manufacturer - Oracle AP Control",
+        "scenario_text": (
+            "Tier-1 automotive supplier in Ontario using Oracle Fusion processes 350 invoices "
+            "daily across 8 assembly plants. Just-in-time supply chain requires 4-hour SLA on "
+            "critical parts invoices, dual approval over $25,000, and automated PO matching "
+            "with GRN reconciliation to maintain production continuity."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "ocr_extraction", "po_matching",
+                      "grn_reconciliation", "ap_approval", "director_approval",
+                      "erp_sync", "payment"]
+        },
+        "industry": "manufacturing", "province": "ON", "erp_type": "oracle",
+        "state_count": 8, "threshold_amount": 25000, "sla_hours": 4,
+        "approval_tiers": 2, "touchless_rate": 0.86, "complexity": "complex",
+        "tags": ["manufacturing", "automotive", "oracle", "jit", "po-matching", "ontario"],
+        "document_types": ["invoice", "purchase_order", "goods_receipt_note"],
+        "pain_points": ["JIT supply chain delays", "GRN reconciliation failures", "multi-plant coordination"],
+        "metrics": {"error_reduction": "88%", "time_saved": "32 hours/week", "cost_savings": "$15,000/month"},
+        "compliance": ["IATF 16949", "ISO 9001"],
+    },
+    {
+        "project_name": "BC Mining Operations - SAP AP Management",
+        "scenario_text": (
+            "Mining company in British Columbia with active copper and gold operations uses "
+            "SAP S/4HANA to process 180 supplier invoices weekly. Remote site operations "
+            "create complex approval chains with 3-tier sign-off for capital equipment over "
+            "$100,000, environmental compliance checks, and 72-hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_capture", "ocr_extraction", "environmental_compliance_check",
+                      "site_manager_approval", "vp_operations_approval", "cfo_approval",
+                      "erp_sync"]
+        },
+        "industry": "manufacturing", "province": "BC", "erp_type": "sap",
+        "state_count": 7, "threshold_amount": 100000, "sla_hours": 72,
+        "approval_tiers": 3, "touchless_rate": 0.82, "complexity": "complex",
+        "tags": ["mining", "sap", "bc", "environmental", "3-tier", "capital-equipment"],
+        "document_types": ["invoice", "purchase_order", "environmental_certificate"],
+        "pain_points": ["remote site approval delays", "environmental compliance tracking", "capital equipment validation"],
+        "metrics": {"error_reduction": "84%", "time_saved": "28 hours/week", "cost_savings": "$20,000/month"},
+        "compliance": ["BC Environmental Assessment", "ISO 14001"],
+    },
+    {
+        "project_name": "Alberta Oil & Gas Services - Dynamics AP Workflow",
+        "scenario_text": (
+            "Oilfield services company in Alberta using Microsoft Dynamics 365 processes "
+            "220 field service invoices weekly. Day-rate billing disputes and equipment "
+            "rental reconciliation require automated validation with project-cost-centre "
+            "allocation and dual approval for invoices over $15,000 with 48-hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "ocr_extraction", "day_rate_validation",
+                      "cost_centre_allocation", "project_manager_approval",
+                      "finance_approval", "erp_sync"]
+        },
+        "industry": "distribution", "province": "AB", "erp_type": "dynamics",
+        "state_count": 7, "threshold_amount": 15000, "sla_hours": 48,
+        "approval_tiers": 2, "touchless_rate": 0.73, "complexity": "medium",
+        "tags": ["oil-gas", "dynamics", "alberta", "day-rate", "cost-centre", "field-services"],
+        "document_types": ["invoice", "day_rate_ticket", "equipment_rental_agreement"],
+        "pain_points": ["day-rate billing disputes", "cost centre misallocation", "equipment rental reconciliation"],
+        "metrics": {"error_reduction": "79%", "time_saved": "22 hours/week", "cost_savings": "$11,000/month"},
+        "compliance": ["CAPP", "Energy Safety Canada"],
+    },
+    {
+        "project_name": "Ontario Tech Startup - NetSuite Automated AP",
+        "scenario_text": (
+            "Fast-growing SaaS company in Ontario uses NetSuite and processes 95 vendor "
+            "invoices monthly across cloud infrastructure, SaaS licences, and contractor "
+            "engagements. High proportion of subscription and recurring invoices require "
+            "automated amortization matching with single approval under $10,000 and 24-hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "subscription_match", "amortization_check",
+                      "approval", "netsuite_sync"]
+        },
+        "industry": "technology", "province": "ON", "erp_type": "netsuite",
+        "state_count": 5, "threshold_amount": 10000, "sla_hours": 24,
+        "approval_tiers": 1, "touchless_rate": 0.80, "complexity": "simple",
+        "tags": ["saas", "netsuite", "ontario", "subscription", "amortization", "startup"],
+        "document_types": ["invoice", "subscription_agreement", "contractor_agreement"],
+        "pain_points": ["subscription invoice matching", "amortization schedule validation", "contractor vs employee classification"],
+        "metrics": {"error_reduction": "85%", "time_saved": "16 hours/week", "cost_savings": "$6,000/month"},
+        "compliance": ["SR&ED", "CRA contractor rules"],
+    },
+    {
+        "project_name": "Quebec Retail Chain - Dynamics High-Volume AP",
+        "scenario_text": (
+            "Quebec grocery and pharmacy retail chain with 45 locations uses Microsoft Dynamics 365 "
+            "and processes 600 supplier invoices daily. Promotional pricing reconciliation, "
+            "category-based routing, and tight 8-hour SLA for perishables require automated "
+            "matching with single approval under $5,000."
+        ),
+        "workflow_json": {
+            "steps": ["batch_ingestion", "ocr_extraction", "promo_price_validation",
+                      "category_routing", "approval", "dynamics_sync"]
+        },
+        "industry": "retail", "province": "QC", "erp_type": "dynamics",
+        "state_count": 6, "threshold_amount": 5000, "sla_hours": 8,
+        "approval_tiers": 1, "touchless_rate": 0.85, "complexity": "medium",
+        "tags": ["retail", "grocery", "dynamics", "quebec", "high-volume", "promotional"],
+        "document_types": ["invoice", "promotional_agreement", "receipt"],
+        "pain_points": ["promotional price discrepancies", "high-volume processing", "perishables SLA pressure"],
+        "metrics": {"error_reduction": "87%", "time_saved": "30 hours/week", "cost_savings": "$12,000/month"},
+        "compliance": ["PCI DSS", "MAPAQ"],
+    },
+    {
+        "project_name": "Manitoba Agricultural Co-op - QuickBooks AP",
+        "scenario_text": (
+            "Grain handling co-operative in Manitoba using QuickBooks processes 140 seasonal "
+            "supplier invoices weekly for equipment, chemicals, and seed inputs. Seasonal volume "
+            "spikes during planting and harvest require flexible approval routing with single "
+            "sign-off under $8,000 and 48-hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "seasonal_classification", "validation",
+                      "manager_approval", "quickbooks_sync"]
+        },
+        "industry": "distribution", "province": "MB", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 8000, "sla_hours": 48,
+        "approval_tiers": 1, "touchless_rate": 0.68, "complexity": "simple",
+        "tags": ["agriculture", "co-op", "quickbooks", "manitoba", "seasonal", "grain"],
+        "document_types": ["invoice", "purchase_order", "delivery_note"],
+        "pain_points": ["seasonal volume spikes", "supplier payment timing", "input cost classification"],
+        "metrics": {"error_reduction": "77%", "time_saved": "18 hours/week", "cost_savings": "$7,500/month"},
+        "compliance": ["CFIA", "Canadian Grain Commission"],
+    },
+    {
+        "project_name": "Ontario Regional Hospital - SAP Healthcare AP",
+        "scenario_text": (
+            "Regional hospital authority in Ontario operating 3 hospital campuses uses SAP S/4HANA "
+            "and processes 280 medical supply and capital invoices daily. MOHLTC procurement rules "
+            "require vendor credentialing, dual approval for clinical equipment over $50,000, "
+            "mandatory compliance review, and strict 8-hour SLA for patient-care supplies."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_capture", "vendor_credentialing", "mohltc_compliance_check",
+                      "ap_approval", "clinical_director_approval",
+                      "audit_logging", "sap_sync", "payment"]
+        },
+        "industry": "healthcare", "province": "ON", "erp_type": "sap",
+        "state_count": 8, "threshold_amount": 50000, "sla_hours": 8,
+        "approval_tiers": 2, "touchless_rate": 0.83, "complexity": "complex",
+        "tags": ["healthcare", "hospital", "sap", "ontario", "mohltc", "compliance", "clinical"],
+        "document_types": ["invoice", "vendor_certificate", "purchase_order", "compliance_report"],
+        "pain_points": ["MOHLTC procurement compliance", "vendor credentialing delays", "multi-campus routing"],
+        "metrics": {"error_reduction": "90%", "time_saved": "35 hours/week", "cost_savings": "$16,000/month"},
+        "compliance": ["MOHLTC", "PHIPA", "ISO 13485"],
+    },
+    {
+        "project_name": "BC Professional Services Firm - QuickBooks AP",
+        "scenario_text": (
+            "Mid-size management consulting firm in Vancouver using QuickBooks processes "
+            "75 client disbursement and vendor invoices weekly. Complex billable vs "
+            "non-billable classification and client matter code allocation require "
+            "manager approval under $7,500 with 48-hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "billable_classification", "matter_code_allocation",
+                      "manager_approval", "quickbooks_sync"]
+        },
+        "industry": "professional_services", "province": "BC", "erp_type": "quickbooks",
+        "state_count": 5, "threshold_amount": 7500, "sla_hours": 48,
+        "approval_tiers": 1, "touchless_rate": 0.71, "complexity": "simple",
+        "tags": ["consulting", "professional-services", "quickbooks", "bc", "billable", "matter-codes"],
+        "document_types": ["invoice", "expense_report", "contractor_agreement"],
+        "pain_points": ["billable vs non-billable classification errors", "client matter code misallocation"],
+        "metrics": {"error_reduction": "80%", "time_saved": "14 hours/week", "cost_savings": "$5,500/month"},
+        "compliance": ["CPA Canada", "Law Society (referral clients)"],
+    },
+    {
+        "project_name": "Alberta Oilsands Construction - NetSuite Complex AP",
+        "scenario_text": (
+            "Oilsands infrastructure contractor in Fort McMurray using NetSuite processes "
+            "300 subcontractor and materials invoices weekly on long-duration megaprojects. "
+            "Certified payroll compliance, lien holdback at 10%, and ABSA pressure vessel "
+            "certification tracking require 3-tier approval over $75,000 with 72-hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_capture", "certified_payroll_check", "lien_holdback_calculation",
+                      "absa_cert_validation", "project_manager_approval",
+                      "vp_approval", "cfo_approval", "payment"]
+        },
+        "industry": "construction", "province": "AB", "erp_type": "netsuite",
+        "state_count": 8, "threshold_amount": 75000, "sla_hours": 72,
+        "approval_tiers": 3, "touchless_rate": 0.78, "complexity": "complex",
+        "tags": ["construction", "oilsands", "netsuite", "alberta", "lien-holdback", "certified-payroll"],
+        "document_types": ["invoice", "certified_payroll", "lien_waiver", "absa_certificate"],
+        "pain_points": ["lien holdback miscalculation", "certified payroll compliance", "ABSA certificate tracking"],
+        "metrics": {"error_reduction": "85%", "time_saved": "30 hours/week", "cost_savings": "$18,000/month"},
+        "compliance": ["AB Employment Standards", "ABSA", "Builders Lien Act"],
+    },
+    {
+        "project_name": "Ontario Law Firm - Dynamics Disbursement AP",
+        "scenario_text": (
+            "Bay Street law firm in Toronto using Microsoft Dynamics 365 processes 110 "
+            "disbursement invoices and court-filing fees weekly. Trust accounting rules "
+            "require separation of client disbursements from firm expenses, partner approval "
+            "for invoices over $5,000, and 24-hour SLA to meet court filing deadlines."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "trust_account_classification",
+                      "client_matter_validation", "partner_approval",
+                      "dynamics_sync", "trust_ledger_update"]
+        },
+        "industry": "professional_services", "province": "ON", "erp_type": "dynamics",
+        "state_count": 6, "threshold_amount": 5000, "sla_hours": 24,
+        "approval_tiers": 1, "touchless_rate": 0.74, "complexity": "medium",
+        "tags": ["legal", "law-firm", "dynamics", "ontario", "trust-accounting", "disbursements"],
+        "document_types": ["invoice", "court_filing_receipt", "disbursement_voucher"],
+        "pain_points": ["trust vs general account misclassification", "court deadline pressure", "client matter code errors"],
+        "metrics": {"error_reduction": "82%", "time_saved": "15 hours/week", "cost_savings": "$7,000/month"},
+        "compliance": ["Law Society of Ontario", "CPA Canada trust rules"],
+    },
 ]
 
 
