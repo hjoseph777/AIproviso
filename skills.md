@@ -1,8 +1,9 @@
 # AI Proviso — Master Skills & Status Log
 
-> **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-02`
-> **Last verified green:** `15/15 smoke test PASS` · commit `38bf8a1` · full Docker stack including workflow-engine
-> **Session 3 commit:** `6ccb86b` · pgvector engine + 10-record seed + migration 008 + run-migrations fix
+> **Session anchor:** `AI-PROVISO-SESSION3-VERIFIED-2026-06-03`
+> **Resume checkpoint:** `PROVISIO-DATASET-ANCHOR-0514`
+> **Last verified green:** Session 3 end-to-end PASS (all 4 gates green) · commits `f5cfd35` + `90f9d54`
+> **Session 3 implementation commit:** `6ccb86b` · pgvector engine + migration 008 + similarity API
 > **PRD source:** `Proviso_PRD_v12.md` — canonical reference
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
@@ -13,19 +14,56 @@
 
 ### Session 3 COMPLETE — pgvector seeding + four-dimensional similarity scoring
 
+**Verified checkpoint (2026-06-03):**
+
+- `GET /api/dataset/status` => `total_records=16`, `embedded_records=16`, `ready=true`
+- `POST /api/dataset/find-similar` => top record `Manufacturing AP - SAP 3-Way Matching`, `similarity_pct=65`, `semantic_score=0.745`
+- Gate 1 PASS: candidate ranking correctness for Ontario + SAP + manufacturing query
+- Gate 2 PASS: `project_dataset_refs` row writes with valid dataset link (`base_record_id`)
+- Gate 3 PASS: `integrator_ai_access_log` auto-logs one row per returned candidate
+- Audit PASS: `project_version_history` snapshot row written with JSONB payload
+- Dataset expansion complete: +4 Quebec records, province distribution now `QC=7`, others `=9`
+
 **What was built:**
 
-| Deliverable | File | Status |
+| Deliverable | File | Commit |
 |---|---|---|
-| Schema v12 (§7A.6) | `core/migrations/008_dataset_v12.sql` | ✅ vector(768) + new tables |
-| Four-dimensional scoring engine | `backend/similarity.py` | ✅ semantic·structural·config·context |
-| 10 seed records (Canadian SME AP) | `backend/seed_dataset.py` | ✅ two-pass: insert → embed |
-| `/api/dataset/status` | `backend/app.py:2299` | ✅ |
-| `/api/dataset/find-similar` | `backend/app.py:2329` | ✅ |
-| `/api/dataset/save` (flywheel) | `backend/app.py:2375` | ✅ |
-| Mode 3 dataset candidates panel | `IngestionHub.jsx:554` | ✅ colour-coded similarity |
-| Migration DB target fix | `run-migrations.ps1:99` | ✅ was `-d postgres`, now `-d $Database` |
-| Post-migration verification | `run-migrations.ps1:112` | ✅ checks all §7A.6 objects in proviso |
+| Schema v12 (§7A.6) | `core/migrations/008_dataset_v12.sql` | `6ccb86b` |
+| Four-dimensional scoring engine | `backend/similarity.py` | `6ccb86b` |
+| Seed pipeline — 16 records, 7 QC | `backend/seed_dataset.py` | `6ccb86b` + `90f9d54` |
+| `/api/dataset/status` | `backend/app.py:2299` | `6ccb86b` |
+| `/api/dataset/find-similar` | `backend/app.py:2329` | `6ccb86b` |
+| `/api/dataset/save` (flywheel) | `backend/app.py:2375` | `6ccb86b` |
+| Mode 3 dataset candidates panel | `IngestionHub.jsx:554` | `6ccb86b` |
+| Migration DB target fix (`-d postgres` bug) | `run-migrations.ps1:99` | `6ccb86b` |
+| Post-migration schema verification | `run-migrations.ps1:112` | `6ccb86b` |
+| Ollama `host.docker.internal` fallback | `backend/similarity.py:49` | `f5cfd35` |
+| Quebec market expansion (+6 records) | `backend/seed_dataset.py` | `90f9d54` |
+
+**Dataset — 16 records, all embedded (2026-06-03):**
+
+| Province | Records | Industries |
+|---|---|---|
+| QC | 7 | Retail, Aerospace Mfg, Consulting, Healthcare, Food Distribution, Tech, Infrastructure |
+| ON | 4 | Retail, Manufacturing, Healthcare, Logistics |
+| AB · BC · MB · SK · NS | 5 | Construction × 2, Logistics, Manufacturing, Healthcare |
+
+**Known runtime behaviour:**
+
+- First `find-similar` after Flask restart: ~15–35s (Ollama cold-start + `host.docker.internal` 15s timeout before localhost fallback)
+- Subsequent calls: ~4–8s once model is warm
+- **Fix for cold-start**: change `.env` line to `OLLAMA_BASE_URL=http://localhost:11434` when running Flask directly on the host (not in Docker). The Docker value `host.docker.internal` is correct for container-to-container calls only.
+
+**Correct SQL column names** (the other AI invents wrong ones — use these):
+
+| Table | Correct columns |
+| --- | --- |
+| `project_dataset_refs` | `base_record_id`, `similarity_score` (DECIMAL 0–1 not %), `diff_proposed`, `diff_accepted`, `diff_rejected` |
+| `integrator_ai_access_log` | `integrator_id`, `project_id`, `access_reason` |
+| `project_version_history` | `tenant_id`, `project_id`, `version`, `version_notes`, `snapshot_json`, `changed_by` |
+| `workflows_dataset` (new cols) | `province`, `erp_type`, `state_count`, `threshold_amount`, `sla_hours`, `approval_tiers`, `touchless_rate`, `document_types`, `pain_points`, `metrics`, `compliance_tags` |
+
+**DB credentials (dev):** `postgresql://proviso:change-me@localhost:5432/proviso` · NOT `proviso_dev_password`
 
 **Run sequence to activate:**
 
@@ -36,7 +74,7 @@
 # 2. Pull embedding model (if not already)
 ollama pull nomic-embed-text
 
-# 3. Seed 10 records (two-pass: insert then embed, ~1-2 min)
+# 3. Seed dataset (two-pass: insert then embed, ~1-2 min)
 python backend/seed_dataset.py
 
 # 4. Verify
@@ -47,6 +85,9 @@ curl http://localhost:5000/api/dataset/status
 curl -X POST http://localhost:5000/api/dataset/find-similar `
   -H "Content-Type: application/json" `
   -d '{"scenario_text":"Ontario manufacturer SAP invoice approval"}'
+
+# 6. (Current verified state)
+# total_records=16, embedded_records=16, ready=true
 ```
 
 **Scoring weights (PRD v12 §7A.3):**
