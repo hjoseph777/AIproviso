@@ -146,7 +146,7 @@ Do not touch: ERP connectors (SAP, Dynamics, QuickBooks), MOD-03 Matching Engine
 |---|---|---|
 | QC | 7 | Retail, Aerospace Mfg, Consulting, Healthcare, Food Distribution, Tech, Infrastructure |
 | ON | 4 | Retail, Manufacturing, Healthcare, Logistics |
-| AB · BC · MB · SK · NS | 5 | Construction × 2, Logistics, Manufacturing, Healthcare |
+| AB · BC · MB · SK · NS | 5+ | Construction × 2, Logistics, Manufacturing, Healthcare (SK = 3, not 2) |
 
 **Known runtime behaviour:**
 

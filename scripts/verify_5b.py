@@ -64,15 +64,17 @@ def run_regression(min_records: int) -> None:
     embedded = int(status.get("embedded_records", 0))
     complete = int(status.get("records_with_complete_metadata", 0))
     incomplete = embedded - complete
+    MAX_TEST_RECORDS = 10   # cap on tolerated blank-metadata (flywheel/test) records
     chk(f"queryable records (complete metadata) >= {min_records}",
         complete >= min_records,
         f"{complete} queryable / {total} total")
     chk("all records embedded", total == embedded, f"{embedded}/{total}")
+    chk(f"blank-metadata records <= {MAX_TEST_RECORDS} (test-record cap)",
+        incomplete <= MAX_TEST_RECORDS,
+        f"{incomplete} blank — excluded from find-similar by NULL filter")
     if incomplete > 0:
-        # WARN only — NULL-metadata records are already excluded from find-similar
-        # by the WHERE province IS NOT NULL filter in similarity.py.
-        print(f"  [WARN] {incomplete} record(s) have blank province/erp_type/industry "
-              f"(flywheel test records). Excluded from find-similar — ranking unaffected.")
+        print(f"  [INFO] {incomplete} blank-metadata record(s) are flywheel test writes."
+              "  They are excluded from similarity queries and safe to leave or delete.")
     print()
 
     # Anchor ranking
@@ -104,8 +106,10 @@ def run_regression(min_records: int) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--min", type=int, default=16,
-                        help="Minimum expected total_records (default 16)")
+    parser = argparse.ArgumentParser(
+        description="Session 5B regression check. Default contract: 45 queryable records."
+    )
+    parser.add_argument("--min", type=int, default=45,
+                        help="Minimum queryable (complete metadata) records (default 45)")
     args = parser.parse_args()
     run_regression(args.min)
