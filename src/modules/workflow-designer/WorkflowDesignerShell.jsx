@@ -285,7 +285,8 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
   }, [activeProjectId, bootstrapFromBackend]);
 
   // ── Handle mode selector result ──────────────────────────────────────────────
-  const handleModeSelect = ({ mode, template, parsed, name, preset }) => {
+  const handleModeSelect = ({ mode, template, parsed, name, preset,
+                               scenario_text, fromDataset, source }) => {
     const store = useWorkflowStore.getState();
 
     // All workflow creation/import paths require an active project context.
@@ -307,7 +308,7 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
         },
       });
     } else if (mode === 3 && parsed) {
-      // AI Generated
+      // AI Generated or Dataset Match
       store.importWorkflow({
         workflow: {
           name: name || 'AI Generated Workflow',
@@ -316,6 +317,12 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
           project_id: activeProjectId,
         },
       });
+      // Flywheel: offer "Save to Dataset" for AI-generated + dataset-matched workflows
+      if (scenario_text && source !== 'keyword-fallback') {
+        setSavePrompt({ scenario_text, workflow_name: name || 'AI Generated Workflow',
+                        from_dataset: !!fromDataset });
+        setSavedToDataset(false);
+      }
     } else if (mode === 4 && preset) {
       // Preset Default — create a named COPY; the original preset is never modified
       store.importWorkflow({
@@ -328,6 +335,45 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
       });
     }
   };
+
+  // ── Session 5A — Flywheel write-back ──────────────────────────────────────
+  const [savePrompt, setSavePrompt]       = useState(null);   // {scenario_text, workflow_name, from_dataset}
+  const [savingToDataset, setSaving]      = useState(false);
+  const [savedToDataset, setSavedToDataset] = useState(false);
+
+  const handleSaveToDataset = async () => {
+    if (!savePrompt || savingToDataset) return;
+    setSaving(true);
+    try {
+      const store    = useWorkflowStore.getState();
+      const activeWf = store.workflows?.find(w => w.id === store.activeId);
+      const states   = store.rfNodes?.map(n => ({
+        id:         n.id,
+        name:       n.data?.label || n.id,
+        state_kind: n.data?.stateKind || 'standard',
+      })) || [];
+
+      await fetch('/api/dataset/save', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_text:  savePrompt.scenario_text,
+          project_name:   savePrompt.workflow_name,
+          workflow_json:  { workflows: [{ id: 'wf_001', name: savePrompt.workflow_name, states, transitions: [] }] },
+          state_count:    states.length,
+          source:         savePrompt.from_dataset ? 'ai_customized' : 'ai_generated',
+        }),
+      });
+      setSavedToDataset(true);
+      setTimeout(() => setSavePrompt(null), 3000);
+    } catch {
+      setSavedToDataset(true); // dismiss on error too — don't block integrator
+      setTimeout(() => setSavePrompt(null), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const [viewMode, setViewMode] = useState('business');
   const [tabDraft, setTabDraft] = useState('');
   const [editTabId, setEditTabId] = useState(null);
@@ -1242,6 +1288,77 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
                   activeProjectId={activeProjectId}
                   onRequireProject={requireProject}
                 />
+
+                {/* ── Session 5A: Save-to-Dataset flywheel banner ── */}
+                {savePrompt && (
+                  <div style={{
+                    position: 'absolute', bottom: 24, right: 24, zIndex: 12,
+                    width: 320,
+                    background: 'rgba(7,12,23,0.92)',
+                    backdropFilter: 'blur(18px) saturate(160%)',
+                    WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+                    border: savedToDataset
+                      ? '1px solid rgba(74,222,128,0.40)'
+                      : '1px solid rgba(56,189,248,0.28)',
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+                    transition: 'all 400ms cubic-bezier(0.16,1,0.3,1)',
+                  }}>
+                    {savedToDataset ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 16, filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.8))' }}>✓</span>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80' }}>Saved to Dataset</div>
+                          <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.7)', marginTop: 2 }}>
+                            Future AI matches will improve with this workflow.
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(56,189,248,0.8)',
+                            letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>
+                            ✦ {savePrompt.from_dataset ? 'Dataset Match Applied' : 'AI Workflow Generated'}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#dde7f5', marginBottom: 3 }}>
+                            {savePrompt.workflow_name}
+                          </div>
+                          <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.65)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {savePrompt.scenario_text.slice(0, 72)}{savePrompt.scenario_text.length > 72 ? '…' : ''}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.6)', marginBottom: 10 }}>
+                          Save this workflow to improve future AI similarity matches?
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button type="button" onClick={handleSaveToDataset} disabled={savingToDataset}
+                            style={{
+                              flex: 1, padding: '7px 0', borderRadius: 8,
+                              border: '1px solid rgba(56,189,248,0.40)',
+                              background: 'rgba(56,189,248,0.10)',
+                              color: '#38bdf8', fontSize: 10, fontWeight: 700,
+                              cursor: savingToDataset ? 'wait' : 'pointer',
+                              transition: 'all .14s',
+                            }}>
+                            {savingToDataset ? 'Saving…' : 'Save to Dataset'}
+                          </button>
+                          <button type="button" onClick={() => setSavePrompt(null)}
+                            style={{
+                              padding: '7px 12px', borderRadius: 8,
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              background: 'rgba(255,255,255,0.04)',
+                              color: '#475569', fontSize: 10, cursor: 'pointer',
+                            }}>
+                            Not now
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

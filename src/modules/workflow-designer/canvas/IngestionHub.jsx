@@ -369,7 +369,9 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
           setAiSource(data.source);
           const { name, states, transitions } = data.workflow;
           setTimeout(() => {
-            onModeSelect({ mode: 3, parsed: { states, transitions }, name: workflowName || name || 'AI Generated Workflow' });
+            onModeSelect({ mode: 3, parsed: { states, transitions },
+              name: workflowName || name || 'AI Generated Workflow',
+              scenario_text: aiText.trim(), source: data.source });
           }, 800);
           return;
         }
@@ -379,7 +381,8 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
       setAiError('Flowise and Ollama unavailable — using keyword NLP');
       const parsed = parseScenario(aiText.trim());
       setTimeout(() => {
-        onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
+        onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow',
+          scenario_text: aiText.trim(), source: 'keyword-fallback' });
       }, 1200);
 
     } finally {
@@ -409,12 +412,14 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
       setDiffPanelOpen(false);
       setTimeout(() => {
         onModeSelect({
-          mode:     3,
-          parsed:   { states: wfData.states || [], transitions: wfData.transitions || [] },
-          name:     workflowName || diffCandidate.project_name || 'Dataset Workflow',
-          fromDataset: true,
-          refId:    data.ref_id,
-          fallback: data.fallback || false,
+          mode:          3,
+          parsed:        { states: wfData.states || [], transitions: wfData.transitions || [] },
+          name:          workflowName || diffCandidate.project_name || 'Dataset Workflow',
+          scenario_text: aiText.trim(),
+          fromDataset:   true,
+          refId:         data.ref_id,
+          fallback:      data.fallback || false,
+          source:        'dataset-match',
         });
       }, 400);
     } catch {
@@ -422,9 +427,11 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
       const wfData = diffCandidate.workflow_json?.workflows?.[0] || {};
       setDiffPanelOpen(false);
       onModeSelect({
-        mode:   3,
-        parsed: { states: wfData.states || [], transitions: wfData.transitions || [] },
-        name:   workflowName || diffCandidate.project_name || 'Dataset Workflow',
+        mode:          3,
+        parsed:        { states: wfData.states || [], transitions: wfData.transitions || [] },
+        name:          workflowName || diffCandidate.project_name || 'Dataset Workflow',
+        scenario_text: aiText.trim(),
+        source:        'dataset-match-fallback',
       });
     } finally {
       setIsDiffApplying(false);
