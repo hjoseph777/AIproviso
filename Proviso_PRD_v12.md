@@ -255,6 +255,31 @@ Do not build the full vision before the demo. Every Phase 1 feature must satisfy
 
 If a feature passes the AI-First Test but is not deliverable in Phase 1, it goes on the Phase 2 roadmap. It does not delay Phase 1. If a feature is deliverable in Phase 1 but fails the AI-First Test, it is redesigned or dropped. It does not ship as a legacy feature with an AI wrapper.
 
+### 0.10 Session Conformance Discipline
+
+The conformance gate is the enforcement mechanism for delivery quality. Every session must end with all in-scope tests passing. No session closes with a known failure deferred to the next session.
+
+This discipline is mandatory. It is what makes the product complete rather than merely large.
+
+### 0.11 Primary Delivery Risk and Mitigation
+
+The primary risk to completing all phases before the demo is time risk, not technical risk. The architecture has proven soundness; schedule control is the controlling variable.
+
+Mitigation policy:
+
+1. Track delivery by sessions, not calendar weeks.
+2. Each session has a fixed scope and a fixed close checklist.
+3. A session closes only when its checklist passes.
+4. Session scope does not expand mid-session.
+5. Features outside current session scope move to the next session backlog.
+
+Planning baseline:
+
+- The current roadmap implies approximately 14 sessions to a Michel-ready complete platform.
+- At an average velocity of one session per week (alongside Xerox consulting obligations), this is approximately 14 weeks, or roughly four months.
+
+This timeline is acceptable for building a complete platform positioned to outperform incumbent AP automation options in the Canadian SME market.
+
 ---
 
 ## Seven Locked Architectural Decisions
@@ -462,6 +487,24 @@ Each workflow inside a project is independently versioned. Adding a new workflow
 A Project Template is a pre-configured project for a specific client profile. When a new client closely matches an existing profile, the integrator starts from the template rather than from scratch. The template pre-populates the ERP connection pattern, the workflow structure, the typical customisation parameters, and the user role model. The integrator then adjusts only what differs for this client.
 
 Over time the template library grows with each deployment. Every project that completes a successful activation is a candidate for promotion to a template. The AI identifies strong template candidates based on similarity score clustering — if five deployed projects are 90%+ similar to each other, that cluster is a template waiting to be named.
+
+#### 2.3.6 Domain Profile Baseline (M-Files Conformity Equivalent)
+
+AI Proviso introduces a **Domain Profile Baseline** as the deployment-time structural baseline for every new project. This is the platform equivalent of an M-Files conformity vault concept: a pre-defined starting structure copied into each client project to guarantee consistency.
+
+The Domain Profile Baseline is a **design-time bootstrap artifact**, not a runtime test.
+
+| Baseline Element | Policy |
+| :--- | :--- |
+| Standard AP state names | Required and fixed across all clients (`received`, `extracted`, `pending_approval`, `approved`, `posted`, `exception`, `escalated`) |
+| Standard event names | Required canonical set (`invoice.received`, `invoice.extracted`, `invoice.approved`, `invoice.exception`, `invoice.posted`) |
+| Standard audit model | Required minimum event schema and immutable audit chain |
+| Standard ERP mapping contract | Required minimum outbound fields |
+| Standard role model | Required baseline approver/escalation role classes |
+
+Client customization is applied on top of this baseline and may change thresholds, SLA durations, approval tiers, assignments, and optional states, but cannot break canonical naming and minimum contract structure.
+
+This section defines structural consistency across deployments. Runtime integrity enforcement is defined separately in **Section 9A**.
 
 ---
 
@@ -1852,6 +1895,57 @@ When an invoice is missing an explicit Vendor Number or PO:
 ### 9.2 Exception Queues & Escalation
 
 See MOD-06 specification above.
+
+## 9A. Conformance Baseline Workflow (Platform Integrity Gate)
+
+### 9A.1 Purpose and Scope
+
+AI Proviso defines a **Conformance Baseline Workflow** as a fixed internal test suite used to verify platform integrity on every code change. This is not client-facing and is never deployed as a customer workflow.
+
+This section is intentionally distinct from Section 2.3.6:
+
+- **Domain Profile Baseline (Section 2.3.6):** deployment starting structure for each client project (design-time concept)
+- **Conformance Baseline Workflow (Section 9A):** CI/CD integrity test gate for platform correctness (build-time concept)
+
+### 9A.2 Canonical Baseline Definition
+
+The Conformance Baseline Workflow uses a canonical, versioned definition (`baseline-workflow-v1`) with fixed states and events.
+
+| Canonical States | Canonical Events |
+| :--- | :--- |
+| `received` | `invoice.received` |
+| `extracted` | `invoice.extracted` |
+| `pending_approval` | `invoice.approved` |
+| `approved` | `invoice.posted` |
+| `posted` | `invoice.exception` |
+| `exception` |  |
+
+### 9A.3 Integrity Checks
+
+Each conformance run must verify all of the following:
+
+1. XState transition evaluation remains deterministic and correct.
+2. PostgreSQL persistence remains atomic across `workflow_state`, `workflow_state_history`, `workflow_timers`, and `audit_events`.
+3. SLA timer creation occurs on canonical entry states.
+4. Timer cancellation occurs on canonical exit transitions.
+5. n8n side effects fire only after database commit.
+6. Audit trail completeness and ordering remain valid.
+7. ERP payload minimum contract fields are always present.
+8. Confidence-threshold and PO-missing rules fire and persist expected outcomes.
+
+### 9A.4 Execution Policy
+
+The Conformance Baseline Workflow is mandatory in three contexts:
+
+1. Pre-merge gate on every pull request to `main`.
+2. Post-deploy smoke gate in every environment.
+3. Nightly regression run to detect drift.
+
+### 9A.5 Release Gate Rule
+
+Any divergence from expected conformance output is a release blocker unless explicitly approved and documented in a change record.
+
+Simulation mode remains required for client-specific workflow validation before activation, but simulation does not replace conformance. Conformance protects platform correctness; simulation validates project configuration correctness.
 
 ---
 
