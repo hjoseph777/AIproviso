@@ -3,6 +3,7 @@ from typing import Optional, Any
 import json
 import math
 import os
+import re
 
 import requests
 
@@ -191,7 +192,7 @@ def _fetch_candidates(conn, tenant_id: str, embed_vec: Optional[str], limit: int
                 """
                 SELECT id, project_name, scenario_text, industry, province, erp_type,
                        state_count, touchless_rate, tags, workflow_json,
-                       threshold_amount, sla_hours,
+                       threshold_amount, sla_hours, approval_tiers,
                        1 - (embedding <=> %s::vector) AS semantic_score
                 FROM workflows_dataset
                 WHERE tenant_id = %s AND embedding IS NOT NULL
@@ -218,6 +219,156 @@ def _fetch_candidates(conn, tenant_id: str, embed_vec: Optional[str], limit: int
         rows = [dict(zip(cols, row)) for row in cur.fetchall()]
 
     return rows, searched
+
+
+def _extract_scenario_config(text: str) -> dict:
+    """
+    Extract threshold, SLA, approval tiers, and feature flags from plain-text scenario.
+    Used by generate_diff() to produce the proposed diff items.
+    Returns only fields where the scenario makes an explicit assertion.
+    """
+    cfg: dict[str, Any] = {}
+
+    # Threshold: $25k, $25,000, $25K, 25k
+    m = re.search(r'\$?\b(\d[\d,]*)\s*[kK]\b', text)
+    if m:
+        cfg["threshold_amount"] = int(m.group(1).replace(",", "")) * 1000
+    else:
+        m = re.search(r'\$(\d[\d,]{2,})', text)
+        if m:
+            cfg["threshold_amount"] = int(m.group(1).replace(",", ""))
+
+    # SLA: 4h, 4-hour, 4 hours, 24hr
+    m = re.search(r'\b(\d+)\s*[-\s]?h(?:our|r)?s?\b', text, re.IGNORECASE)
+    if m:
+        cfg["sla_hours"] = int(m.group(1))
+
+    # Approval tiers
+    if re.search(r'\bsingle[\s-](?:tier|approval|level)\b|1[\s-]tier\b', text, re.IGNORECASE):
+        cfg["approval_tiers"] = 1
+    elif re.search(r'\bdual[\s-](?:tier|approval)|two[\s-]tier\b|2[\s-]tier\b', text, re.IGNORECASE):
+        cfg["approval_tiers"] = 2
+    elif re.search(r'\bthree[\s-]tier\b|3[\s-]tier\b|triple[\s-]approval\b', text, re.IGNORECASE):
+        cfg["approval_tiers"] = 3
+
+    # Feature flags
+    cfg["has_compliance"] = bool(re.search(r'\bcompliance\b', text, re.IGNORECASE))
+    cfg["has_po_match"]   = bool(re.search(r'\b(?:po[\s-]?match|three[\s-]way[\s-]match|3[\s-]way[\s-]match)\b', text, re.IGNORECASE))
+
+    return cfg
+
+
+def generate_diff(scenario_text: str, candidate: dict) -> list[dict]:
+    """
+    Produce the proposed diff between a new scenario and a matched candidate.
+    Returns a list in the replayable shape required by PRD v12 §7A.4:
+        {field, from_value, to_value, reason, field_type, apply_operation}
+    Only emits an item when there is a meaningful, detectable difference.
+    """
+    new_cfg = _extract_scenario_config(scenario_text)
+    diffs: list[dict] = []
+
+    # --- threshold_amount ---
+    if "threshold_amount" in new_cfg:
+        old_val = candidate.get("threshold_amount")
+        if old_val is not None:
+            old_f = float(old_val)
+            new_f = float(new_cfg["threshold_amount"])
+            # Only emit if the difference is > 5% of the old value
+            if old_f > 0 and abs(old_f - new_f) / old_f > 0.05:
+                diffs.append({
+                    "field":           "threshold_amount",
+                    "from_value":      int(old_f),
+                    "to_value":        int(new_f),
+                    "reason":          "different approval threshold described",
+                    "field_type":      "numeric",
+                    "apply_operation": "replace",
+                })
+
+    # --- sla_hours ---
+    if "sla_hours" in new_cfg:
+        old_val = candidate.get("sla_hours")
+        if old_val is not None:
+            old_f = float(old_val)
+            new_f = float(new_cfg["sla_hours"])
+            if abs(old_f - new_f) >= 1.0:
+                diffs.append({
+                    "field":           "sla_hours",
+                    "from_value":      old_f,
+                    "to_value":        new_f,
+                    "reason":          "different SLA target described",
+                    "field_type":      "duration",
+                    "apply_operation": "replace",
+                })
+
+    # --- approval_tiers ---
+    if "approval_tiers" in new_cfg:
+        old_val = candidate.get("approval_tiers") or 1
+        new_val = new_cfg["approval_tiers"]
+        if int(old_val) != int(new_val):
+            diffs.append({
+                "field":           "approval_tiers",
+                "from_value":      int(old_val),
+                "to_value":        int(new_val),
+                "reason":          "different approval tier count described",
+                "field_type":      "numeric",
+                "apply_operation": "replace",
+            })
+
+    # --- compliance review state ---
+    if new_cfg.get("has_compliance"):
+        # Check if candidate already has a compliance state in workflow_json
+        wf = candidate.get("workflow_json") or {}
+        if isinstance(wf, str):
+            try:
+                wf = json.loads(wf)
+            except Exception:
+                wf = {}
+        states = []
+        for wf_entry in (wf.get("workflows") or []):
+            states.extend(wf_entry.get("states") or [])
+        has_comp = any(
+            "compliance" in s.get("name", "").lower()
+            for s in states
+        )
+        steps = wf.get("steps") or []
+        has_comp = has_comp or any("compliance" in str(s).lower() for s in steps)
+        if not has_comp:
+            diffs.append({
+                "field":           "state_add",
+                "from_value":      None,
+                "to_value":        "Compliance Review",
+                "reason":          "compliance requirement detected in scenario",
+                "field_type":      "state_add",
+                "apply_operation": "add",
+                "state_kind":      "approval",
+            })
+
+    # --- PO matching state ---
+    if new_cfg.get("has_po_match"):
+        wf = candidate.get("workflow_json") or {}
+        if isinstance(wf, str):
+            try:
+                wf = json.loads(wf)
+            except Exception:
+                wf = {}
+        steps = wf.get("steps") or []
+        wf_states = []
+        for wf_entry in (wf.get("workflows") or []):
+            wf_states.extend(wf_entry.get("states") or [])
+        has_po = any("match" in str(s).lower() for s in steps + [s.get("name","") for s in wf_states])
+        if not has_po:
+            diffs.append({
+                "field":           "state_add",
+                "from_value":      None,
+                "to_value":        "PO Matching",
+                "reason":          "PO / three-way match requirement detected",
+                "field_type":      "state_add",
+                "apply_operation": "add",
+                "state_kind":      "technical",
+            })
+
+    return diffs
 
 
 def find_similar(conn, tenant_id: str, query: SimilarityInput, top_n: int = 3) -> dict:
@@ -264,6 +415,13 @@ def find_similar(conn, tenant_id: str, query: SimilarityInput, top_n: int = 3) -
             similarity_pct=int(round(combined * 100)),
         )
 
+        candidate_record = {
+            "threshold_amount": c_threshold,
+            "sla_hours":        c_sla,
+            "approval_tiers":   row.get("approval_tiers"),
+            "workflow_json":    wf,
+        }
+
         results.append(
             {
                 "id": score.record_id,
@@ -281,6 +439,9 @@ def find_similar(conn, tenant_id: str, query: SimilarityInput, top_n: int = 3) -
                 "touchless_rate": float(row.get("touchless_rate") or 0.0),
                 "tags": row.get("tags") or [],
                 "workflow_json": wf,
+                # Replayable diff items — populated for every candidate,
+                # DiffPanel shows these; apply-diff stores them as proposed+accepted+rejected
+                "diff": generate_diff(query.scenario_text, candidate_record),
             }
         )
 
