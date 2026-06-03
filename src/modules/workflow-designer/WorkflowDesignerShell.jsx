@@ -345,30 +345,36 @@ export default function WorkflowDesignerShell({ externalSelection = null, embedd
     if (!savePrompt || savingToDataset) return;
     setSaving(true);
     try {
-      const store    = useWorkflowStore.getState();
-      const activeWf = store.workflows?.find(w => w.id === store.activeId);
-      const states   = store.rfNodes?.map(n => ({
+      const store = useWorkflowStore.getState();
+      const states = (store.rfNodes || []).map(n => ({
         id:         n.id,
         name:       n.data?.label || n.id,
         state_kind: n.data?.stateKind || 'standard',
-      })) || [];
+      }));
+      const transitions = (store.rfEdges || []).map(e => ({
+        id:     e.id,
+        source: e.source,
+        target: e.target,
+        label:  e.data?.label || '',
+      }));
 
-      await fetch('/api/dataset/save', {
+      const res = await fetch('/api/dataset/save', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scenario_text:  savePrompt.scenario_text,
-          project_name:   savePrompt.workflow_name,
-          workflow_json:  { workflows: [{ id: 'wf_001', name: savePrompt.workflow_name, states, transitions: [] }] },
-          state_count:    states.length,
-          source:         savePrompt.from_dataset ? 'ai_customized' : 'ai_generated',
+          scenario_text: savePrompt.scenario_text,
+          project_name:  savePrompt.workflow_name,
+          workflow_json: { workflows: [{ id: 'wf_001', name: savePrompt.workflow_name, states, transitions }] },
+          state_count:   states.length,
+          source:        savePrompt.from_dataset ? 'ai_customized' : 'ai_generated',
         }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSavedToDataset(true);
       setTimeout(() => setSavePrompt(null), 3000);
     } catch {
-      setSavedToDataset(true); // dismiss on error too — don't block integrator
-      setTimeout(() => setSavePrompt(null), 2000);
+      // On any error: silent dismiss — do not block the integrator
+      setSavePrompt(null);
     } finally {
       setSaving(false);
     }
