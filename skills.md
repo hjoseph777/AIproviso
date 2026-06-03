@@ -1,12 +1,85 @@
 # AI Proviso — Master Skills & Status Log
 
 > **Session anchor:** `AI-PROVISO-SESSION3-VERIFIED-2026-06-03`
-> **Resume checkpoint:** `PROVISIO-DATASET-ANCHOR-0514`
 > **Last verified green:** Session 3 end-to-end PASS (all 4 gates green) · commits `f5cfd35` + `90f9d54`
 > **Session 3 implementation commit:** `6ccb86b` · pgvector engine + migration 008 + similarity API
 > **PRD source:** `Proviso_PRD_v12.md` — canonical reference
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
+
+---
+
+## 🔴 NEXT — Session 4 (LOCKED, NOT STARTED)
+
+### Session 4 — Diff Approval UI (PRD §7A.4)
+
+**Why this is the right next move:** Sessions 1–3 closed the AI suggestion layer. Session 4 closes the integrator authority layer — turning "AI suggests" into "integrator controls and approves." This is the missing trust layer in the Michel LeBrun story.
+
+#### Definition of Done
+
+| # | Check | Pass Criteria |
+| --- | --- | --- |
+| 1 | Diff Panel appears only above threshold | Panel renders only when top candidate `similarity_pct >= 60`. Below 60 → AI generation proceeds without diff prompt |
+| 2 | At least one action required | "Apply approved diffs" button is **disabled** until integrator has explicitly Accepted or Rejected at least one diff item |
+| 3 | Single write path to `project_dataset_refs` | On "Apply", one INSERT writes `diff_proposed` (all items), `diff_accepted` (accepted items), `diff_rejected` (rejected items) together — no partial writes |
+| 4 | Safe fallback | If diff application fails for any reason, workflow is created from the base candidate JSON unchanged. No error shown to user beyond a passive badge. Source record in `workflows_dataset` is never mutated |
+| 5 | Glassmorphic panel matches existing design system | Diff Panel uses `GLASS` constant + `SPRING` easing from `IngestionHub.jsx`. No new design tokens |
+| 6 | Smoke gate preserved | Existing 15/15 smoke test remains green after Session 4 changes |
+
+#### What to build
+
+**Backend — `POST /api/dataset/apply-diff`** (new, ~40 lines in `app.py`):
+
+```text
+Input:  { base_record_id, diff_accepted: [...], diff_rejected: [...], tenant_id }
+Action: 1. Load base workflow_json from workflows_dataset
+        2. Apply accepted diffs to a copy (threshold, SLA, state additions)
+        3. INSERT into project_dataset_refs (one write — proposed + accepted + rejected)
+        4. Return { workflow_json: <patched copy>, ref_id }
+On error: return base workflow_json unchanged, ref_id null
+```
+
+**Frontend — `DiffPanel` component in `IngestionHub.jsx`:**
+
+```text
+Trigger:  top candidate similarity_pct >= 60 after find-similar returns
+Shows:    - Candidate header: project_name · similarity % · province · ERP
+          - Diff list: each item as a row
+              field label | current value → proposed value | reason | [Accept] [Reject]
+          - Footer: "Apply N accepted changes" button (disabled until >= 1 action taken)
+          - "Skip — use base" link (bypass diff, use candidate as-is)
+On Apply: POST /api/dataset/apply-diff → canvas loads patched workflow
+On Skip:  canvas loads base workflow_json directly
+```
+
+#### Out of scope for Session 4
+
+- Growing the dataset (Session 5A)
+- "Save to Dataset" flywheel button (Session 5A)
+- ERP connectors, MOD-03, MOD-05, MOD-06 (Phase II/III — frozen)
+- Any changes to the similarity scoring weights or seed records
+
+#### Files to touch
+
+| File | Change |
+| --- | --- |
+| `backend/app.py` | Add `POST /api/dataset/apply-diff` after line 2396 |
+| `src/modules/workflow-designer/canvas/IngestionHub.jsx` | Add `DiffPanel` component + `handleApplyDiff()` handler |
+| `skills.md` | Mark Session 4 complete after DoD verified |
+
+---
+
+### Session 5A — Flywheel write-back UX (after Session 4)
+
+Wire "Save to Dataset" button in the canvas shell after workflow activation. `POST /api/dataset/save` already exists. UI needs: trigger point (post-activation), confirm dialog, success badge. One session, one endpoint call, no new schema.
+
+### Session 5B — Dataset controlled expansion (after 5A)
+
+Add records in batches of +10. After each batch: run a `find-similar` regression check to confirm ranking doesn't drift. Repeat until ~50 records. Target 142 for Phase I demo per PRD §7A.
+
+### Phase II / III — FROZEN
+
+Do not touch: ERP connectors (SAP, Dynamics, QuickBooks), MOD-03 Matching Engine, MOD-05 ERP Adapter, MOD-06 Exception Management, MOD-08 UI hardening. These do not appear in Phase I demo scope (PRD §2.1).
 
 ---
 
@@ -27,7 +100,7 @@
 **What was built:**
 
 | Deliverable | File | Commit |
-|---|---|---|
+| --- | --- | --- |
 | Schema v12 (§7A.6) | `core/migrations/008_dataset_v12.sql` | `6ccb86b` |
 | Four-dimensional scoring engine | `backend/similarity.py` | `6ccb86b` |
 | Seed pipeline — 16 records, 7 QC | `backend/seed_dataset.py` | `6ccb86b` + `90f9d54` |
