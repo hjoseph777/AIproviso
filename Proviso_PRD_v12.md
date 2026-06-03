@@ -13,8 +13,9 @@
 | **Author** | Harry Joseph / scriptdotnet — Xerox Canada |
 | **Previous Versions** | PRD v11.0 (Project Container Model) · PRD v10.0 (Workflow Engine Boundary) · PRD v9.0 (Platform Boundary Clarification) · PRD v8.0 (Consolidated Production Architecture) |
 | **Primary Stakeholder** | Michel LeBrun — Director, Software Pre-sales & Solution Design |
-| **Demo Target** | 12-Week Michel LeBrun Pilot (Phase I Working Vertical Slice) |
-| **Phase I Timeline** | 8 Weeks to Working Demo · 16 Weeks Production Hardening |
+| **Demo Target** | Michel LeBrun Pilot — Full Phase I Application Demo |
+| **Phase I Timeline** | Build complete → integrated test → demo (sessions 4–6 remaining) |
+| **Build Status** | Sessions 1–3 COMPLETE (AI backbone live) · Session 4 next (Diff Approval UI) |
 | **Architecture** | 9-Module Contract-First Isolation · Docker Compose (local baseline) · Kubernetes (enterprise scale path) · XState Workflow Engine · n8n Event Spine |
 | **AI Stack** | Ollama · Flowise (Config-as-Code) · PaddleOCR · PP-Structure · @xyflow/react v12 (React Flow Pro baseline) |
 | **Data Layer** | PostgreSQL 16 (Platform Master) + SQLite (Local Workspace Client Cache) |
@@ -279,6 +280,69 @@ Planning baseline:
 - At an average velocity of one session per week (alongside Xerox consulting obligations), this is approximately 14 weeks, or roughly four months.
 
 This timeline is acceptable for building a complete platform positioned to outperform incumbent AP automation options in the Canadian SME market.
+
+### 0.12 Build-to-Demo Plan — Full Phase I Completion
+
+The strategy is: **complete the full Phase I application, then test end-to-end, then demo to Michel LeBrun.** No partial demo with stubs explained away. The demo must run the real pipeline.
+
+#### Completed — AI Backbone (Sessions 1–3)
+
+| Session | What shipped | Status |
+| :--- | :--- | :--- |
+| Session 1 — AI Workflow Generation | Mode 3 in IngestionHub wired to Flowise → Ollama → keyword NLP fallback. Three-tier pipeline live. | ✅ Complete |
+| Session 2 — OCR Recovery Layer | `_recover_low_confidence_fields()` — phi4-mini fires only for fields below 0.70 confidence. Non-blocking background thread. Per-field provenance tracking. | ✅ Complete |
+| Session 3 — Dataset Intelligence | Migration 008 (pgvector 768-dim), `similarity.py` four-dimensional scoring engine, 16 seed records (7 Quebec), `find-similar` / `status` / `save` endpoints live. All 4 conformance gates passed. | ✅ Complete |
+
+#### Remaining — Phase I Application Completion
+
+**Session 4 — Diff Approval UI (PRD §7A.4)** — the integrator authority layer
+
+The AI suggests. The integrator approves. Nothing changes until the integrator accepts each diff item. This is the trust layer that makes the Michel LeBrun story credible.
+
+Scope:
+
+- `DiffPanel` component in `IngestionHub.jsx` — renders when top candidate `similarity_pct >= 60`
+- Per-item Accept / Reject — "Apply" button disabled until at least one action taken
+- `POST /api/dataset/apply-diff` — loads base candidate, applies accepted diffs to a copy, writes one `project_dataset_refs` row (proposed + accepted + rejected in single INSERT)
+- Safe fallback — diff failure always resolves to base candidate unchanged; source record never mutated
+
+Acceptance criteria: 6 explicit checks documented in `skills.md` Session 4 DoD block.
+
+---
+
+#### Session 5A — Flywheel Write-Back UX
+
+After workflow activation, integrator is offered a "Save to Dataset" button. `POST /api/dataset/save` endpoint already exists — this session wires the UI trigger and confirm dialog. Every activated deployment feeds back into the dataset. The flywheel becomes visible in the demo.
+
+---
+
+#### Session 5B — Dataset Controlled Expansion
+
+Expand seed records in batches of +10. After each batch, run a regression check against known queries to confirm ranking does not drift. Target: ~50 records for convincing demo. Target: 142 records for production Phase I (PRD §7A per existing spec).
+
+---
+
+#### Session 6 — Integration Test + Demo Readiness
+
+End-to-end test cycle before any external demo:
+
+1. Full smoke gate (15/15 must pass)
+2. Similarity regression check — 5 known queries must return expected top record
+3. Diff approval path — apply diff → canvas loads patched workflow → `project_dataset_refs` row verified
+4. Flywheel path — save to dataset → record appears in next `find-similar` result
+5. OCR path — intake invoice → extracted → workflow advanced to review
+6. Demo walkthrough script — timed run, no explanatory stubs, real pipeline only
+
+Demo is not scheduled until Session 6 passes all 6 checks above.
+
+#### Phase II / III — Frozen Until After Demo
+
+| Phase | Scope | Trigger |
+| :--- | :--- | :--- |
+| Phase II — UI Contract Freeze | MOD-08 UI hardening, role-based views, API contract freeze | After Michel LeBrun demo |
+| Phase III — Pipeline Wiring | MOD-03 Matching, MOD-05 ERP Adapter, MOD-06 Exception Management, First-Run Wizard | After first pilot client confirmed |
+
+**Nothing from Phase II or III enters the build until Phase I demo is complete and approved by Michel LeBrun.**
 
 ---
 
