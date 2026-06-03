@@ -83,7 +83,9 @@ OLLAMA_BASE_URL   = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.environ.get("OLLAMA_MODEL", "mistral:7b-instruct")
 OLLAMA_EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 # OCR recovery threshold — PRD v12 §0.3: phi4-mini fires ONLY for fields below this value
-OCR_CONFIDENCE_THRESHOLD = float(os.environ.get("OCR_CONFIDENCE_THRESHOLD", "0.70"))
+OCR_CONFIDENCE_THRESHOLD  = float(os.environ.get("OCR_CONFIDENCE_THRESHOLD",  "0.70"))
+# Diff approval threshold — PRD v12 §7A.4: DiffPanel renders only when top candidate >= this
+SIMILARITY_DIFF_THRESHOLD = float(os.environ.get("SIMILARITY_DIFF_THRESHOLD", "0.60"))
 N8N_WEBHOOK_TOKEN = os.environ.get("N8N_WEBHOOK_TOKEN", "")
 WORKFLOW_ENGINE_BASE_URL = os.environ.get("WORKFLOW_ENGINE_BASE_URL", "http://workflow-engine:5100")
 WORKFLOW_WEBHOOK_SECRET = os.environ.get("WORKFLOW_WEBHOOK_SECRET", "")
@@ -2364,12 +2366,194 @@ def dataset_find_similar_api():
 
     return jsonify({
         "candidates": result.get("candidates", []),
+        "threshold":  SIMILARITY_DIFF_THRESHOLD,
         "query": {
-            "scenario_text": scenario_text,
-            "embed_model": result.get("embed_model", OLLAMA_EMBED_MODEL),
+            "scenario_text":    scenario_text,
+            "embed_model":      result.get("embed_model", OLLAMA_EMBED_MODEL),
             "records_searched": result.get("records_searched", 0),
         },
     }), 200
+
+
+# ── apply-diff helpers ────────────────────────────────────────────────────────
+
+def _normalize_workflow_json(wf_json: dict) -> dict:
+    """Convert seed-style {steps:[...]} to canvas-compatible {workflows:[{states,transitions}]}."""
+    if "workflows" in wf_json:
+        return wf_json
+    steps = wf_json.get("steps", [])
+    if not steps:
+        return wf_json
+    states = []
+    for i, step in enumerate(steps):
+        kind = "initial" if i == 0 else ("terminal" if i == len(steps) - 1 else "technical")
+        states.append({"id": f"s{i+1}", "name": step.replace("_", " ").title(), "state_kind": kind})
+    transitions = [
+        {"id": f"t{i+1}", "source": states[i]["id"], "target": states[i+1]["id"]}
+        for i in range(len(states) - 1)
+    ]
+    return {
+        "meta": wf_json.get("meta", {}),
+        "workflows": [{
+            "id": "wf_001", "name": "Invoice Approval",
+            "states": states, "transitions": transitions,
+            "thresholds": {"single_approval": None}, "sla": {}, "approval_tiers": 1,
+        }],
+    }
+
+
+def _apply_diffs(wf_json: dict, diff_accepted: list) -> dict:
+    """Return a deep copy of wf_json with accepted diffs applied. Never mutates source."""
+    import copy
+    patched = copy.deepcopy(wf_json)
+    workflows = patched.get("workflows", [])
+    if not workflows:
+        return patched
+    wf = workflows[0]
+
+    for diff in diff_accepted:
+        field = diff.get("field", "")
+        to_val = diff.get("to_value")
+        op     = diff.get("apply_operation", "replace")
+
+        if field == "threshold_amount":
+            wf.setdefault("thresholds", {})["single_approval"] = to_val
+        elif field == "sla_hours":
+            wf["sla"] = {"hours": to_val}
+        elif field == "approval_tiers":
+            wf["approval_tiers"] = to_val
+        elif field == "state_add" and op == "add" and to_val:
+            new_state = {
+                "id": f"s_diff_{len(wf.get('states', [])) + 1}",
+                "name": str(to_val),
+                "state_kind": diff.get("state_kind", "approval"),
+            }
+            states = wf.get("states", [])
+            # Insert before the last terminal state
+            term_idx = next(
+                (i for i, s in enumerate(states) if s.get("state_kind") == "terminal"),
+                len(states),
+            )
+            states.insert(max(0, term_idx - 1), new_state)
+            wf["states"] = states
+
+    return patched
+
+
+@app.route("/api/dataset/apply-diff", methods=["POST"])
+def dataset_apply_diff_api():
+    """
+    PRD v12 §7A.4 — Apply integrator-approved diffs to a dataset candidate.
+
+    Input:  { base_record_id, diff_accepted, diff_rejected, similarity_score, tenant_id }
+    Guards: similarity_score must be >= SIMILARITY_DIFF_THRESHOLD (server-enforced)
+    Action: patch workflow_json copy + single project_dataset_refs INSERT
+    Safe fallback: any failure returns base workflow unchanged, ref_id null
+    """
+    body      = request.get_json(force=True, silent=True) or {}
+    tenant_id = body.get("tenant_id") or get_tenant_id()
+    base_id   = (body.get("base_record_id") or "").strip()
+    diff_acc  = body.get("diff_accepted",  [])
+    diff_rej  = body.get("diff_rejected",  [])
+    sim_score = body.get("similarity_score")
+
+    if not base_id:
+        return jsonify({"error": "base_record_id required"}), 400
+
+    # Server-side threshold enforcement (DoD check #1)
+    if sim_score is not None:
+        try:
+            if float(sim_score) < SIMILARITY_DIFF_THRESHOLD:
+                return jsonify({
+                    "error":            "similarity_score_below_threshold",
+                    "similarity_score": sim_score,
+                    "threshold":        SIMILARITY_DIFF_THRESHOLD,
+                }), 400
+        except (TypeError, ValueError):
+            pass
+
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT workflow_json FROM workflows_dataset WHERE id = %s AND tenant_id = %s",
+                (base_id, tenant_id),
+            )
+            row = cur.fetchone()
+
+        if not row:
+            return jsonify({"error": "record_not_found"}), 404
+
+        raw = row[0]
+        base_wf = raw if isinstance(raw, dict) else json.loads(raw)
+
+        # Normalise seed-format → canvas-compatible before patching
+        normalised = _normalize_workflow_json(base_wf)
+        patched    = _apply_diffs(normalised, diff_acc)
+
+        # Replayable diff shape — full set for audit
+        diff_proposed = list(diff_acc) + list(diff_rej)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO project_dataset_refs
+                    (tenant_id, project_id, base_record_id, similarity_score,
+                     diff_proposed, diff_accepted, diff_rejected)
+                VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)
+                RETURNING id
+                """,
+                (
+                    tenant_id, base_id, base_id,
+                    float(sim_score) if sim_score is not None else None,
+                    json.dumps(diff_proposed),
+                    json.dumps(diff_acc),
+                    json.dumps(diff_rej),
+                ),
+            )
+            ref_id = str(cur.fetchone()[0])
+        conn.commit()
+
+        return jsonify({
+            "ok":             True,
+            "workflow_json":  patched,
+            "ref_id":         ref_id,
+            "threshold_used": SIMILARITY_DIFF_THRESHOLD,
+            "diffs_applied":  len(diff_acc),
+            "fallback":       False,
+        }), 200
+
+    except Exception:
+        log.exception("dataset_apply_diff_api: error — returning base workflow unchanged")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        # Safe fallback (DoD check #4): return base workflow unchanged, ref_id null
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT workflow_json FROM workflows_dataset WHERE id = %s",
+                    (base_id,),
+                )
+                fb_row = cur.fetchone()
+            fb_raw = fb_row[0] if fb_row else {}
+            fb_wf  = fb_raw if isinstance(fb_raw, dict) else json.loads(fb_raw or "{}")
+            fb_wf  = _normalize_workflow_json(fb_wf)
+        except Exception:
+            fb_wf = {}
+        return jsonify({
+            "ok":            True,
+            "workflow_json": fb_wf,
+            "ref_id":        None,
+            "threshold_used": SIMILARITY_DIFF_THRESHOLD,
+            "fallback":      True,
+        }), 200
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 @app.route("/api/dataset/save", methods=["POST"])

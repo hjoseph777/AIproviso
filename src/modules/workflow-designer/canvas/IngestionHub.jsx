@@ -36,6 +36,165 @@ const CARD = {
   gap: 10,
 };
 
+// ── DiffPanel ─────────────────────────────────────────────────────────────────
+
+const FIELD_LABELS = {
+  threshold_amount: 'Approval Threshold',
+  sla_hours:        'SLA Target',
+  approval_tiers:   'Approval Tiers',
+  state_add:        'Add State',
+  state_remove:     'Remove State',
+};
+
+function fmtVal(field, val) {
+  if (val == null) return '—';
+  if (field === 'threshold_amount') return `$${Number(val).toLocaleString()}`;
+  if (field === 'sla_hours')        return `${val}h`;
+  return String(val);
+}
+
+function DiffRow({ diff, decision, onDecide }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '8px 10px', borderRadius: 8,
+      background: decision === 'accept' ? 'rgba(74,222,128,0.07)'
+                : decision === 'reject' ? 'rgba(248,113,113,0.07)'
+                : 'rgba(255,255,255,0.03)',
+      border: `1px solid ${
+        decision === 'accept' ? 'rgba(74,222,128,0.22)'
+        : decision === 'reject' ? 'rgba(248,113,113,0.22)'
+        : 'rgba(255,255,255,0.07)'}`,
+      transition: SPRING,
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px' }}>
+            {FIELD_LABELS[diff.field] || diff.field}
+          </span>
+          <span style={{ fontSize: 10, color: '#64748b' }}>{fmtVal(diff.field, diff.from_value)}</span>
+          <span style={{ fontSize: 9, color: '#475569' }}>→</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#38bdf8' }}>{fmtVal(diff.field, diff.to_value)}</span>
+        </div>
+        {diff.reason && (
+          <div style={{ fontSize: 8, color: 'rgba(100,116,139,0.6)', marginTop: 3, fontStyle: 'italic' }}>
+            {diff.reason}
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        {['accept', 'reject'].map((action) => (
+          <button key={action} type="button" onClick={() => onDecide(action)} style={{
+            width: 26, height: 26, borderRadius: 6, border: '1px solid',
+            cursor: 'pointer', fontSize: 11, fontWeight: 700,
+            transition: 'all .14s',
+            background: decision === action
+              ? (action === 'accept' ? 'rgba(74,222,128,0.18)' : 'rgba(248,113,113,0.18)')
+              : 'rgba(255,255,255,0.04)',
+            borderColor: decision === action
+              ? (action === 'accept' ? 'rgba(74,222,128,0.45)' : 'rgba(248,113,113,0.45)')
+              : 'rgba(255,255,255,0.1)',
+            color: decision === action
+              ? (action === 'accept' ? '#4ade80' : '#f87171')
+              : '#475569',
+          }}>
+            {action === 'accept' ? '✓' : '✕'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DiffPanel({ candidate, onApply, onSkip, applying }) {
+  const [decisions, setDecisions] = useState({});
+  const diffs = candidate?.diff || [];
+  const noDiffs = diffs.length === 0;
+
+  const decide = (idx, action) =>
+    setDecisions(prev => ({ ...prev, [idx]: prev[idx] === action ? undefined : action }));
+
+  const accepted = diffs.filter((_, i) => decisions[i] === 'accept');
+  const rejected  = diffs.filter((_, i) => decisions[i] === 'reject');
+  const hasDecision = noDiffs || Object.keys(decisions).some(k => decisions[k]);
+
+  const simColor = candidate.similarity_pct >= 80 ? '#4ade80'
+                 : candidate.similarity_pct >= 60 ? '#fbbf24' : '#94a3b8';
+
+  return (
+    <div style={{ ...GLASS, padding: '20px 22px', marginBottom: 12 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(56,189,248,0.8)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              ✦ Dataset Match
+            </span>
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: simColor,
+              background: `${simColor}18`, border: `1px solid ${simColor}40`,
+              borderRadius: 99, padding: '1px 8px', fontFamily: 'var(--mono)',
+            }}>
+              {candidate.similarity_pct}%
+            </span>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#dde7f5' }}>{candidate.project_name}</div>
+          <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.7)', marginTop: 2 }}>
+            {[candidate.province, candidate.industry, candidate.erp_type,
+              candidate.state_count ? `${candidate.state_count} states` : null]
+              .filter(Boolean).join(' · ')}
+          </div>
+        </div>
+        <button type="button" onClick={onSkip}
+          style={{ fontSize: 9, color: '#475569', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}>
+          Skip ›
+        </button>
+      </div>
+
+      {/* Diff items */}
+      {noDiffs ? (
+        <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.65)', padding: '8px 0', fontStyle: 'italic' }}>
+          No configuration differences detected — this workflow applies directly.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 }}>
+          <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.55)', marginBottom: 4, letterSpacing: '.4px', textTransform: 'uppercase' }}>
+            Proposed changes — Accept or Reject each
+          </div>
+          {diffs.map((diff, i) => (
+            <DiffRow key={i} diff={diff} decision={decisions[i]} onDecide={(a) => decide(i, a)} />
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: noDiffs ? 10 : 0 }}>
+        <button type="button" disabled={!hasDecision || applying} onClick={() => onApply(accepted, rejected)}
+          style={{
+            flex: 1, padding: '9px 16px', borderRadius: 9, border: '1px solid',
+            cursor: hasDecision && !applying ? 'pointer' : 'not-allowed',
+            fontSize: 10, fontWeight: 700, transition: SPRING,
+            background: hasDecision && !applying ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
+            borderColor: hasDecision && !applying ? 'rgba(56,189,248,0.40)' : 'rgba(255,255,255,0.08)',
+            color: hasDecision && !applying ? '#38bdf8' : '#334155',
+          }}>
+          {applying ? 'Applying…' : noDiffs
+            ? 'Use this workflow'
+            : `Apply ${accepted.length} change${accepted.length !== 1 ? 's' : ''}`}
+        </button>
+        <button type="button" onClick={onSkip} disabled={applying}
+          style={{
+            padding: '9px 14px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.08)',
+            cursor: 'pointer', fontSize: 10, color: '#475569', background: 'rgba(255,255,255,0.04)',
+            transition: SPRING,
+          }}>
+          Generate with AI
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function HubCard({ color, icon, title, desc, active, onClick, children, className }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -116,11 +275,16 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [workflowName, setWorkflowName] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiSource, setAiSource] = useState(null);   // 'flowise' | 'ollama' | 'keyword-fallback'
+  const [aiSource, setAiSource] = useState(null);
   const [aiError, setAiError] = useState(null);
   const [datasetCandidates, setDatasetCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [candidatesError, setCandidatesError] = useState(null);
+  // ── Diff Panel state (Session 4) ──────────────────────────────────────────
+  const [diffPanelOpen, setDiffPanelOpen] = useState(false);
+  const [diffCandidate, setDiffCandidate] = useState(null);
+  const [diffThreshold, setDiffThreshold] = useState(0.60);
+  const [isDiffApplying, setIsDiffApplying] = useState(false);
   const aiInputRef = useRef(null);
 
   const isVisible = visible && rfNodes.length === 0;
@@ -129,7 +293,6 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     if (activeMode === 3) setTimeout(() => aiInputRef.current?.focus(), 50);
   }, [activeMode]);
 
-  // Reset AI state when mode changes away from 3
   useEffect(() => {
     if (activeMode !== 3) {
       setAiSource(null);
@@ -137,34 +300,10 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
       setDatasetCandidates([]);
       setCandidatesError(null);
       setCandidatesLoading(false);
+      setDiffPanelOpen(false);
+      setDiffCandidate(null);
     }
   }, [activeMode]);
-
-  const fetchDatasetCandidates = async (scenario, workflow) => {
-    setCandidatesLoading(true);
-    setCandidatesError(null);
-    try {
-      const res = await fetch('/api/dataset/find-similar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenario_text: scenario,
-          workflow_json: workflow,
-          limit: 5,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.detail || data?.error || 'similarity lookup failed');
-      }
-      setDatasetCandidates(Array.isArray(data.candidates) ? data.candidates : []);
-    } catch (err) {
-      setCandidatesError(err?.message || 'Unable to load dataset candidates');
-      setDatasetCandidates([]);
-    } finally {
-      setCandidatesLoading(false);
-    }
-  };
 
   const handleTemplateSelect = (tpl) => {
     setSelectedTemplate(tpl);
@@ -172,7 +311,8 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     setWorkflowName(tpl.name);
   };
 
-  // ── Mode 3: AI generation via backend (Flowise → Ollama → keyword fallback) ──
+  // ── Mode 3: find-similar first; if top >= threshold show DiffPanel,
+  //           otherwise fall through to AI generation pipeline ──────────────
   const handleAiGenerate = async () => {
     if (!aiText.trim() || aiGenerating) return;
     if (!activeProjectId) { nudgeProjectForm(); return; }
@@ -180,48 +320,121 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     setAiGenerating(true);
     setAiError(null);
     setAiSource(null);
+    setDiffPanelOpen(false);
+    setDiffCandidate(null);
 
     try {
-      const res = await fetch('/api/ai/generate-workflow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario: aiText.trim() }),
-      });
-      const data = await res.json();
+      // Step 1 — dataset similarity (fast, ~5s with warm Ollama)
+      let foundMatch = false;
+      try {
+        const simRes = await fetch('/api/dataset/find-similar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario_text: aiText.trim() }),
+        });
+        if (simRes.ok) {
+          const simData = await simRes.json();
+          const candidates = simData.candidates || [];
+          const threshold  = simData.threshold  ?? 0.60;
+          const top        = candidates[0];
+          setDiffThreshold(threshold);
+          setDatasetCandidates(candidates);
 
-      if (data.ok && data.workflow) {
-        setAiSource(data.source);
-        const { name, states, transitions } = data.workflow;
-        const generatedWorkflow = { name, states, transitions };
-        fetchDatasetCandidates(aiText.trim(), generatedWorkflow);
-        // Short delay so user sees the source badge before dismiss
-        setTimeout(() => {
-          onModeSelect({
-            mode: 3,
-            parsed: { states, transitions },
-            name: workflowName || name || 'AI Generated Workflow',
-          });
-        }, 800);
-      } else {
-        // Endpoint returned error — local fallback
-        setAiError('Backend unavailable — using keyword NLP');
-        const parsed = parseScenario(aiText.trim());
-        fetchDatasetCandidates(aiText.trim(), parsed);
-        setTimeout(() => {
-          onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
-        }, 1200);
+          if (top && top.similarity_pct >= threshold * 100) {
+            // Good match — show DiffPanel, skip AI generation
+            setDiffCandidate(top);
+            setDiffPanelOpen(true);
+            foundMatch = true;
+          }
+        }
+      } catch {
+        // Similarity lookup failed — proceed to AI generation silently
       }
-    } catch {
-      // Network error — local fallback
-      setAiError('Network error — using keyword NLP');
+
+      if (foundMatch) {
+        setAiGenerating(false);
+        return;
+      }
+
+      // Step 2 — AI generation (Flowise → Ollama → keyword fallback)
+      try {
+        const res  = await fetch('/api/ai/generate-workflow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario: aiText.trim() }),
+        });
+        const data = await res.json();
+
+        if (data.ok && data.workflow) {
+          setAiSource(data.source);
+          const { name, states, transitions } = data.workflow;
+          setTimeout(() => {
+            onModeSelect({ mode: 3, parsed: { states, transitions }, name: workflowName || name || 'AI Generated Workflow' });
+          }, 800);
+          return;
+        }
+      } catch { /* fall through to keyword NLP */ }
+
+      // Step 3 — keyword NLP fallback (always available)
+      setAiError('Flowise and Ollama unavailable — using keyword NLP');
       const parsed = parseScenario(aiText.trim());
-      fetchDatasetCandidates(aiText.trim(), parsed);
       setTimeout(() => {
         onModeSelect({ mode: 3, parsed, name: workflowName || 'AI Generated Workflow' });
       }, 1200);
+
     } finally {
       setAiGenerating(false);
     }
+  };
+
+  // ── Diff Panel handlers ────────────────────────────────────────────────────
+  const handleApplyDiff = async (diffAccepted, diffRejected) => {
+    if (!diffCandidate) return;
+    setIsDiffApplying(true);
+    try {
+      const res  = await fetch('/api/dataset/apply-diff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base_record_id:  diffCandidate.id,
+          diff_accepted:   diffAccepted,
+          diff_rejected:   diffRejected,
+          similarity_score: diffCandidate.similarity_pct / 100,
+        }),
+      });
+      const data = await res.json();
+      const wf   = data.workflow_json || {};
+      const wfData = wf.workflows?.[0] || {};
+
+      setDiffPanelOpen(false);
+      setTimeout(() => {
+        onModeSelect({
+          mode:     3,
+          parsed:   { states: wfData.states || [], transitions: wfData.transitions || [] },
+          name:     workflowName || diffCandidate.project_name || 'Dataset Workflow',
+          fromDataset: true,
+          refId:    data.ref_id,
+          fallback: data.fallback || false,
+        });
+      }, 400);
+    } catch {
+      // Network failure — load base candidate directly as safe fallback
+      const wfData = diffCandidate.workflow_json?.workflows?.[0] || {};
+      setDiffPanelOpen(false);
+      onModeSelect({
+        mode:   3,
+        parsed: { states: wfData.states || [], transitions: wfData.transitions || [] },
+        name:   workflowName || diffCandidate.project_name || 'Dataset Workflow',
+      });
+    } finally {
+      setIsDiffApplying(false);
+    }
+  };
+
+  const handleSkipDiff = () => {
+    setDiffPanelOpen(false);
+    setDiffCandidate(null);
+    // Re-enable textarea so user can adjust scenario or force AI generation
   };
 
   const handleConfirm = () => {
@@ -272,15 +485,15 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
     >
       <div style={{ width: '100%', maxWidth: 860, padding: '0 24px' }}>
 
-        {/* ── Header — static, no project-state messaging on canvas ── */}
+        {/* ── Header ── */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(100,116,139,0.45)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: 6 }}>
             ✦ Workflow Studio
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#dde7f5', margin: 0, letterSpacing: '-.2px' }}>
-            How would you like to start?
+            {diffPanelOpen ? 'Review dataset match' : 'How would you like to start?'}
           </h2>
-          {activeProjectId && (
+          {activeProjectId && !diffPanelOpen && (
             <p style={{ fontSize: 11, color: 'rgba(100,116,139,0.45)', marginTop: 5 }}>
               Drag any component from the left palette to skip this
             </p>
@@ -393,8 +606,18 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
           </div>
         )}
 
-        {/* ── Step 2: 4 mode cards — passive dim only when no project; click nudges header pill ── */}
-        {!activeProjectId && (
+        {/* ── Diff Panel — replaces mode cards when a dataset match >= threshold is found ── */}
+        {diffPanelOpen && diffCandidate && (
+          <DiffPanel
+            candidate={diffCandidate}
+            onApply={handleApplyDiff}
+            onSkip={handleSkipDiff}
+            applying={isDiffApplying}
+          />
+        )}
+
+        {/* ── Step 2: 4 mode cards — hidden when DiffPanel is open ── */}
+        {!diffPanelOpen && !activeProjectId && (
           <div
             style={{
               marginBottom: 8,
@@ -407,7 +630,7 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
             Create a project above to unlock these options.
           </div>
         )}
-        <div
+        {!diffPanelOpen && <div
           role={!activeProjectId ? 'button' : undefined}
           aria-label={!activeProjectId ? 'Open or create a project to enable workflow creation' : undefined}
           aria-disabled={!activeProjectId ? 'true' : undefined}
@@ -646,10 +869,10 @@ export default function IngestionHub({ rfNodes, onModeSelect, visible, activePro
               </div>
             )}
           </HubCard>
-        </div>{/* end 4-mode cards wrapper */}
+        </div>}{/* end 4-mode cards wrapper */}
 
-        {/* ── Name input + Confirm — only interactive when project is active ── */}
-        {activeMode !== null && activeProjectId && (
+        {/* ── Name input + Confirm — hidden when DiffPanel is open ── */}
+        {!diffPanelOpen && activeMode !== null && activeProjectId && (
           <div
             style={{
               marginTop: 16, display: 'flex', gap: 10, alignItems: 'center',

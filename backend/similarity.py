@@ -286,9 +286,10 @@ def find_similar(conn, tenant_id: str, query: SimilarityInput, top_n: int = 3) -
 
     results.sort(key=lambda x: x["similarity_pct"], reverse=True)
     return {
-        "candidates": results[:top_n],
+        "candidates":     results[:top_n],
         "records_searched": searched,
-        "embed_model": OLLAMA_EMBED_MODEL,
+        "embed_model":    OLLAMA_EMBED_MODEL,
+        "threshold":      float(os.environ.get("SIMILARITY_DIFF_THRESHOLD", "0.60")),
     }
 
 
