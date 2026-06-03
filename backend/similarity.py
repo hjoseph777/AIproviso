@@ -47,25 +47,41 @@ def _vector_literal(vec: Optional[list[float]]) -> Optional[str]:
 
 
 def get_embedding(text: str) -> Optional[list[float]]:
-    payload = {"model": OLLAMA_EMBED_MODEL, "prompt": text}
-    try:
-        resp = requests.post(f"{OLLAMA_BASE_URL}/api/embeddings", json=payload, timeout=45)
-        resp.raise_for_status()
-        emb = (resp.json() or {}).get("embedding")
-        if isinstance(emb, list) and emb:
-            return [float(x) for x in emb]
-    except Exception:
-        pass
+    # When OLLAMA_BASE_URL points to host.docker.internal (Docker network hostname),
+    # add localhost:11434 as a fallback for when Flask runs directly on the host.
+    base_urls = [OLLAMA_BASE_URL]
+    if "host.docker.internal" in OLLAMA_BASE_URL or "ollama:" in OLLAMA_BASE_URL:
+        base_urls.append("http://localhost:11434")
 
-    payload2 = {"model": OLLAMA_EMBED_MODEL, "input": text}
-    try:
-        resp = requests.post(f"{OLLAMA_BASE_URL}/api/embed", json=payload2, timeout=45)
-        resp.raise_for_status()
-        embs = (resp.json() or {}).get("embeddings")
-        if isinstance(embs, list) and embs and isinstance(embs[0], list):
-            return [float(x) for x in embs[0]]
-    except Exception:
-        return None
+    for base_url in base_urls:
+        # Try /api/embeddings first (Ollama ≤0.3 style)
+        try:
+            resp = requests.post(
+                f"{base_url}/api/embeddings",
+                json={"model": OLLAMA_EMBED_MODEL, "prompt": text},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            emb = (resp.json() or {}).get("embedding")
+            if isinstance(emb, list) and emb:
+                return [float(x) for x in emb]
+        except Exception:
+            pass
+
+        # Try /api/embed (Ollama ≥0.4 style)
+        try:
+            resp = requests.post(
+                f"{base_url}/api/embed",
+                json={"model": OLLAMA_EMBED_MODEL, "input": text},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            embs = (resp.json() or {}).get("embeddings")
+            if isinstance(embs, list) and embs and isinstance(embs[0], list):
+                return [float(x) for x in embs[0]]
+        except Exception:
+            pass
+
     return None
 
 
