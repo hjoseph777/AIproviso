@@ -287,6 +287,174 @@ SEED_RECORDS = [
         "metrics": {"error_reduction": "80%", "time_saved": "12 hours/week", "cost_savings": "$6,000/month"},
         "compliance": ["HIPAA"],
     },
+
+    # ── Quebec records — priority market ──────────────────────────────────────
+
+    {
+        "project_name": "Quebec Aerospace Manufacturing - SAP AP Automation",
+        "scenario_text": (
+            "Aerospace manufacturer in Quebec using SAP S/4HANA processes 300 invoices "
+            "daily with strict regulatory traceability requirements. Complex 3-tier approval "
+            "for purchases over $50,000, mandatory compliance audit trail, and 24 hour SLA "
+            "for critical parts suppliers."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "ocr_extraction", "po_matching",
+                      "compliance_check", "manager_approval", "director_approval",
+                      "cfo_approval", "erp_sync", "audit_logging"]
+        },
+        "industry": "manufacturing",
+        "province": "QC",
+        "erp_type": "sap",
+        "state_count": 9,
+        "threshold_amount": 50000,
+        "sla_hours": 24,
+        "approval_tiers": 3,
+        "touchless_rate": 0.88,
+        "complexity": "complex",
+        "tags": ["manufacturing", "aerospace", "sap", "3-tier", "compliance", "quebec"],
+        "document_types": ["invoice", "purchase_order", "goods_receipt_note", "compliance_report"],
+        "pain_points": ["regulatory traceability", "multi-tier approval delays", "audit gaps"],
+        "metrics": {"error_reduction": "92%", "time_saved": "40 hours/week", "cost_savings": "$18,000/month"},
+        "compliance": ["AS9100", "ISO 9001"],
+    },
+    {
+        "project_name": "Quebec Professional Services - Dynamics 365 Invoice Control",
+        "scenario_text": (
+            "Montreal consulting firm with 150 employees using Microsoft Dynamics 365 "
+            "processes 90 client-reimbursable invoices weekly. Mismatched expense codes "
+            "and missing PO references delay client billing. Requires automated validation "
+            "and approval routing with 48 hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "expense_code_validation",
+                      "po_reference_check", "manager_approval", "billing_sync"]
+        },
+        "industry": "professional_services",
+        "province": "QC",
+        "erp_type": "dynamics",
+        "state_count": 5,
+        "threshold_amount": 10000,
+        "sla_hours": 48,
+        "approval_tiers": 1,
+        "touchless_rate": 0.71,
+        "complexity": "simple",
+        "tags": ["professional-services", "consulting", "dynamics", "expense-codes", "quebec"],
+        "document_types": ["invoice", "expense_report", "purchase_order"],
+        "pain_points": ["mismatched expense codes", "missing PO references", "billing delays"],
+        "metrics": {"error_reduction": "78%", "time_saved": "18 hours/week", "cost_savings": "$6,500/month"},
+        "compliance": ["CPA Canada"],
+    },
+    {
+        "project_name": "Quebec Healthcare Network - Oracle AP Compliance",
+        "scenario_text": (
+            "Regional hospital network in Quebec City using Oracle Fusion processes "
+            "200 medical supply invoices daily under strict provincial health authority "
+            "procurement rules. Vendor accreditation checks and dual approval required "
+            "for purchases over $25,000, with 12 hour SLA for critical medical supplies."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_capture", "vendor_accreditation_check", "validation",
+                      "compliance_review", "ap_approval", "director_approval",
+                      "audit_logging", "payment"]
+        },
+        "industry": "healthcare",
+        "province": "QC",
+        "erp_type": "oracle",
+        "state_count": 8,
+        "threshold_amount": 25000,
+        "sla_hours": 12,
+        "approval_tiers": 2,
+        "touchless_rate": 0.82,
+        "complexity": "complex",
+        "tags": ["healthcare", "oracle", "compliance", "vendor-accreditation", "quebec"],
+        "document_types": ["invoice", "compliance_report", "vendor_certificate"],
+        "pain_points": ["vendor accreditation delays", "provincial procurement rules", "audit trail gaps"],
+        "metrics": {"error_reduction": "91%", "time_saved": "28 hours/week", "cost_savings": "$14,000/month"},
+        "compliance": ["LSSSS Quebec", "MSSS", "HIPAA"],
+    },
+    {
+        "project_name": "Quebec Food Distribution - QuickBooks AP Automation",
+        "scenario_text": (
+            "Food distribution company serving Quebec grocery chains processes 250 "
+            "supplier invoices daily using QuickBooks. High volume of short-dated goods "
+            "invoices require same-day approval with automated price variance detection "
+            "and 24 hour SLA to meet supplier payment terms."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "ocr_extraction", "price_variance_check",
+                      "approval", "payment", "erp_sync"]
+        },
+        "industry": "distribution",
+        "province": "QC",
+        "erp_type": "quickbooks",
+        "state_count": 6,
+        "threshold_amount": 5000,
+        "sla_hours": 24,
+        "approval_tiers": 1,
+        "touchless_rate": 0.79,
+        "complexity": "medium",
+        "tags": ["distribution", "food", "quickbooks", "price-variance", "high-volume", "quebec"],
+        "document_types": ["invoice", "delivery_note", "purchase_order"],
+        "pain_points": ["price variance detection", "tight payment terms", "short-dated goods"],
+        "metrics": {"error_reduction": "83%", "time_saved": "22 hours/week", "cost_savings": "$9,000/month"},
+        "compliance": ["CFIA", "Food Safety"],
+    },
+    {
+        "project_name": "Montreal Tech Scale-up - NetSuite AP Automation",
+        "scenario_text": (
+            "Montreal SaaS company with rapid growth using NetSuite processes 120 "
+            "vendor invoices monthly across cloud infrastructure, software licences, "
+            "and contractor services. Multiple cost centres and project codes require "
+            "automated allocation with manager approval under 48 hour SLA."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_ingestion", "cost_centre_allocation",
+                      "project_code_validation", "manager_approval", "netsuite_sync"]
+        },
+        "industry": "technology",
+        "province": "QC",
+        "erp_type": "netsuite",
+        "state_count": 5,
+        "threshold_amount": 8000,
+        "sla_hours": 48,
+        "approval_tiers": 1,
+        "touchless_rate": 0.74,
+        "complexity": "simple",
+        "tags": ["technology", "saas", "netsuite", "cost-centre", "contractors", "montreal"],
+        "document_types": ["invoice", "contractor_agreement", "purchase_order"],
+        "pain_points": ["cost centre misallocation", "contractor invoice validation", "project code errors"],
+        "metrics": {"error_reduction": "82%", "time_saved": "14 hours/week", "cost_savings": "$5,500/month"},
+        "compliance": ["SR&ED eligible"],
+    },
+    {
+        "project_name": "Quebec Infrastructure Construction - SAP Multi-Site AP",
+        "scenario_text": (
+            "Large construction group managing highway and bridge projects across Quebec "
+            "using SAP processes 400 subcontractor invoices weekly across 12 active sites. "
+            "Progress billing milestones, holdback calculations, and CNESST compliance "
+            "require structured workflow with 72 hour SLA and 3-tier approval above $100,000."
+        ),
+        "workflow_json": {
+            "steps": ["invoice_capture", "site_validation", "progress_billing_check",
+                      "holdback_calculation", "cnesst_compliance_check",
+                      "project_manager_approval", "vp_approval", "cfo_approval", "payment"]
+        },
+        "industry": "construction",
+        "province": "QC",
+        "erp_type": "sap",
+        "state_count": 9,
+        "threshold_amount": 100000,
+        "sla_hours": 72,
+        "approval_tiers": 3,
+        "touchless_rate": 0.76,
+        "complexity": "complex",
+        "tags": ["construction", "infrastructure", "sap", "progress-billing", "holdback", "cnesst", "quebec"],
+        "document_types": ["invoice", "progress_claim", "purchase_order", "compliance_certificate"],
+        "pain_points": ["progress billing disputes", "holdback miscalculation", "CNESST compliance", "multi-site coordination"],
+        "metrics": {"error_reduction": "86%", "time_saved": "35 hours/week", "cost_savings": "$22,000/month"},
+        "compliance": ["CNESST", "CCQ", "RBQ"],
+    },
 ]
 
 
