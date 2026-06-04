@@ -19,7 +19,7 @@
 | --- | --- | --- | --- |
 | Sessions 1–5B | AI backbone + dataset intelligence + flywheel | Harry | ✅ Complete |
 | Session 6+ | Remaining Phase I features (AP Workbench polish, UI gaps, any missing states) | Harry | 🔴 Next |
-| Internal pre-hardening validation | Programmatic + scenario validation in build environment (`verify_s4.py`, `verify_5b.py`, `verify_s6.py` gates 1–5, Gate 6 walkthrough) | Harry | ⬜ Blocked until Session 6+ scope complete |
+| Internal pre-hardening validation | Programmatic + scenario validation in build environment (`verify_s4.py`, `verify_5b.py`, `verify_s6.py` gates 1–5); includes pre-hardening checks covering Gates 1–6 (preparation for Gate 6 walkthrough) | Harry | ⬜ Blocked until Session 6+ scope complete |
 | Hardening | Reliability testing — same walkthrough 3× on different days | Philippe + Harry | ⬜ Not started |
 | Demo | Michel LeBrun walkthrough — Gate 6 script, no stubs | Harry presents | ⬜ After hardening |
 
