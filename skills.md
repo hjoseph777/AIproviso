@@ -1,19 +1,54 @@
 # AI Proviso — Master Skills & Status Log
 
-> **Session anchor:** `AI-PROVISO-SESSION3-VERIFIED-2026-06-03`
-> **Last verified green:** Session 3 end-to-end PASS (all 4 gates green) · commits `f5cfd35` + `90f9d54`
-> **Session 3 implementation commit:** `6ccb86b` · pgvector engine + migration 008 + similarity API
-> **PRD source:** `Proviso_PRD_v12.md` — canonical reference
+> **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-04`
+> **Last verified green:** Sessions 1–5B complete · `verify_s6.py` gates 1–5 PASS · commit `d15272c`
+> **Approach (updated 2026-06-04):** Complete full Phase I → Philippe + Harry hardening → Michel LeBrun demo
+> **PRD source:** `Proviso_PRD_v12.md` · §0.12 updated with hardening phase and Philippe sign-off gate
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
 
 ---
 
-## 🔴 NEXT — Session 4 (LOCKED, NOT STARTED)
+## 🔴 NEXT — Session 6 (Phase I Feature Completion)
 
-### Session 4 — Diff Approval UI (PRD §7A.4)
+**Approach change locked (2026-06-04):** Do not demo until the full application is built and Philippe signs off on hardening. Sessions 4, 5A, 5B complete. Session 6+ builds remaining Phase I features. Hardening phase follows with Philippe. Demo comes last.
 
-**Why this is the right next move:** Sessions 1–3 closed the AI suggestion layer. Session 4 closes the integrator authority layer — turning "AI suggests" into "integrator controls and approves." This is the missing trust layer in the Michel LeBrun story.
+### Build sequence to demo
+
+| Phase | What | Owner | Status |
+| --- | --- | --- | --- |
+| Sessions 1–5B | AI backbone + dataset intelligence + flywheel | Harry | ✅ Complete |
+| Session 6+ | Remaining Phase I features (AP Workbench polish, UI gaps, any missing states) | Harry | 🔴 Next |
+| Hardening | Reliability testing — same walkthrough 3× on different days | Philippe + Harry | ⬜ Not started |
+| Demo | Michel LeBrun walkthrough — Gate 6 script, no stubs | Harry presents | ⬜ After hardening |
+
+### Hardening gate (Philippe sign-off required before demo)
+
+- `verify_5b.py` 9/9 PASS
+- `verify_s6.py` gates 1–5 PASS
+- Gate 6 manual walkthrough: 5 steps, 8-minute budget, 3 clean runs on 3 different days
+- Philippe confirms platform is demo-ready
+
+**Demo is not scheduled until Philippe signs off.**
+
+---
+
+### Session 6 — scope (to be defined at session open)
+
+Feature inventory audit at session start. Candidate items:
+
+- AP Workbench UI completeness (invoice review, exception queue, timer display)
+- Workflow state machine edge cases (missing transitions, guard validation)
+- Any gaps identified by the verify_s6.py Gate 5 intake path under failure conditions
+- UI polish: IngestionHub Mode 1 (AP Templates) wired to real workflow load path
+
+**Rule:** Scope is fixed at session open. No scope expansion mid-session. Each change closes with a verifier run.
+
+---
+
+### Session 4 — Diff Approval UI (PRD §7A.4) ✅ COMPLETE
+
+**Why this was the right move:** Sessions 1–3 closed the AI suggestion layer. Session 4 closes the integrator authority layer — turning "AI suggests" into "integrator controls and approves." This is the missing trust layer in the Michel LeBrun story.
 
 #### Definition of Done
 
