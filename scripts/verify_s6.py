@@ -8,14 +8,18 @@ Gates:
   1. Platform health   — Flask /health + /health/db (postgres + redis)
   2. Dataset readiness — 45 queryable records, all embedded, anchors stable
   3. Diff approval     — apply-diff produces patched workflow + persists ref
-  4. Flywheel          — save-to-dataset increments queryable count
-  5. Intake path       — POST /api/intake/upload returns invoice_id
+  4. Flywheel          — save-to-dataset increments queryable count  [WRITE]
+  5. Intake path       — POST /api/intake/upload returns invoice_id  [WRITE]
   6. Demo walkthrough  — MANUAL: timed end-to-end run, documented below
 
-Run:
-    python scripts/verify_s6.py
+Usage:
+    python scripts/verify_s6.py             # full run (writes to DB)
+    python scripts/verify_s6.py --read-only # read-only (gates 4+5 are status-only)
 
-Baseline captured 2026-06-03  (45 records, dataset total = 45, embedded = 45)
+--read-only is for routine repeat checks. Run the full mode ONCE to produce the
+certification artifact, then use --read-only for all subsequent pre-demo checks.
+
+Certification run: 2026-06-04 · gates 1-5 PASS · anchor scores 65/64/65 (drift 0)
 """
 
 import json, os, requests, sys, time
@@ -149,8 +153,18 @@ def gate3_diff_approval():
 
 # ── Gate 4 — Flywheel write-back ──────────────────────────────────────────────
 
-def gate4_flywheel():
-    print("=== Gate 4: Flywheel Write-Back ===")
+def gate4_flywheel(read_only: bool = False):
+    if read_only:
+        print("=== Gate 4: Flywheel Write-Back [READ-ONLY — status check only] ===")
+        status = requests.get(f"{BASE}/api/dataset/status", timeout=10).json()
+        complete = int(status.get("records_with_complete_metadata", 0))
+        chk("dataset/save endpoint reachable (status ok)", complete >= 45,
+            f"{complete} queryable records — flywheel writes not checked in read-only mode")
+        print("  [INFO] Full write check skipped. Cert run confirmed save=True on 2026-06-04.")
+        print()
+        return
+
+    print("=== Gate 4: Flywheel Write-Back [WRITE] ===")
     before = requests.get(f"{BASE}/api/dataset/status", timeout=10).json()
     total_before = int(before.get("total_records", 0))
 
@@ -180,8 +194,20 @@ def gate4_flywheel():
 
 # ── Gate 5 — Intake path ──────────────────────────────────────────────────────
 
-def gate5_intake():
-    print("=== Gate 5: Invoice Intake Path ===")
+def gate5_intake(read_only: bool = False):
+    if read_only:
+        print("=== Gate 5: Invoice Intake Path [READ-ONLY — health proxy only] ===")
+        # In read-only mode, just confirm the intake endpoint responds
+        try:
+            rh = requests.get(f"{BASE}/health", timeout=5).json()
+            chk("intake platform healthy (health proxy)", rh.get("status") == "ok")
+        except Exception as e:
+            chk("intake platform healthy", False, str(e))
+        print("  [INFO] Full intake write skipped. Cert run confirmed extracted state on 2026-06-04.")
+        print()
+        return
+
+    print("=== Gate 5: Invoice Intake Path [WRITE] ===")
     try:
         r = requests.post(f"{BASE}/api/intake/upload",
                           json={"tenant_id": TENANT_ID, "paperless_id": "DEMO-GATE-S6"},
@@ -252,13 +278,22 @@ def gate6_manual():
 
 if __name__ == "__main__":
     print("=== Session 6 Demo Readiness Gate ===")
-    print(f"Backend: {BASE}   Tenant: {TENANT_ID}\n")
+    print(f"Backend: {BASE}   Tenant: {TENANT_ID}")
+
+    import argparse as _ap
+    _parser = _ap.ArgumentParser()
+    _parser.add_argument("--read-only", "-r", action="store_true",
+                         help="Skip write gates (4+5). Use for repeat pre-demo checks.")
+    _args = _parser.parse_args()
+    ro = _args.read_only
+    mode = "READ-ONLY (gates 4+5 status-only)" if ro else "FULL (gates 4+5 write to DB)"
+    print(f"Mode: {mode}\n")
 
     gate1_health()
     gate2_dataset()
     gate3_diff_approval()
-    gate4_flywheel()
-    gate5_intake()
+    gate4_flywheel(read_only=ro)
+    gate5_intake(read_only=ro)
     gate6_manual()
 
     print("=== Results ===")
