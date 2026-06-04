@@ -2,8 +2,8 @@
 
 > **Session anchor:** `AI-PROVISO-PRD-V12-2026-06-04`
 > **Last verified green:** Sessions 1–5B complete · `verify_s6.py` gates 1–5 PASS · commit `d15272c`
-> **Approach (updated 2026-06-04):** Complete full Phase I → Philippe + Harry hardening → Michel LeBrun demo
-> **PRD source:** `Proviso_PRD_v12.md` · §0.12 updated with hardening phase and Philippe sign-off gate
+> **Approach (updated 2026-06-04):** Complete full Phase I → internal pre-hardening validation (Harry) → Philippe + Harry hardening → Michel LeBrun demo
+> **PRD source:** `Proviso_PRD_v12.md` · §0.12 updated with mandatory execution order and pre-hardening gate
 > **Architecture diagram:** `AIProviso_stack_architecture.html` — open in browser
 > **Stack:** React 18 · `@xyflow/react` **v12** (RF Pro $169) · Flask 3.1 · PostgreSQL 16 · Redis 7 · BullMQ · ELKjs · XState v5 · Zustand 5 · Vite 6 · Electron 42 · Lucide React · Tailwind CSS v3
 
@@ -11,7 +11,7 @@
 
 ## 🔴 NEXT — Session 6 (Phase I Feature Completion)
 
-**Approach change locked (2026-06-04):** Do not demo until the full application is built and Philippe signs off on hardening. Sessions 4, 5A, 5B complete. Session 6+ builds remaining Phase I features. Hardening phase follows with Philippe. Demo comes last.
+**Approach change locked (2026-06-04):** Do not demo until the full application is built, internal pre-hardening validation is green, and Philippe signs off on hardening. Sessions 4, 5A, 5B complete. Session 6+ builds remaining Phase I features. Internal validation comes first, hardening follows with Philippe, demo comes last.
 
 ### Build sequence to demo
 
@@ -19,11 +19,14 @@
 | --- | --- | --- | --- |
 | Sessions 1–5B | AI backbone + dataset intelligence + flywheel | Harry | ✅ Complete |
 | Session 6+ | Remaining Phase I features (AP Workbench polish, UI gaps, any missing states) | Harry | 🔴 Next |
+| Internal pre-hardening validation | Programmatic + scenario validation in build environment (`verify_s4.py`, `verify_5b.py`, `verify_s6.py` gates 1–5, Gate 6 walkthrough) | Harry | ⬜ Blocked until Session 6+ scope complete |
 | Hardening | Reliability testing — same walkthrough 3× on different days | Philippe + Harry | ⬜ Not started |
 | Demo | Michel LeBrun walkthrough — Gate 6 script, no stubs | Harry presents | ⬜ After hardening |
 
 ### Hardening gate (Philippe sign-off required before demo)
 
+- Precondition: Internal pre-hardening validation completed and recorded
+- `verify_s4.py` PASS
 - `verify_5b.py` 9/9 PASS
 - `verify_s6.py` gates 1–5 PASS
 - Gate 6 manual walkthrough: 5 steps, 8-minute budget, 3 clean runs on 3 different days
