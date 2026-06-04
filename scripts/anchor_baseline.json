@@ -1,0 +1,49 @@
+{
+  "dataset_state": {
+    "queryable": 45,
+    "embedded": 45,
+    "total": 45
+  },
+  "anchors": [
+    {
+      "expect_name": "Manufacturing AP - SAP 3-Way Matching",
+      "label": "ON SAP manufacturing 3-way match",
+      "baseline_pct": 65,
+      "captured": {
+        "similarity_pct": 65,
+        "semantic_score": 0.755,
+        "diff_count": 0,
+        "project_name": "Manufacturing AP - SAP 3-Way Matching",
+        "province": "ON",
+        "erp_type": "sap"
+      }
+    },
+    {
+      "expect_name": "Quebec Aerospace Manufacturing - SAP AP Automation",
+      "label": "QC SAP aerospace 3-tier compliance",
+      "baseline_pct": 64,
+      "captured": {
+        "similarity_pct": 64,
+        "semantic_score": 0.734,
+        "diff_count": 0,
+        "project_name": "Quebec Aerospace Manufacturing - SAP AP Automation",
+        "province": "QC",
+        "erp_type": "sap"
+      }
+    },
+    {
+      "expect_name": "Healthcare AP - Compliance Validation",
+      "label": "ON Oracle healthcare compliance",
+      "baseline_pct": 65,
+      "captured": {
+        "similarity_pct": 65,
+        "semantic_score": 0.744,
+        "diff_count": 0,
+        "project_name": "Healthcare AP - Compliance Validation",
+        "province": "ON",
+        "erp_type": "oracle"
+      }
+    }
+  ],
+  "captured_at": "2026-06-03T17:25:06Z"
+}
