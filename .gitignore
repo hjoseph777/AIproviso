@@ -8,3 +8,6 @@ __pycache__/
 *.pyc
 backups/*.zip
 flask-err.log
+
+# Claude AI local config
+.claude/
